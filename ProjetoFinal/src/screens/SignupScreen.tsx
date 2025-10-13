@@ -93,7 +93,7 @@ export default function SignupScreen() {
           style={[styles.inputSmall, { justifyContent: "center" }]}
           onPress={() => setCollegeModalVisible(true)}
         >
-          <Text style={{ color: college ? "#000" : "#999" }}>
+          <Text style={{ color: college ? "#000" : "#000000ff" }}>
             {college ? college.name : "Selecione sua Faculdade"}
           </Text>
         </TouchableOpacity>
@@ -127,14 +127,14 @@ export default function SignupScreen() {
             onPress={() => Alert.alert("Cadastro com Google em breve!")}
           >
             <FontAwesome name="google" size={16} color="#fff" />
-            <Text style={styles.socialTextSmall}> Google</Text>
+            <Text style={styles.socialTextSmall}> Cadastrar-se com Google</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.socialButtonSmall, { backgroundColor: "#3b5998" }]}
             onPress={() => Alert.alert("Cadastro com Facebook em breve!")}
           >
             <FontAwesome name="facebook" size={16} color="#fff" />
-            <Text style={styles.socialTextSmall}> Facebook</Text>
+            <Text style={styles.socialTextSmall}> Cadastrar-se com Facebook</Text>
           </TouchableOpacity>
         </View>
       </View>
