@@ -6,9 +6,9 @@ interface Props {
   onPress: () => void;
 }
 
-export default function Button({ title, onPress }: Props) {
+export default function CustomButton({ title, onPress }: Props) {
   return (
-    <TouchableOpacity style={styles.button} onPress={onPress}>
+    <TouchableOpacity style={styles.button} onPress={onPress} activeOpacity={0.8}>
       <Text style={styles.text}>{title}</Text>
     </TouchableOpacity>
   );
@@ -16,13 +16,16 @@ export default function Button({ title, onPress }: Props) {
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: "#007AFF",
+    width: "100%",
     padding: 12,
+    backgroundColor: "#007bff",
     borderRadius: 8,
     alignItems: "center",
+    marginTop: 10,
   },
   text: {
     color: "#fff",
     fontWeight: "bold",
+    fontSize: 16,
   },
 });

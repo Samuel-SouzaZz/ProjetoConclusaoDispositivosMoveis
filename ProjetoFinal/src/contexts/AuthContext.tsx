@@ -1,57 +1,53 @@
-import React, { createContext, useState, useContext, useEffect, ReactNode } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { User } from "../models/User";
+import React, { createContext, useState, ReactNode, useContext } from "react";
+import { Alert } from "react-native";
+import { useNavigation, NavigationProp } from "@react-navigation/native";
+import { RootStackParamList } from "../navigation/AppNavigator";
+
+interface User {
+  name: string;
+  email: string;
+}
 
 interface AuthContextType {
   user: User | null;
-  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string, name?: string) => Promise<void>;
-  logout: () => Promise<void>;
+  signup: (email: string, password: string) => Promise<void>;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    async function loadUser() {
-      const storedUser = await AsyncStorage.getItem("@user");
-      if (storedUser) setUser(JSON.parse(storedUser));
-      setLoading(false);
-    }
-    loadUser();
-  }, []);
+  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
   async function login(email: string, password: string) {
     if (!email || !password) {
-      alert("Preencha todos os campos!");
+      Alert.alert("Erro", "Preencha todos os campos!");
       return;
     }
-    const loggedUser: User = { id: "1", email, name: "Usuário Teste" };
-    await AsyncStorage.setItem("@user", JSON.stringify(loggedUser));
-    setUser(loggedUser);
+    setUser({ name: "Usuário", email });
+    Alert.alert("Sucesso", "Login realizado!");
+    navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
   }
 
-  async function signup(email: string, password: string, name?: string) {
+  async function signup(email: string, password: string) {
     if (!email || !password) {
-      alert("Preencha todos os campos!");
+      Alert.alert("Erro", "Preencha todos os campos!");
       return;
     }
-    const newUser: User = { id: Date.now().toString(), email, name };
-    await AsyncStorage.setItem("@user", JSON.stringify(newUser));
-    setUser(newUser);
+    setUser({ name: "Novo Usuário", email });
+    Alert.alert("Sucesso", "Cadastro realizado!");
+    navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
   }
 
-  async function logout() {
-    await AsyncStorage.removeItem("@user");
+  function logout() {
     setUser(null);
+    navigation.reset({ index: 0, routes: [{ name: "Login" }] });
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout }}>
+    <AuthContext.Provider value={{ user, login, signup, logout }}>
       {children}
     </AuthContext.Provider>
   );
