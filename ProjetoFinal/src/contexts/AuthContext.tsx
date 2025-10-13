@@ -11,7 +11,7 @@ interface User {
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<void>;
-  signup: (email: string, password: string) => Promise<void>;
+  signup: (email: string, password: string, name: string) => Promise<void>;
   logout: () => void;
 }
 
@@ -31,12 +31,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
   }
 
-  async function signup(email: string, password: string) {
-    if (!email || !password) {
+  async function signup(email: string, password: string, name: string) {
+    if (!email || !password || !name) {
       Alert.alert("Erro", "Preencha todos os campos!");
       return;
     }
-    setUser({ name: "Novo Usuário", email });
+    setUser({ name, email });
     Alert.alert("Sucesso", "Cadastro realizado!");
     navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
   }
