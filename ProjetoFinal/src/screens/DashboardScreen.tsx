@@ -11,10 +11,13 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext"; // 🌙 Importa o contexto de tema
+import { FontAwesome } from "@expo/vector-icons";
 
 export default function DashboardScreen() {
   const { user } = useAuth();
   const navigation = useNavigation();
+  const { theme, toggleTheme, isDarkMode } = useTheme(); // 🔥 Controle de tema
 
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
@@ -46,22 +49,41 @@ export default function DashboardScreen() {
     }
   }
 
+  const colors = {
+    background: isDarkMode ? "#121212" : "#f8f9fa",
+    text: isDarkMode ? "#f1f1f1" : "#333",
+    subtext: isDarkMode ? "#aaa" : "#666",
+    card: isDarkMode ? "#1e1e1e" : "#fff",
+  };
+
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
       <ScrollView
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mainContent}>
+          {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.welcome}>
-              👋 Olá, <Text style={styles.username}>{user?.name || "Usuário"}</Text>!
+            <Text style={[styles.welcome, { color: colors.text }]}>
+              👋 Olá, <Text style={{ color: "#6C63FF" }}>{user?.name || "Usuário"}</Text>!
             </Text>
-            <Text style={styles.subtitle}>Continue sua jornada e conquiste novos desafios.</Text>
+            <Text style={[styles.subtitle, { color: colors.subtext }]}>
+              Continue sua jornada e conquiste novos desafios.
+            </Text>
+
+            {/* Botão de alternar tema */}
+            <TouchableOpacity onPress={toggleTheme} style={styles.themeButton}>
+              <FontAwesome
+                name={isDarkMode ? "sun-o" : "moon-o"}
+                size={22}
+                color={isDarkMode ? "#FFD700" : "#333"}
+              />
+            </TouchableOpacity>
           </View>
 
           {loading ? (
-            <ActivityIndicator size="large" color="#007bff" style={{ marginTop: 50 }} />
+            <ActivityIndicator size="large" color="#6C63FF" style={{ marginTop: 50 }} />
           ) : (
             <>
               {/* Estatísticas */}
@@ -82,20 +104,31 @@ export default function DashboardScreen() {
 
               {/* Progresso semanal */}
               <View style={styles.progressSection}>
-                <Text style={styles.sectionTitle}>🔥 Progresso da Semana</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  🔥 Progresso da Semana
+                </Text>
                 <View style={styles.progressBar}>
                   <View style={[styles.progressFill, { width: `${weekProgress}%` }]} />
                 </View>
-                <Text style={styles.progressText}>{weekProgress}% concluído</Text>
+                <Text style={[styles.progressText, { color: colors.subtext }]}>
+                  {weekProgress}% concluído
+                </Text>
               </View>
 
               {/* Recomendações */}
               <View style={styles.recommendationsSection}>
-                <Text style={styles.sectionTitle}>⭐ Recomendações</Text>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>
+                  ⭐ Recomendações
+                </Text>
                 {recommendations.map((rec) => (
-                  <View key={rec.id} style={styles.recommendationCard}>
-                    <Text style={styles.recTitle}>{rec.title}</Text>
-                    <Text style={styles.recInfo}>
+                  <View
+                    key={rec.id}
+                    style={[styles.recommendationCard, { backgroundColor: colors.card }]}
+                  >
+                    <Text style={[styles.recTitle, { color: colors.text }]}>
+                      {rec.title}
+                    </Text>
+                    <Text style={[styles.recInfo, { color: colors.subtext }]}>
                       Dificuldade: {rec.difficulty} | {rec.xp} XP
                     </Text>
                     <TouchableOpacity
@@ -110,6 +143,7 @@ export default function DashboardScreen() {
             </>
           )}
 
+          {/* Botão de Logout */}
           <TouchableOpacity
             style={styles.logoutButton}
             onPress={() => navigation.navigate("Login" as never)}
@@ -123,18 +157,23 @@ export default function DashboardScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#f8f9fa" },
+  safeArea: { flex: 1 },
   scrollContent: { flexGrow: 1 },
   mainContent: {
     flex: 1,
     paddingHorizontal: 16,
     paddingBottom: 40,
-    paddingTop: 50, // 👈 ajusta aqui para descer do topo
+    paddingTop: 50,
   },
-  header: { marginBottom: 20 },
-  welcome: { fontSize: 22, fontWeight: "700", color: "#333" },
-  username: { color: "#6C63FF" },
-  subtitle: { fontSize: 14, color: "#666", marginTop: 4 },
+  header: { marginBottom: 30, position: "relative" },
+  themeButton: {
+    position: "absolute",
+    right: 5,
+    top: 0,
+    padding: 8,
+  },
+  welcome: { fontSize: 22, fontWeight: "700" },
+  subtitle: { fontSize: 14, marginTop: 4 },
   statsContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -150,7 +189,7 @@ const styles = StyleSheet.create({
   statNumber: { fontSize: 22, fontWeight: "bold", color: "#fff" },
   statLabel: { fontSize: 13, color: "#fff", marginTop: 4 },
   progressSection: { marginVertical: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10, color: "#333" },
+  sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
   progressBar: {
     height: 12,
     borderRadius: 8,
@@ -158,10 +197,9 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   progressFill: { height: "100%", backgroundColor: "#6C63FF" },
-  progressText: { textAlign: "right", marginTop: 6, color: "#666" },
+  progressText: { textAlign: "right", marginTop: 6 },
   recommendationsSection: { marginVertical: 20 },
   recommendationCard: {
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -170,8 +208,8 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowRadius: 4,
   },
-  recTitle: { fontSize: 16, fontWeight: "600", color: "#333" },
-  recInfo: { fontSize: 13, color: "#666", marginVertical: 6 },
+  recTitle: { fontSize: 16, fontWeight: "600" },
+  recInfo: { fontSize: 13, marginVertical: 6 },
   btnStart: {
     backgroundColor: "#6C63FF",
     paddingVertical: 8,
