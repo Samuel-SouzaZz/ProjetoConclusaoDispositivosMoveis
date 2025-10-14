@@ -33,6 +33,7 @@ export default function SignupScreen() {
 
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [handle, setHandle] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [college, setCollege] = useState<College | null>(null);
@@ -40,16 +41,14 @@ export default function SignupScreen() {
   const [collegeModalVisible, setCollegeModalVisible] = useState(false);
 
   async function handleSignup() {
-    if (!firstName || !lastName || !email || !password || !college) {
+    if (!firstName || !lastName || !handle || !email || !password || !college) {
       Alert.alert("Erro", "Preencha todos os campos!");
       return;
     }
 
     setLoading(true);
     try {
-      await signup(email, password, firstName + " " + lastName);
-      // Apenas alert, navegação já é feita no AuthContext
-      Alert.alert("Sucesso", "Cadastro realizado!");
+      await signup(email, password, firstName + " " + lastName, handle, college.id);
     } catch (err: any) {
       Alert.alert("Erro", err.message || "Não foi possível cadastrar.");
     } finally {
@@ -76,9 +75,18 @@ export default function SignupScreen() {
         />
         <TextInput
           style={styles.inputSmall}
+          placeholder="Nome de usuário (ex: joaosilva)"
+          value={handle}
+          onChangeText={(text) => setHandle(text.toLowerCase().replace(/\s/g, ''))}
+          autoCapitalize="none"
+        />
+        <TextInput
+          style={styles.inputSmall}
           placeholder="E-mail"
           value={email}
           onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
         />
         <TextInput
           style={styles.inputSmall}

@@ -15,7 +15,7 @@ import { useTheme } from "../contexts/ThemeContext"; // 🌙 Importa o contexto 
 import { FontAwesome } from "@expo/vector-icons";
 
 export default function DashboardScreen() {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const navigation = useNavigation();
   const { theme, toggleTheme, isDarkMode } = useTheme(); // 🔥 Controle de tema
 
@@ -146,7 +146,7 @@ export default function DashboardScreen() {
           {/* Botão de Logout */}
           <TouchableOpacity
             style={styles.logoutButton}
-            onPress={() => navigation.navigate("Login" as never)}
+            onPress={logout}
           >
             <Text style={styles.logoutText}>Sair</Text>
           </TouchableOpacity>
