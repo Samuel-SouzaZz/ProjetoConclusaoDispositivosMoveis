@@ -10,7 +10,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
-import { FontAwesome } from "@expo/vector-icons";
+import { Ionicons } from "@expo/vector-icons";
 import { styles } from "../styles/authStyles";
 
 export default function LoginScreen() {
@@ -20,6 +20,8 @@ export default function LoginScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(false);
 
   async function handleLogin() {
     if (!email || !password) {
@@ -29,7 +31,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      await login(email, password); // AuthContext já navega para Dashboard
+      await login(email, password);
     } catch (err: any) {
       Alert.alert("Erro", err.message || "Não foi possível realizar o login.");
     } finally {
@@ -38,62 +40,90 @@ export default function LoginScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.cardSmall}>
-        <Text style={styles.title}>Login</Text>
+    <SafeAreaView style={styles.safeArea}>
+      {/* Forma decorativa azul no topo */}
+      <View style={styles.blueShape} />
+      
+      {/* Forma decorativa amarela no rodapé */}
+      <View style={styles.yellowShape} />
 
-        <TextInput
-          style={styles.inputSmall}
-          placeholder="E-mail"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-        />
-        <TextInput
-          style={styles.inputSmall}
-          placeholder="Senha"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
-
-        <TouchableOpacity
-          style={styles.buttonPrimarySmall}
-          onPress={handleLogin}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Entrar</Text>
-          )}
-        </TouchableOpacity>
-
-        <Text style={styles.linkText}>
-          Não tem uma conta?{" "}
-          <Text
-            style={styles.linkHighlight}
-            onPress={() => navigation.navigate("Signup")}
-          >
-            Cadastrar
+      <View style={styles.container}>
+        {/* Conteúdo principal */}
+        <View style={styles.content}>
+          <Text style={styles.title}>Entrar</Text>
+          <Text style={styles.subtitle}>
+            Aprenda estrutura de dados de forma cativante
           </Text>
-        </Text>
 
-        <View style={styles.socialContainerSmall}>
+          {/* Campo E-mail */}
+          <Text style={styles.label}>E-mail</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="seu@mail.com"
+            placeholderTextColor="#999"
+            value={email}
+            onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+
+          {/* Campo Senha */}
+          <Text style={styles.label}>Senha</Text>
+          <View style={styles.passwordContainer}>
+            <TextInput
+              style={styles.passwordInput}
+              placeholder="Sua senha de acesso"
+              placeholderTextColor="#999"
+              secureTextEntry={!showPassword}
+              value={password}
+              onChangeText={setPassword}
+              autoCapitalize="none"
+            />
+            <TouchableOpacity
+              style={styles.eyeIcon}
+              onPress={() => setShowPassword(!showPassword)}
+            >
+              <Ionicons
+                name={showPassword ? "eye-off-outline" : "eye-outline"}
+                size={22}
+                color="#999"
+              />
+            </TouchableOpacity>
+          </View>
+
+          {/* Continuar conectado */}
           <TouchableOpacity
-            style={[styles.socialButtonSmall, { backgroundColor: "#DB4437" }]}
-            onPress={() => Alert.alert("Login com Google em breve!")}
+            style={styles.checkboxContainer}
+            onPress={() => setRememberMe(!rememberMe)}
+            activeOpacity={0.7}
           >
-            <FontAwesome name="google" size={20} color="#fff" />
-            <Text style={styles.socialTextSmall}> Entrar com Google</Text>
+            <View style={styles.checkbox}>
+              {rememberMe && <Ionicons name="checkmark" size={16} color="#3B5BDB" />}
+            </View>
+            <Text style={styles.checkboxLabel}>Continuar conectado</Text>
           </TouchableOpacity>
 
+          {/* Botão Acessar */}
           <TouchableOpacity
-            style={[styles.socialButtonSmall, { backgroundColor: "#3b5998" }]}
-            onPress={() => Alert.alert("Login com Facebook em breve!")}
+            style={[styles.button, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+            activeOpacity={0.8}
           >
-            <FontAwesome name="facebook" size={20} color="#fff" />
-            <Text style={styles.socialTextSmall}> Entrar com Facebook</Text>
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Acessar</Text>
+            )}
+          </TouchableOpacity>
+        </View>
+
+        {/* Rodapé - Criar conta */}
+        <View style={styles.footer}>
+          <Text style={styles.footerText}>Não tem uma conta? </Text>
+          <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
+            <Text style={styles.footerLink}>Criar conta</Text>
           </TouchableOpacity>
         </View>
       </View>

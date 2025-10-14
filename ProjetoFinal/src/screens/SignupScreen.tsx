@@ -6,14 +6,18 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
+  ScrollView,
   Modal,
   FlatList,
-  TouchableWithoutFeedback,
+  Dimensions,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
 import { styles } from "../styles/authStyles";
-import { FontAwesome } from "@expo/vector-icons";
+
+const { height } = Dimensions.get("window");
 
 interface College {
   id: string;
@@ -38,6 +42,7 @@ export default function SignupScreen() {
   const [password, setPassword] = useState("");
   const [college, setCollege] = useState<College | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [collegeModalVisible, setCollegeModalVisible] = useState(false);
 
   async function handleSignup() {
@@ -48,7 +53,13 @@ export default function SignupScreen() {
 
     setLoading(true);
     try {
-      await signup(email, password, firstName + " " + lastName, handle, college.id);
+      await signup(
+        email,
+        password,
+        firstName + " " + lastName,
+        handle,
+        college.id
+      );
     } catch (err: any) {
       Alert.alert("Erro", err.message || "Não foi possível cadastrar.");
     } finally {
@@ -57,140 +68,173 @@ export default function SignupScreen() {
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.cardSmall}>
-        <Text style={styles.title}>Cadastro</Text>
+    <SafeAreaView style={styles.safeArea}>
+      {/* Forma decorativa azul no topo */}
+      <View style={styles.blueShape} />
 
-        <TextInput
-          style={styles.inputSmall}
-          placeholder="Nome"
-          value={firstName}
-          onChangeText={setFirstName}
-        />
-        <TextInput
-          style={styles.inputSmall}
-          placeholder="Sobrenome"
-          value={lastName}
-          onChangeText={setLastName}
-        />
-        <TextInput
-          style={styles.inputSmall}
-          placeholder="Nome de usuário (ex: joaosilva)"
-          value={handle}
-          onChangeText={(text) => setHandle(text.toLowerCase().replace(/\s/g, ''))}
-          autoCapitalize="none"
-        />
-        <TextInput
-          style={styles.inputSmall}
-          placeholder="E-mail"
-          value={email}
-          onChangeText={setEmail}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-        <TextInput
-          style={styles.inputSmall}
-          placeholder="Senha"
-          secureTextEntry
-          value={password}
-          onChangeText={setPassword}
-        />
+      {/* Forma decorativa amarela no rodapé */}
+      <View style={styles.yellowShape} />
 
-        {/* Seleção de faculdade */}
-        <TouchableOpacity
-          style={[styles.inputSmall, { justifyContent: "center" }]}
-          onPress={() => setCollegeModalVisible(true)}
-        >
-          <Text style={{ color: college ? "#000" : "#000000ff" }}>
-            {college ? college.name : "Selecione sua Faculdade"}
-          </Text>
-        </TouchableOpacity>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={[styles.scrollContent, { minHeight: height }]}
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.container}>
+          <View style={styles.contentSignup}>
+            <Text style={styles.title}>Criar conta</Text>
+            <Text style={styles.subtitle}>
+              Junte-se a nós e comece sua jornada de aprendizado
+            </Text>
 
-        <TouchableOpacity
-          style={styles.buttonPrimarySmall}
-          onPress={handleSignup}
-          disabled={loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Cadastrar</Text>
-          )}
-        </TouchableOpacity>
+            {/* Nome */}
+            <Text style={styles.label}>Nome</Text>
+            <TextInput
+              style={styles.inputSignup}
+              placeholder="Seu primeiro nome"
+              placeholderTextColor="#999"
+              value={firstName}
+              onChangeText={setFirstName}
+            />
 
-        <Text style={styles.linkText}>
-          Já tem conta?{" "}
-          <Text
-            style={styles.linkHighlight}
-            onPress={() => navigation.navigate("Login")}
-          >
-            Fazer login
-          </Text>
-        </Text>
+            {/* Sobrenome */}
+            <Text style={styles.label}>Sobrenome</Text>
+            <TextInput
+              style={styles.inputSignup}
+              placeholder="Seu sobrenome"
+              placeholderTextColor="#999"
+              value={lastName}
+              onChangeText={setLastName}
+            />
 
-        {/* Botões sociais */}
-        <View style={styles.socialContainerSmall}>
-          <TouchableOpacity
-            style={[styles.socialButtonSmall, { backgroundColor: "#DB4437" }]}
-            onPress={() => Alert.alert("Cadastro com Google em breve!")}
-          >
-            <FontAwesome name="google" size={16} color="#fff" />
-            <Text style={styles.socialTextSmall}> Cadastrar-se com Google</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.socialButtonSmall, { backgroundColor: "#3b5998" }]}
-            onPress={() => Alert.alert("Cadastro com Facebook em breve!")}
-          >
-            <FontAwesome name="facebook" size={16} color="#fff" />
-            <Text style={styles.socialTextSmall}> Cadastrar-se com Facebook</Text>
-          </TouchableOpacity>
+            {/* Nome de usuário */}
+            <Text style={styles.label}>Nome de usuário</Text>
+            <TextInput
+              style={styles.inputSignup}
+              placeholder="joaosilva (sem espaços)"
+              placeholderTextColor="#999"
+              value={handle}
+              onChangeText={(text) =>
+                setHandle(text.toLowerCase().replace(/\s/g, ""))
+              }
+              autoCapitalize="none"
+            />
+
+            {/* E-mail */}
+            <Text style={styles.label}>E-mail</Text>
+            <TextInput
+              style={styles.inputSignup}
+              placeholder="seu@mail.com"
+              placeholderTextColor="#999"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+
+            {/* Senha */}
+            <Text style={styles.label}>Senha</Text>
+            <View style={styles.passwordContainerSignup}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Mínimo 6 caracteres"
+                placeholderTextColor="#999"
+                secureTextEntry={!showPassword}
+                value={password}
+                onChangeText={setPassword}
+                autoCapitalize="none"
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowPassword(!showPassword)}
+              >
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={22}
+                  color="#999"
+                />
+              </TouchableOpacity>
+            </View>
+
+            {/* Faculdade */}
+            <Text style={styles.label}>Faculdade</Text>
+            <TouchableOpacity
+              style={styles.selectInput}
+              onPress={() => setCollegeModalVisible(true)}
+            >
+              <Text
+                style={college ? styles.selectText : styles.selectPlaceholder}
+              >
+                {college ? college.name : "Selecione sua faculdade"}
+              </Text>
+              <Ionicons name="chevron-down" size={20} color="#999" />
+            </TouchableOpacity>
+
+            {/* Botão Cadastrar */}
+            <TouchableOpacity
+              style={[styles.buttonSignup, loading && styles.buttonDisabled]}
+              onPress={handleSignup}
+              disabled={loading}
+              activeOpacity={0.8}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Cadastrar</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+
+          {/* Rodapé */}
+          <View style={styles.footer}>
+            <Text style={styles.footerText}>Já tem conta? </Text>
+            <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+              <Text style={styles.footerLink}>Fazer login</Text>
+            </TouchableOpacity>
+          </View>
         </View>
-      </View>
+      </ScrollView>
 
       {/* Modal de seleção de faculdade */}
-      <Modal visible={collegeModalVisible} transparent animationType="fade">
-        <TouchableWithoutFeedback
-          onPress={() => setCollegeModalVisible(false)}
-        >
-          <View
-            style={{
-              flex: 1,
-              backgroundColor: "rgba(0,0,0,0.5)",
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-          >
-            <View
-              style={{
-                backgroundColor: "#fff",
-                width: "80%",
-                borderRadius: 8,
-                maxHeight: "50%",
-              }}
-            >
-              <FlatList
-                data={collegesList}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={{
-                      padding: 15,
-                      borderBottomWidth: 1,
-                      borderBottomColor: "#ddd",
-                    }}
-                    onPress={() => {
-                      setCollege(item);
-                      setCollegeModalVisible(false);
-                    }}
-                  >
-                    <Text>{item.name}</Text>
-                  </TouchableOpacity>
-                )}
-              />
+      <Modal
+        visible={collegeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCollegeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Selecione sua faculdade</Text>
+              <TouchableOpacity
+                onPress={() => setCollegeModalVisible(false)}
+                style={styles.modalClose}
+              >
+                <Ionicons name="close" size={24} color="#1A1A1A" />
+              </TouchableOpacity>
             </View>
+
+            <FlatList
+              data={collegesList}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={styles.collegeItem}
+                  onPress={() => {
+                    setCollege(item);
+                    setCollegeModalVisible(false);
+                  }}
+                >
+                  <Text style={styles.collegeItemText}>{item.name}</Text>
+                  {college?.id === item.id && (
+                    <Ionicons name="checkmark" size={20} color="#3B5BDB" />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
           </View>
-        </TouchableWithoutFeedback>
+        </View>
       </Modal>
-    </View>
+    </SafeAreaView>
   );
 }
