@@ -80,6 +80,15 @@ export default function SignupScreen() {
         contentContainerStyle={[styles.scrollContent, { minHeight: height }]}
         showsVerticalScrollIndicator={false}
       >
+        {/* Botão Voltar */}
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.navigate("Home")}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
+        </TouchableOpacity>
+
         <View style={styles.container}>
           <View style={styles.contentSignup}>
             <Text style={styles.title}>Criar conta</Text>

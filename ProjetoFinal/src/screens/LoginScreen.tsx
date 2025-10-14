@@ -48,6 +48,14 @@ export default function LoginScreen() {
       <View style={styles.yellowShape} />
 
       <View style={styles.container}>
+        {/* Botão Voltar */}
+        <TouchableOpacity 
+          style={styles.backButton}
+          onPress={() => navigation.navigate("Home")}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
+        </TouchableOpacity>
         {/* Conteúdo principal */}
         <View style={styles.content}>
           <Text style={styles.title}>Entrar</Text>

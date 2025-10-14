@@ -170,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       setUser(null);
-      navigation.reset({ index: 0, routes: [{ name: "Login" }] });
+      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
     }

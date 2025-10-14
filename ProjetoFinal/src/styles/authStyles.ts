@@ -42,6 +42,25 @@ export const styles = StyleSheet.create({
     borderTopRightRadius: width * 0.8,
   },
 
+  // Botão Voltar
+  backButton: {
+    position: "absolute",
+    top: 10,
+    left: 20,
+    zIndex: 10,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#fff",
+    justifyContent: "center",
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+
   // Conteúdo
   content: {
     flex: 1,
@@ -278,7 +297,7 @@ export const styles = StyleSheet.create({
   },
 
   // ==== ESTILOS ANTIGOS (mantidos para compatibilidade) ====
-  
+
   // Card (uso genérico). card alias para compatibilidade com versões antigas.
   cardSmall: {
     width: "90%",

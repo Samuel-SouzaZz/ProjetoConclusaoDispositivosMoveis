@@ -1,229 +1,405 @@
-import React, { useEffect, useState } from "react";
+import React from "react";
 import {
   View,
   Text,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
-  Alert,
+  TextInput,
+  Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
-import { useTheme } from "../contexts/ThemeContext"; // 🌙 Importa o contexto de tema
-import { FontAwesome } from "@expo/vector-icons";
+import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
+import BottomNavigation from "../components/BottomNavigation";
+
+const { width } = Dimensions.get("window");
 
 export default function DashboardScreen() {
-  const { user, logout } = useAuth();
-  const navigation = useNavigation();
-  const { theme, toggleTheme, isDarkMode } = useTheme(); // 🔥 Controle de tema
-
-  const [loading, setLoading] = useState(true);
-  const [stats, setStats] = useState({
-    languages: 0,
-    challenges: 0,
-    exercises: 0,
-  });
-  const [weekProgress, setWeekProgress] = useState(0);
-  const [recommendations, setRecommendations] = useState<any[]>([]);
-
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
-
-  async function loadDashboardData() {
-    try {
-      setLoading(true);
-      setTimeout(() => {
-        setStats({ languages: 3, challenges: 5, exercises: 8 });
-        setWeekProgress(60);
-        setRecommendations([
-          { id: 1, title: "Desafio React Native", difficulty: "Médio", xp: 120 },
-          { id: 2, title: "API com Node.js", difficulty: "Difícil", xp: 200 },
-        ]);
-        setLoading(false);
-      }, 1200);
-    } catch (error) {
-      Alert.alert("Erro", "Falha ao carregar dados do Dashboard.");
-    }
-  }
-
-  const colors = {
-    background: isDarkMode ? "#121212" : "#f8f9fa",
-    text: isDarkMode ? "#f1f1f1" : "#333",
-    subtext: isDarkMode ? "#aaa" : "#666",
-    card: isDarkMode ? "#1e1e1e" : "#fff",
-  };
+  const { user } = useAuth();
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <SafeAreaView style={styles.safeArea}>
+      {/* Header com busca e perfil */}
+      <View style={styles.header}>
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#666" />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search"
+            placeholderTextColor="#999"
+          />
+        </View>
+        <View style={styles.profileContainer}>
+          <View style={styles.avatar}>
+            <Ionicons name="person" size={20} color="#fff" />
+          </View>
+          <View style={styles.levelBadge}>
+            <Text style={styles.levelText}>1</Text>
+          </View>
+          <Text style={styles.levelLabel}>Level</Text>
+        </View>
+      </View>
+
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.mainContent}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={[styles.welcome, { color: colors.text }]}>
-              👋 Olá, <Text style={{ color: "#6C63FF" }}>{user?.name || "Usuário"}</Text>!
-            </Text>
-            <Text style={[styles.subtitle, { color: colors.subtext }]}>
-              Continue sua jornada e conquiste novos desafios.
-            </Text>
+        {/* Saudação */}
+        <View style={styles.greetingContainer}>
+          <Text style={styles.greetingTitle}>
+            Olá {user?.name?.split(' ')[0] || 'Marcos'}!
+          </Text>
+          <Text style={styles.greetingSubtitle}>Boas vindas de volta!</Text>
+        </View>
 
-            {/* Botão de alternar tema */}
-            <TouchableOpacity onPress={toggleTheme} style={styles.themeButton}>
-              <FontAwesome
-                name={isDarkMode ? "sun-o" : "moon-o"}
-                size={22}
-                color={isDarkMode ? "#FFD700" : "#333"}
-              />
+        {/* Cards de ação rápida */}
+        <View style={styles.quickActionsContainer}>
+          <View style={styles.quickActionsRow}>
+            <TouchableOpacity style={[styles.quickActionCard, styles.discussionsCard]}>
+              <View style={styles.quickActionIcon}>
+                <Ionicons name="chatbubbles" size={28} color="#4A90E2" />
+              </View>
+              <Text style={styles.quickActionText}>Discussões</Text>
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationText}>2</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.quickActionCard, styles.exerciseCard]}>
+              <View style={styles.quickActionIcon}>
+                <Ionicons name="school" size={28} color="#F5A623" />
+              </View>
+              <Text style={styles.quickActionText}>Exercício</Text>
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationText}>2</Text>
+              </View>
             </TouchableOpacity>
           </View>
 
-          {loading ? (
-            <ActivityIndicator size="large" color="#6C63FF" style={{ marginTop: 50 }} />
-          ) : (
-            <>
-              {/* Estatísticas */}
-              <View style={styles.statsContainer}>
-                <View style={[styles.statCard, { backgroundColor: "#6C63FF" }]}>
-                  <Text style={styles.statNumber}>{stats.languages}</Text>
-                  <Text style={styles.statLabel}>Linguagens</Text>
-                </View>
-                <View style={[styles.statCard, { backgroundColor: "#00BFA6" }]}>
-                  <Text style={styles.statNumber}>{stats.challenges}</Text>
-                  <Text style={styles.statLabel}>Desafios</Text>
-                </View>
-                <View style={[styles.statCard, { backgroundColor: "#FF6584" }]}>
-                  <Text style={styles.statNumber}>{stats.exercises}</Text>
-                  <Text style={styles.statLabel}>Exercícios</Text>
-                </View>
+          <View style={styles.quickActionsRow}>
+            <TouchableOpacity style={[styles.quickActionCard, styles.createCard]}>
+              <View style={styles.quickActionIcon}>
+                <Ionicons name="add-circle" size={28} color="#4A90E2" />
               </View>
+              <Text style={styles.quickActionText}>Criar{'\n'}exercício</Text>
+            </TouchableOpacity>
 
-              {/* Progresso semanal */}
-              <View style={styles.progressSection}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  🔥 Progresso da Semana
-                </Text>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: `${weekProgress}%` }]} />
-                </View>
-                <Text style={[styles.progressText, { color: colors.subtext }]}>
-                  {weekProgress}% concluído
-                </Text>
+            <TouchableOpacity style={[styles.quickActionCard, styles.examplesCard]}>
+              <View style={styles.quickActionIcon}>
+                <Ionicons name="book" size={28} color="#F5A623" />
               </View>
-
-              {/* Recomendações */}
-              <View style={styles.recommendationsSection}>
-                <Text style={[styles.sectionTitle, { color: colors.text }]}>
-                  ⭐ Recomendações
-                </Text>
-                {recommendations.map((rec) => (
-                  <View
-                    key={rec.id}
-                    style={[styles.recommendationCard, { backgroundColor: colors.card }]}
-                  >
-                    <Text style={[styles.recTitle, { color: colors.text }]}>
-                      {rec.title}
-                    </Text>
-                    <Text style={[styles.recInfo, { color: colors.subtext }]}>
-                      Dificuldade: {rec.difficulty} | {rec.xp} XP
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.btnStart}
-                      onPress={() => Alert.alert("Iniciar", `Iniciando ${rec.title}...`)}
-                    >
-                      <Text style={styles.btnText}>Começar</Text>
-                    </TouchableOpacity>
-                  </View>
-                ))}
+              <Text style={styles.quickActionText}>Exemplos</Text>
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationText}>2</Text>
               </View>
-            </>
-          )}
+            </TouchableOpacity>
+          </View>
+        </View>
 
-          {/* Botão de Logout */}
-          <TouchableOpacity
-            style={styles.logoutButton}
-            onPress={logout}
-          >
-            <Text style={styles.logoutText}>Sair</Text>
-          </TouchableOpacity>
+        {/* Seção Em Destaque */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>{'{'}<Text style={styles.sectionTitleHighlight}>Em Destaque</Text>{'}'}</Text>
+          
+          <View style={styles.cardsRow}>
+            <TouchableOpacity style={[styles.featuredCard, styles.darkCard]}>
+              <View style={styles.cardIcon}>
+                <FontAwesome5 name="football-ball" size={24} color="#fff" />
+              </View>
+              <Text style={styles.cardTitle}>Lorem ipsum dolor sit amet consectetur.</Text>
+              <TouchableOpacity style={styles.cardButton}>
+                <Text style={styles.cardButtonText}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.featuredCard, styles.darkCard]}>
+              <View style={styles.cardIcon}>
+                <FontAwesome5 name="football-ball" size={24} color="#fff" />
+              </View>
+              <Text style={styles.cardTitle}>Lorem ipsum dolor sit amet consectetur.</Text>
+              <TouchableOpacity style={styles.cardButton}>
+                <Text style={styles.cardButtonText}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.cardsRow}>
+            <TouchableOpacity style={[styles.featuredCard, styles.darkCard]}>
+              <View style={styles.cardIcon}>
+                <FontAwesome5 name="football-ball" size={24} color="#fff" />
+              </View>
+              <Text style={styles.cardTitle}>Lorem ipsum dolor sit amet consectetur.</Text>
+              <TouchableOpacity style={styles.cardButton}>
+                <Text style={styles.cardButtonText}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.featuredCard, styles.darkCard]}>
+              <View style={styles.cardIcon}>
+                <FontAwesome5 name="football-ball" size={24} color="#fff" />
+              </View>
+              <Text style={styles.cardTitle}>Lorem ipsum dolor sit amet consectetur.</Text>
+              <TouchableOpacity style={styles.cardButton}>
+                <Text style={styles.cardButtonText}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* Seção Recomendações */}
+        <View style={[styles.section, { marginBottom: 100 }]}>
+          <Text style={styles.sectionTitle}>{'{'}<Text style={styles.sectionTitleHighlight}>Recomendações</Text>{'}'}</Text>
+          
+          <View style={styles.cardsRow}>
+            <TouchableOpacity style={[styles.featuredCard, styles.yellowCard]}>
+              <View style={styles.cardIcon}>
+                <FontAwesome5 name="football-ball" size={24} color="#000" />
+              </View>
+              <Text style={[styles.cardTitle, { color: '#1A1A1A' }]}>Novos exercícios sobre árvore de decisão</Text>
+              <TouchableOpacity style={[styles.cardButton, styles.yellowButton]}>
+                <Text style={[styles.cardButtonText, { color: '#1A1A1A' }]}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.featuredCard, styles.lightCard]}>
+              <View style={styles.cardIcon}>
+                <FontAwesome5 name="football-ball" size={24} color="#000" />
+              </View>
+              <Text style={[styles.cardTitle, { color: '#1A1A1A' }]}>Lorem ipsum dolor sit amet consectetur.</Text>
+              <TouchableOpacity style={[styles.cardButton, styles.lightButton]}>
+                <Text style={[styles.cardButtonText, { color: '#1A1A1A' }]}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              </TouchableOpacity>
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
+
+      {/* Bottom Navigation */}
+      <BottomNavigation activeRoute="Dashboard" />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1 },
-  scrollContent: { flexGrow: 1 },
-  mainContent: {
+  safeArea: {
     flex: 1,
-    paddingHorizontal: 16,
-    paddingBottom: 40,
-    paddingTop: 50,
+    backgroundColor: "#FAFAFA",
   },
-  header: { marginBottom: 30, position: "relative" },
-  themeButton: {
+  scrollView: {
+    flex: 1,
+  },
+
+  // Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: "#fff",
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  searchContainer: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F5F5F5",
+    borderRadius: 25,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    marginRight: 15,
+  },
+  searchInput: {
+    flex: 1,
+    marginLeft: 10,
+    fontSize: 16,
+    color: "#333",
+  },
+  profileContainer: {
+    alignItems: "center",
+    position: "relative",
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#4A90E2",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  levelBadge: {
     position: "absolute",
-    right: 5,
-    top: 0,
-    padding: 8,
+    top: -5,
+    right: -5,
+    backgroundColor: "#1A1A1A",
+    borderRadius: 10,
+    width: 20,
+    height: 20,
+    justifyContent: "center",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#fff",
   },
-  welcome: { fontSize: 22, fontWeight: "700" },
-  subtitle: { fontSize: 14, marginTop: 4 },
-  statsContainer: {
+  levelText: {
+    color: "#fff",
+    fontSize: 10,
+    fontWeight: "bold",
+  },
+  levelLabel: {
+    fontSize: 10,
+    color: "#666",
+    marginTop: 4,
+  },
+
+  // Saudação
+  greetingContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 20,
+  },
+  greetingTitle: {
+    fontSize: 22,
+    fontWeight: "bold",
+    color: "#1A1A1A",
+  },
+  greetingSubtitle: {
+    fontSize: 14,
+    color: "#666",
+    marginTop: 4,
+  },
+
+  // Quick Actions
+  quickActionsContainer: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  quickActionsRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginVertical: 20,
+    marginBottom: 15,
   },
-  statCard: {
-    flex: 1,
-    marginHorizontal: 4,
-    borderRadius: 12,
-    padding: 18,
-    alignItems: "center",
-  },
-  statNumber: { fontSize: 22, fontWeight: "bold", color: "#fff" },
-  statLabel: { fontSize: 13, color: "#fff", marginTop: 4 },
-  progressSection: { marginVertical: 20 },
-  sectionTitle: { fontSize: 18, fontWeight: "bold", marginBottom: 10 },
-  progressBar: {
-    height: 12,
-    borderRadius: 8,
-    backgroundColor: "#ddd",
-    overflow: "hidden",
-  },
-  progressFill: { height: "100%", backgroundColor: "#6C63FF" },
-  progressText: { textAlign: "right", marginTop: 6 },
-  recommendationsSection: { marginVertical: 20 },
-  recommendationCard: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
+  quickActionCard: {
+    width: (width - 55) / 2,
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 20,
+    position: "relative",
     shadowColor: "#000",
-    shadowOpacity: 0.05,
     shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  recTitle: { fontSize: 16, fontWeight: "600" },
-  recInfo: { fontSize: 13, marginVertical: 6 },
-  btnStart: {
-    backgroundColor: "#6C63FF",
-    paddingVertical: 8,
-    borderRadius: 8,
+  discussionsCard: {
+    backgroundColor: "#E3F2FD",
+  },
+  exerciseCard: {
+    backgroundColor: "#FFF3E0",
+  },
+  createCard: {
+    backgroundColor: "#E3F2FD",
+  },
+  examplesCard: {
+    backgroundColor: "#FFF3E0",
+  },
+  quickActionIcon: {
+    marginBottom: 10,
+  },
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#1A1A1A",
+  },
+  notificationBadge: {
+    position: "absolute",
+    top: 15,
+    right: 15,
+    backgroundColor: "#1A1A1A",
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: "center",
     alignItems: "center",
   },
-  btnText: { color: "#fff", fontWeight: "600" },
-  logoutButton: {
-    marginTop: 30,
-    alignSelf: "center",
-    backgroundColor: "#ff4757",
-    paddingVertical: 10,
-    paddingHorizontal: 40,
-    borderRadius: 10,
+  notificationText: {
+    color: "#fff",
+    fontSize: 12,
+    fontWeight: "bold",
   },
-  logoutText: { color: "#fff", fontWeight: "bold", fontSize: 16 },
+
+  // Sections
+  section: {
+    paddingHorizontal: 20,
+    marginBottom: 25,
+  },
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#1A1A1A",
+    marginBottom: 15,
+  },
+  sectionTitleHighlight: {
+    color: "#F5A623",
+  },
+
+  // Cards
+  cardsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 15,
+  },
+  featuredCard: {
+    width: (width - 55) / 2,
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  darkCard: {
+    backgroundColor: "#1A1A1A",
+  },
+  yellowCard: {
+    backgroundColor: "#FFE66D",
+  },
+  lightCard: {
+    backgroundColor: "#E0E0E0",
+  },
+  cardIcon: {
+    marginBottom: 12,
+  },
+  cardTitle: {
+    fontSize: 13,
+    color: "#fff",
+    marginBottom: 15,
+    lineHeight: 18,
+  },
+  cardButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#fff",
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 20,
+    alignSelf: "flex-start",
+    gap: 5,
+  },
+  yellowButton: {
+    backgroundColor: "#FFE66D",
+  },
+  lightButton: {
+    backgroundColor: "#fff",
+  },
+  cardButtonText: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#1A1A1A",
+  },
 });
