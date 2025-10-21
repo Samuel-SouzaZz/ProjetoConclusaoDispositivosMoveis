@@ -62,7 +62,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await UserService.syncUserFromBackend(userData);
         
         setUser(userData);
-        navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
+        navigation.reset({ index: 0, routes: [{ name: "Home" }] });
       }
     } catch (error) {
       console.log("Não autenticado ou token expirado");
@@ -91,7 +91,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       setUser(userData);
       Alert.alert("Sucesso", `Bem-vindo(a), ${userData.name}!`);
-      navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
+      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
     } catch (error: any) {
       const message = ApiService.handleError(error);
       Alert.alert("Erro no Login", message);
@@ -148,7 +148,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(userData);
       Alert.alert("Sucesso", "Cadastro realizado com sucesso!");
-      navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
+      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
     } catch (error: any) {
       const message = ApiService.handleError(error);
       Alert.alert("Erro no Cadastro", message);
@@ -170,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       
       setUser(null);
-      navigation.reset({ index: 0, routes: [{ name: "Home" }] });
+      navigation.reset({ index: 0, routes: [{ name: "Login" }] });
     } catch (error) {
       console.error("Erro ao fazer logout:", error);
     }

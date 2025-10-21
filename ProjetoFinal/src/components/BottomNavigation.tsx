@@ -4,7 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 interface BottomNavigationProps {
-  activeRoute: "Dashboard" | "Discussions" | "Ranking" | "Exercises" | "Settings";
+  activeRoute: "Home" | "Dashboard" | "Discussions" | "Ranking" | "Exercises" | "Settings";
 }
 
 export default function BottomNavigation({ activeRoute }: BottomNavigationProps) {
@@ -13,24 +13,24 @@ export default function BottomNavigation({ activeRoute }: BottomNavigationProps)
   return (
     <View style={styles.bottomNav}>
       <TouchableOpacity
-        style={[styles.navItem, activeRoute === "Discussions" && styles.navItemActive]}
-        onPress={() => navigation.navigate("Discussions")}
-      >
-        <Ionicons
-          name="list"
-          size={24}
-          color={activeRoute === "Discussions" ? "#4A90E2" : "#666"}
-        />
-      </TouchableOpacity>
-
-      <TouchableOpacity
         style={[styles.navItem, activeRoute === "Ranking" && styles.navItemActive]}
         onPress={() => navigation.navigate("Ranking")}
       >
         <Ionicons
           name="trophy"
           size={24}
-          color={activeRoute === "Ranking" ? "#4A90E2" : "#666"}
+          color={activeRoute === "Ranking" ? "#4A90E2" : "#1A1A1A"}
+        />
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={[styles.navItem, activeRoute === "Discussions" && styles.navItemActive]}
+        onPress={() => navigation.navigate("Discussions")}
+      >
+        <Ionicons
+          name="chatbubbles"
+          size={24}
+          color={activeRoute === "Discussions" ? "#4A90E2" : "#1A1A1A"}
         />
       </TouchableOpacity>
 
@@ -40,8 +40,8 @@ export default function BottomNavigation({ activeRoute }: BottomNavigationProps)
       >
         <Ionicons
           name="home"
-          size={24}
-          color={activeRoute === "Dashboard" ? "#4A90E2" : "#666"}
+          size={28}
+          color={activeRoute === "Dashboard" ? "#4A90E2" : "#1A1A1A"}
         />
       </TouchableOpacity>
 
@@ -52,7 +52,7 @@ export default function BottomNavigation({ activeRoute }: BottomNavigationProps)
         <Ionicons
           name="code-slash"
           size={24}
-          color={activeRoute === "Exercises" ? "#4A90E2" : "#666"}
+          color={activeRoute === "Exercises" ? "#4A90E2" : "#1A1A1A"}
         />
       </TouchableOpacity>
 
@@ -63,7 +63,7 @@ export default function BottomNavigation({ activeRoute }: BottomNavigationProps)
         <Ionicons
           name="settings"
           size={24}
-          color={activeRoute === "Settings" ? "#4A90E2" : "#666"}
+          color={activeRoute === "Settings" ? "#4A90E2" : "#1A1A1A"}
         />
       </TouchableOpacity>
     </View>
@@ -77,20 +77,28 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     flexDirection: "row",
-    backgroundColor: "#fff",
+    backgroundColor: "#E3F2FD",
     paddingVertical: 12,
     paddingHorizontal: 20,
-    borderTopWidth: 1,
-    borderTopColor: "#f0f0f0",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     justifyContent: "space-around",
     alignItems: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
   },
   navItem: {
     padding: 10,
     borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
   },
   navItemActive: {
-    backgroundColor: "#E3F2FD",
+    backgroundColor: "#4A90E2",
+    paddingHorizontal: 15,
   },
 });
 
