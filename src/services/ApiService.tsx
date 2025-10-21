@@ -6,8 +6,14 @@ import { Platform } from 'react-native';
  * Configuração da API
  * 
  * ⚠️ IMPORTANTE: Configure o IP da sua máquina aqui:
+ * 
+ * COMO DESCOBRIR SEU IP:
+ * 1. Abra o CMD ou PowerShell
+ * 2. Digite: ipconfig
+ * 3. Procure por "IPv4" na seção do seu adaptador WiFi/Ethernet
+ * 4. Use esse IP abaixo (ex: 192.168.1.100)
  */
-const LOCAL_IP = '172.20.10.2'; // 🔴 ALTERE PARA O SEU IP (use 'ipconfig' no CMD)
+const LOCAL_IP = '10.0.0.40'; // 🔴 ALTERE PARA O SEU IP (use 'ipconfig' no CMD)
 
 /**
  * Detecta automaticamente a URL baseada no ambiente:
@@ -19,8 +25,11 @@ const BASE_URL = Platform.OS === 'web'
   : `http://${LOCAL_IP}:3000/api`;
 
 // Log para debug - mostra qual URL está sendo usada
-console.log(` API configurada para: ${BASE_URL}`);
-console.log(` Plataforma: ${Platform.OS}`);
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+console.log('📡 API CONFIGURADA');
+console.log(`🌐 URL: ${BASE_URL}`);
+console.log(`📱 Plataforma: ${Platform.OS}`);
+console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
 
 // Chaves de armazenamento
 const TOKEN_KEY = '@app:access_token';
@@ -254,12 +263,61 @@ class ApiService {
       } else if (error.request) {
         // Sem resposta do servidor
         if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
-          return `⚠️ BACKEND NÃO RESPONDEU!\n\nVerifique:\n1. Backend está rodando?\n2. URL correta: ${BASE_URL}\n3. Firewall bloqueando?`;
+          return `⚠️ BACKEND NÃO RESPONDEU!\n\n🔍 Verifique:\n\n1️⃣ Backend está rodando?\n   → Execute: npm run dev\n\n2️⃣ URL está correta?\n   → ${BASE_URL}\n\n3️⃣ Firewall está bloqueando?\n   → Desative temporariamente\n\n4️⃣ Mesmo WiFi?\n   → PC e celular na mesma rede`;
         }
-        return `Não foi possível conectar ao servidor.\n\nURL tentada: ${BASE_URL}\n\nVerifique se o backend está rodando.`;
+        return `❌ Não foi possível conectar ao servidor.\n\n🌐 URL tentada: ${BASE_URL}\n\n✅ Verifique se o backend está rodando.`;
       }
     }
     return error.message || 'Erro desconhecido';
+  }
+
+  /**
+   * Utilitários - Testar conexão com o backend
+   */
+  async testConnection(): Promise<{ success: boolean; message: string; latency?: number }> {
+    const startTime = Date.now();
+    try {
+      // Tenta fazer uma requisição simples sem autenticação
+      await this.api.get('/health', { timeout: 5000 });
+      const latency = Date.now() - startTime;
+      return {
+        success: true,
+        message: `✅ Conexão OK! Backend respondeu em ${latency}ms`,
+        latency
+      };
+    } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ECONNABORTED' || error.message.includes('timeout')) {
+          return {
+            success: false,
+            message: `⏱️ Timeout! Backend não respondeu em 5 segundos.\n\n🔍 Verifique:\n• Backend está rodando?\n• IP correto: ${LOCAL_IP}\n• Mesma rede WiFi?`
+          };
+        }
+        if (error.message.includes('ECONNREFUSED')) {
+          return {
+            success: false,
+            message: `🚫 Conexão recusada!\n\n🔍 Verifique:\n• Backend está rodando na porta 3000?\n• IP correto: ${LOCAL_IP}`
+          };
+        }
+        if (error.message.includes('Network Error')) {
+          return {
+            success: false,
+            message: `📡 Erro de rede!\n\n🔍 Verifique:\n• PC e celular na mesma rede?\n• Firewall bloqueando?\n• IP correto: ${LOCAL_IP}`
+          };
+        }
+      }
+      return {
+        success: false,
+        message: `❌ Erro: ${error instanceof Error ? error.message : 'Desconhecido'}`
+      };
+    }
+  }
+
+  /**
+   * Utilitários - Obter a URL base configurada
+   */
+  getBaseUrl(): string {
+    return BASE_URL;
   }
 }
 
