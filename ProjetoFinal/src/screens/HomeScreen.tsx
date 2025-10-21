@@ -12,7 +12,6 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
-import { Ionicons } from "@expo/vector-icons";
 import BottomNavigation from "../components/BottomNavigation";
 
 const { width } = Dimensions.get("window");
@@ -59,6 +58,14 @@ const topExercises = [
   },
 ];
 
+const ScreenHeader = ({ title, onAddPress }: { title: string; onAddPress: () => void }) => (
+  <View style={styles.headerRow}>
+    <Text style={styles.title}>{title}</Text>
+    <TouchableOpacity style={styles.addButton} onPress={onAddPress}>
+      {/* icone a ser inserido */}
+    </TouchableOpacity>
+  </View>
+);
 
 export default function HomeScreen() {
   const { user } = useAuth();
@@ -69,7 +76,7 @@ export default function HomeScreen() {
   }
 
   const renderContinueExercise = ({ item }: { item: any }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.exerciseCard}
       onPress={() => navigation.navigate("Exercises")}
     >
@@ -81,19 +88,19 @@ export default function HomeScreen() {
         <View style={styles.progressBar}>
           <View style={[styles.progressFill, { width: `${item.progress}%` }]} />
         </View>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.continueButton}
           onPress={() => navigation.navigate("Exercises")}
         >
           <Text style={styles.continueButtonText}>Continue</Text>
-          <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+          {/* icone a ser inserido */}
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
 
   const renderTopExercise = ({ item }: { item: any }) => (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.exerciseCard}
       onPress={() => navigation.navigate("Exercises")}
     >
@@ -102,105 +109,137 @@ export default function HomeScreen() {
       </View>
       <View style={styles.exerciseContent}>
         <Text style={styles.exerciseDescription}>{item.description}</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.continueButton}
           onPress={() => navigation.navigate("Exercises")}
         >
           <Text style={styles.continueButtonText}>Faça também</Text>
-          <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+          {/* icone a ser inserido */}
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
   );
 
-  return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#666" />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search"
-            placeholderTextColor="#999"
-            onSubmitEditing={(e) => {
-              if (e.nativeEvent.text.trim()) {
-                navigation.navigate("Exercises");
-              }
-            }}
-            returnKeyType="search"
-          />
-        </View>
-        <TouchableOpacity 
-          style={styles.profileContainer}
-          onPress={() => navigation.navigate("Settings")}
-        >
-          <View style={styles.avatar}>
-            <Ionicons name="person" size={20} color="#fff" />
+  // Componentização local: ExerciseCard para reutilização dentro da Home
+  const ExerciseCard = ({
+    item,
+    onPress,
+    showProgress = false,
+    actionLabel = 'Abrir',
+  }: {
+    item: any;
+    onPress: () => void;
+    showProgress?: boolean;
+    actionLabel?: string;
+  }) => (
+    <TouchableOpacity style={styles.exerciseCard} onPress={onPress}>
+      <View style={styles.exerciseHeader}>
+        <Text style={styles.exerciseHeaderText}>{item.title}</Text>
+      </View>
+      <View style={styles.exerciseContent}>
+        <Text style={styles.exerciseDescription}>{item.description}</Text>
+        {showProgress && (
+          <View style={styles.progressBar}>
+            <View style={[styles.progressFill, { width: `${item.progress}%` }]} />
           </View>
-          <View style={styles.levelBadge}>
-            <Text style={styles.levelText}>7</Text>
-          </View>
-          <Text style={styles.levelLabel}>Lvl.</Text>
+        )}
+        <TouchableOpacity style={styles.continueButton} onPress={onPress}>
+          <Text style={styles.continueButtonText}>{actionLabel}</Text>
+          {/* icone a ser inserido */}
         </TouchableOpacity>
       </View>
+    </TouchableOpacity>
+  );
 
-      <ScrollView
-        style={styles.scrollView}
-        showsVerticalScrollIndicator={false}
-      >
+  const ExerciseOption = ({ icon, title, subtitle, onPress }: { icon: string; title: string; subtitle?: string; onPress: () => void }) => (
+    <TouchableOpacity style={styles.exerciseOption} onPress={onPress}>
+      <View style={styles.exerciseOptionIcon}>
+        {/* icone a ser inserido */}
+      </View>
+      <View style={styles.exerciseOptionText}>
+        <Text style={styles.exerciseOptionTitle}>{title}</Text>
+        {subtitle ? <Text style={styles.exerciseOptionSubtitle}>{subtitle}</Text> : null}
+      </View>
+    </TouchableOpacity>
+  );
+
+  const ContinueList = ({ data }: { data: any[] }) => (
+    <FlatList
+      data={data}
+      renderItem={({ item }) => (
+        <ExerciseCard item={item} onPress={() => navigation.navigate('Exercises')} showProgress actionLabel="Continue" />
+      )}
+      keyExtractor={(item) => item.id}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.horizontalList}
+    />
+  );
+
+  const TopList = ({ data }: { data: any[] }) => (
+    <FlatList
+      data={data}
+      renderItem={({ item }) => (
+        <ExerciseCard item={item} onPress={() => navigation.navigate('Exercises')} showProgress={false} actionLabel="Faça também" />
+      )}
+      keyExtractor={(item) => item.id}
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.horizontalList}
+    />
+  );
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScreenHeader title="Início" onAddPress={() => navigation.navigate("Exercises")} />
+
+      <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+        <View style={styles.searchRow}>
+            <View style={styles.searchContainer}>
+            {/* icone a ser inserido */}
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search"
+              placeholderTextColor="#999"
+              onSubmitEditing={(e) => {
+                if (e.nativeEvent.text.trim()) {
+                  navigation.navigate("Exercises");
+                }
+              }}
+              returnKeyType="search"
+            />
+          </View>
+          <TouchableOpacity
+            style={styles.profileContainer}
+            onPress={() => navigation.navigate("Settings")}
+          >
+            <View style={styles.avatar}>
+              {/* icone a ser inserido */}
+            </View>
+            <View style={styles.levelBadge}>
+              <Text style={styles.levelText}>7</Text>
+            </View>
+            <Text style={styles.levelLabel}>Lvl.</Text>
+          </TouchableOpacity>
+        </View>
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Exercicios</Text>
           
           <View style={styles.exercisesOptions}>
-            <TouchableOpacity 
-              style={styles.exerciseOption}
-              onPress={() => navigation.navigate("Exercises")}
-            >
-              <View style={styles.exerciseOptionIcon}>
-                <Ionicons name="document-text" size={24} color="#4A90E2" />
-              </View>
-              <View style={styles.exerciseOptionText}>
-                <Text style={styles.exerciseOptionTitle}>Exercicios</Text>
-                <Text style={styles.exerciseOptionSubtitle}>02 Iniciadas</Text>
-              </View>
-            </TouchableOpacity>
+            <ExerciseOption icon="document-text" title="Exercicios" subtitle="02 Iniciadas" onPress={() => navigation.navigate('Exercises')} />
 
-            <TouchableOpacity 
-              style={styles.exerciseOption}
-              onPress={() => navigation.navigate("Exercises")}
-            >
-              <View style={styles.exerciseOptionIcon}>
-                <Ionicons name="add-circle" size={24} color="#4A90E2" />
-              </View>
-              <View style={styles.exerciseOptionText}>
-                <Text style={styles.exerciseOptionTitle}>Criar novo Exercicio</Text>
-              </View>
-            </TouchableOpacity>
+            <ExerciseOption icon="add-circle" title="Criar novo Exercicio" onPress={() => navigation.navigate('Exercises')} />
           </View>
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Continuar exercicios</Text>
-          <FlatList
-            data={continueExercises}
-            renderItem={renderContinueExercise}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-          />
+          <ContinueList data={continueExercises} />
         </View>
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Top exercicios</Text>
-          <FlatList
-            data={topExercises}
-            renderItem={renderTopExercise}
-            keyExtractor={(item) => item.id}
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={styles.horizontalList}
-          />
+          <TopList data={topExercises} />
         </View>
       </ScrollView>
 
@@ -210,12 +249,38 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
+  container: {
     flex: 1,
     backgroundColor: "#FAFAFA",
   },
   scrollView: {
     flex: 1,
+  },
+
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  title: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1A1A1A',
+  },
+  addButton: {
+    padding: 8,
+  },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 15,
+    paddingBottom: 10,
   },
 
   header: {
