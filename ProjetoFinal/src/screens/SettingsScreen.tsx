@@ -2,7 +2,6 @@ import React from "react";
 import { View, Text, StyleSheet, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
-import BottomNavigation from "../components/BottomNavigation";
 
 export default function SettingsScreen() {
   const { logout } = useAuth();
@@ -15,7 +14,7 @@ export default function SettingsScreen() {
           <Text style={styles.logoutText}>Sair</Text>
         </TouchableOpacity>
       </View>
-      <BottomNavigation activeRoute="Settings" />
+      {/* Bottom Navigation removida - agora usamos Tab Navigator nativo */}
     </SafeAreaView>
   );
 }

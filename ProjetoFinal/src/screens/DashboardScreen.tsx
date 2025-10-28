@@ -180,8 +180,8 @@ export default function DashboardScreen() {
         </View>
       </ScrollView>
 
-      {/* Bottom Navigation */}
-      <BottomNavigation activeRoute="Dashboard" />
+      {/* Bottom Navigation - Removida porque agora usamos Tab Navigator nativo */}
+      {/* <BottomNavigation activeRoute="Dashboard" /> */}
     </SafeAreaView>
   );
 }

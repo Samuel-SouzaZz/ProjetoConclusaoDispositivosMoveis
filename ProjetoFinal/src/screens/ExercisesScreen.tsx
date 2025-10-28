@@ -2,7 +2,6 @@ import React from "react";
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
-import BottomNavigation from "../components/BottomNavigation";
 
 const exercises = [
   {
@@ -107,7 +106,7 @@ export default function ExercisesScreen() {
         ))}
       </ScrollView>
       
-      <BottomNavigation activeRoute="Exercises" />
+      {/* Bottom Navigation removida - agora usamos Tab Navigator nativo */}
     </SafeAreaView>
   );
 }

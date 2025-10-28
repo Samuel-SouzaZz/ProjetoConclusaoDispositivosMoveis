@@ -1,5 +1,7 @@
 import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
+import { Ionicons } from "@expo/vector-icons";
 import HomeScreen from "../screens/HomeScreen";
 import LoginScreen from "../screens/LoginScreen";
 import SignupScreen from "../screens/SignupScreen";
@@ -9,30 +11,104 @@ import RankingScreen from "../screens/RankingScreen";
 import ExercisesScreen from "../screens/ExercisesScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 
+// Tipagem para o Stack Navigator
 export type RootStackParamList = {
   Home: undefined;
   Login: undefined;
   Signup: undefined;
   Dashboard: undefined;
-  Discussions: undefined;
-  Ranking: undefined;
-  Exercises: undefined;
-  Settings: undefined;
+};
+
+// Tipagem para o Tab Navigator
+type TabParamList = {
+  DashboardTab: undefined;
+  ExercisesTab: undefined;
+  DiscussionsTab: undefined;
+  RankingTab: undefined;
+  SettingsTab: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function AppNavigator() {
   return (
-    <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+    <Stack.Navigator initialRouteName="Home" screenOptions={{ headerShown: false }}>
+      <Stack.Screen name="Home" component={HomeScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Signup" component={SignupScreen} />
-      <Stack.Screen name="Home" component={HomeScreen} />
-      <Stack.Screen name="Dashboard" component={DashboardScreen} />
-      <Stack.Screen name="Discussions" component={DiscussionsScreen} />
-      <Stack.Screen name="Ranking" component={RankingScreen} />
-      <Stack.Screen name="Exercises" component={ExercisesScreen} />
-      <Stack.Screen name="Settings" component={SettingsScreen} />
+      
+      {/* Navegação aninhada: Tab Navigator dentro do Stack */}
+      <Stack.Screen name="Dashboard">
+        {() => (
+          <Tab.Navigator 
+            screenOptions={{ 
+              headerShown: false,
+              tabBarActiveTintColor: "#4A90E2",
+              tabBarInactiveTintColor: "#1A1A1A",
+              tabBarStyle: {
+                backgroundColor: "#E3F2FD",
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
+                height: 70,
+                paddingBottom: 10,
+                paddingTop: 10,
+              }
+            }}
+          >
+            <Tab.Screen 
+              name="DashboardTab" 
+              component={DashboardScreen}
+              options={{
+                tabBarLabel: "Home",
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="home" size={size} color={color} />
+                ),
+              }}
+            />
+            <Tab.Screen 
+              name="ExercisesTab" 
+              component={ExercisesScreen}
+              options={{
+                tabBarLabel: "Exercícios",
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="code-slash" size={size} color={color} />
+                ),
+              }}
+            />
+            <Tab.Screen 
+              name="DiscussionsTab" 
+              component={DiscussionsScreen}
+              options={{
+                tabBarLabel: "Discussões",
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="chatbubbles" size={size} color={color} />
+                ),
+              }}
+            />
+            <Tab.Screen 
+              name="RankingTab" 
+              component={RankingScreen}
+              options={{
+                tabBarLabel: "Ranking",
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="trophy" size={size} color={color} />
+                ),
+              }}
+            />
+            <Tab.Screen 
+              name="SettingsTab" 
+              component={SettingsScreen}
+              options={{
+                tabBarLabel: "Configurações",
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="settings" size={size} color={color} />
+                ),
+              }}
+            />
+          </Tab.Navigator>
+        )}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }

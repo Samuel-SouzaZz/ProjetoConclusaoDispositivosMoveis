@@ -1,7 +1,6 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import BottomNavigation from "../components/BottomNavigation";
 
 export default function RankingScreen() {
   return (
@@ -9,7 +8,7 @@ export default function RankingScreen() {
       <View style={styles.content}>
         <Text style={styles.title}>Ranking</Text>
       </View>
-      <BottomNavigation activeRoute="Ranking" />
+      {/* Bottom Navigation removida - agora usamos Tab Navigator nativo */}
     </SafeAreaView>
   );
 }
