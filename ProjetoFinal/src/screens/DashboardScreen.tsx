@@ -7,8 +7,10 @@ import {
   TouchableOpacity,
   TextInput,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import BottomNavigation from "../components/BottomNavigation";
@@ -16,7 +18,42 @@ import BottomNavigation from "../components/BottomNavigation";
 const { width } = Dimensions.get("window");
 
 export default function DashboardScreen() {
-  const { user } = useAuth();
+  const { user, loading } = useAuth();
+  const navigation = useNavigation<any>();
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4A90E2" />
+          <Text style={styles.loadingText}>Carregando...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!user) {
+    return (
+      <SafeAreaView style={styles.safeArea}>
+        <View style={styles.loginContainer}>
+          <Text style={styles.welcomeTitle}>Bem-vindo!</Text>
+          <Text style={styles.welcomeSubtitle}>Faça login para continuar</Text>
+          <TouchableOpacity 
+            style={styles.loginButton}
+            onPress={() => navigation.navigate("Login")}
+          >
+            <Text style={styles.loginButtonText}>Fazer Login</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={styles.signupButton}
+            onPress={() => navigation.navigate("Signup")}
+          >
+            <Text style={styles.signupButtonText}>Criar Conta</Text>
+          </TouchableOpacity>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -401,5 +438,62 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
     color: "#1A1A1A",
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: "#666",
+  },
+  loginContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 40,
+    gap: 24,
+  },
+  welcomeTitle: {
+    fontSize: 28,
+    fontWeight: "bold",
+    color: "#1A1A1A",
+    textAlign: "center",
+  },
+  welcomeSubtitle: {
+    fontSize: 16,
+    color: "#666",
+    textAlign: "center",
+    lineHeight: 24,
+  },
+  loginButton: {
+    backgroundColor: "#4A90E2",
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 25,
+    width: "100%",
+    alignItems: "center",
+  },
+  loginButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  signupButton: {
+    backgroundColor: "transparent",
+    paddingHorizontal: 32,
+    paddingVertical: 12,
+    borderRadius: 25,
+    width: "100%",
+    alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#4A90E2",
+  },
+  signupButtonText: {
+    color: "#4A90E2",
+    fontSize: 16,
+    fontWeight: "600",
   },
 });
