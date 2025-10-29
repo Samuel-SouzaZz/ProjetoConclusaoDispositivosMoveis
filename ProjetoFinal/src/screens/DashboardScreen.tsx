@@ -12,14 +12,24 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
+import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import BottomNavigation from "../components/BottomNavigation";
 
 const { width } = Dimensions.get("window");
 
+// Tipo para navegação entre tabs
+type TabNavigationProp = BottomTabNavigationProp<{
+  DashboardTab: undefined;
+  ExercisesTab: undefined;
+  DiscussionsTab: undefined;
+  RankingTab: undefined;
+  SettingsTab: undefined;
+}>;
+
 export default function DashboardScreen() {
   const { user, loading } = useAuth();
-  const navigation = useNavigation<any>();
+  const navigation = useNavigation<TabNavigationProp>();
 
   if (loading) {
     return (
@@ -115,7 +125,10 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.quickActionsRow}>
-            <TouchableOpacity style={[styles.quickActionCard, styles.createCard]}>
+            <TouchableOpacity 
+              style={[styles.quickActionCard, styles.createCard]}
+              onPress={() => navigation.navigate('ExercisesTab')}
+            >
               <View style={styles.quickActionIcon}>
                 <Ionicons name="add-circle" size={28} color="#4A90E2" />
               </View>

@@ -131,6 +131,53 @@ class ApiService {
   }
 
   /**
+   * USERS - Perfil completo com estatísticas, exercícios e submissões
+   */
+  async getUserCompleteProfile() {
+    const response = await this.api.get('/users/me/profile/complete');
+    return response.data;
+  }
+
+  /**
+   * EXERCISES - Criar exercício
+   */
+  async createExercise(data: {
+    title: string;
+    description?: string;
+    difficulty?: number;
+    codeTemplate?: string;
+    isPublic?: boolean;
+    languageId?: string;
+  }) {
+    const response = await this.api.post('/exercises', data);
+    return response.data;
+  }
+
+  /**
+   * EXERCISES - Listar meus exercícios
+   */
+  async getMyExercises(params?: {
+    status?: 'Draft' | 'Published' | 'all';
+    page?: number;
+    limit?: number;
+  }) {
+    const response = await this.api.get('/exercises/my', { params });
+    return response.data;
+  }
+
+  /**
+   * SUBMISSIONS - Listar minhas submissões
+   */
+  async getMySubmissions(params?: {
+    page?: number;
+    limit?: number;
+    status?: 'Accepted' | 'Rejected' | 'Pending' | 'all';
+  }) {
+    const response = await this.api.get('/submissions/my', { params });
+    return response.data;
+  }
+
+  /**
    * COLLEGES - Listar faculdades
    */
   async getColleges() {
