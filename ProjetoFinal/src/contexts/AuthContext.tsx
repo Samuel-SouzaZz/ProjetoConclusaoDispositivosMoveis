@@ -35,7 +35,7 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
 const USER_ID_KEY = "@app:user_id";
-const BIOMETRIC_TOKEN_KEY = "@app:biometric_token";
+const BIOMETRIC_TOKEN_KEY = "app_biometric_token";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -63,7 +63,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           if (result.success) {
             const userData = await ApiService.getMe();
             setUser(userData);
-            navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
             setLoading(false);
             return;
           }
@@ -76,10 +75,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await AsyncStorage.setItem(USER_ID_KEY, userData.id);
         await UserService.syncUserFromBackend(userData);
         setUser(userData);
-        navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
       }
     } catch (error) {
-      console.log("Sessão expirada ou não autenticado:", error);
       await ApiService.clearTokens();
     } finally {
       setLoading(false);
@@ -95,12 +92,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const { user: userData, tokens } = await ApiService.login(email, password);
 
-      await AsyncStorage.setItem(USER_ID_KEY, userData.id);
-      await UserService.syncUserFromBackend(userData);
+      // Garante usuário consistente do backend
+      const me = await ApiService.getMe();
 
-      setUser(userData);
-      Alert.alert("Sucesso", `Bem-vindo(a), ${userData.name}!`);
-      navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
+      await AsyncStorage.setItem(USER_ID_KEY, me.id);
+      await UserService.syncUserFromBackend(me);
+
+      setUser(me);
+      Alert.alert("Sucesso", `Bem-vindo(a), ${me.name}!`);
 
       // Pergunta ao usuário se quer salvar para biometria
       Alert.alert(
@@ -119,7 +118,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       const message = ApiService.handleError(error);
       Alert.alert("Erro no Login", message);
-      console.error("Erro no login:", error);
+      
     }
   }
 
@@ -152,7 +151,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(userData);
       Alert.alert("Sucesso", "Cadastro realizado com sucesso!");
-      navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
 
       // Pergunta biometria após cadastro
       Alert.alert(
@@ -171,7 +169,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } catch (error: any) {
       const message = ApiService.handleError(error);
       Alert.alert("Erro no Cadastro", message);
-      console.error("Erro no cadastro:", error);
+      
     }
   }
 
@@ -184,9 +182,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (user?.id) await UserService.clearUserCache(user.id);
 
       setUser(null);
-      navigation.reset({ index: 0, routes: [{ name: "Login" }] });
     } catch (error) {
-      console.error("Erro ao fazer logout:", error);
+      
     }
   }
 
@@ -196,7 +193,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await UserService.syncUserFromBackend(userData);
       setUser(userData);
     } catch (error) {
-      console.error("Erro ao atualizar usuário:", error);
+      
     }
   }
 

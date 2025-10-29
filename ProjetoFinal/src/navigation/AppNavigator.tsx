@@ -9,6 +9,8 @@ import DiscussionsScreen from "../screens/DiscussionsScreen";
 import RankingScreen from "../screens/RankingScreen";
 import ExercisesScreen from "../screens/ExercisesScreen";
 import SettingsScreen from "../screens/SettingsScreen";
+import ProfileScreen from "../screens/ProfileScreen";
+import { useAuth } from "../contexts/AuthContext";
 
 // Tipagem para o Stack Navigator
 export type RootStackParamList = {
@@ -24,22 +26,38 @@ type TabParamList = {
   DiscussionsTab: undefined;
   RankingTab: undefined;
   SettingsTab: undefined;
+  ProfileTab: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function AppNavigator() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <Stack.Navigator screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Login" component={LoginScreen} />
+      </Stack.Navigator>
+    );
+  }
+
+  if (!user) {
+    return (
+      <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Login" component={LoginScreen} />
+        <Stack.Screen name="Signup" component={SignupScreen} />
+      </Stack.Navigator>
+    );
+  }
+
   return (
-    <Stack.Navigator initialRouteName="Dashboard" screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="Login" component={LoginScreen} />
-      <Stack.Screen name="Signup" component={SignupScreen} />
-      
-      {/* Navegação aninhada: Tab Navigator dentro do Stack */}
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Dashboard">
         {() => (
-          <Tab.Navigator 
-            screenOptions={{ 
+          <Tab.Navigator
+            screenOptions={{
               headerShown: false,
               tabBarActiveTintColor: "#4A90E2",
               tabBarInactiveTintColor: "#1A1A1A",
@@ -50,11 +68,11 @@ export default function AppNavigator() {
                 height: 70,
                 paddingBottom: 10,
                 paddingTop: 10,
-              }
+              },
             }}
           >
-            <Tab.Screen 
-              name="DashboardTab" 
+            <Tab.Screen
+              name="DashboardTab"
               component={DashboardScreen}
               options={{
                 tabBarLabel: "Home",
@@ -63,8 +81,8 @@ export default function AppNavigator() {
                 ),
               }}
             />
-            <Tab.Screen 
-              name="ExercisesTab" 
+            <Tab.Screen
+              name="ExercisesTab"
               component={ExercisesScreen}
               options={{
                 tabBarLabel: "Exercícios",
@@ -73,8 +91,8 @@ export default function AppNavigator() {
                 ),
               }}
             />
-            <Tab.Screen 
-              name="DiscussionsTab" 
+            <Tab.Screen
+              name="DiscussionsTab"
               component={DiscussionsScreen}
               options={{
                 tabBarLabel: "Discussões",
@@ -83,8 +101,8 @@ export default function AppNavigator() {
                 ),
               }}
             />
-            <Tab.Screen 
-              name="RankingTab" 
+            <Tab.Screen
+              name="RankingTab"
               component={RankingScreen}
               options={{
                 tabBarLabel: "Ranking",
@@ -93,8 +111,18 @@ export default function AppNavigator() {
                 ),
               }}
             />
-            <Tab.Screen 
-              name="SettingsTab" 
+            <Tab.Screen
+              name="ProfileTab"
+              component={ProfileScreen}
+              options={{
+                tabBarLabel: "Perfil",
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="person" size={size} color={color} />
+                ),
+              }}
+            />
+            <Tab.Screen
+              name="SettingsTab"
               component={SettingsScreen}
               options={{
                 tabBarLabel: "Configurações",

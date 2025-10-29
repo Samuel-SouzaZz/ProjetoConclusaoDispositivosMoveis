@@ -99,7 +99,7 @@ async getToken(): Promise<string | null> {
     const response = await this.api.post('/auth/login', { email, password });
     const { user, tokens } = response.data;
     await this.saveTokens(tokens.accessToken, tokens.refreshToken);
-    return user;
+    return { user, tokens };
   }
 
   /**

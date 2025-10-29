@@ -80,7 +80,6 @@ export default function ProfileScreen() {
       setExercises(data.exercises || []);
       setSubmissions(data.submissions || []);
     } catch (error) {
-      console.error("Erro ao carregar perfil:", error);
     } finally {
       setLoading(false);
     }
@@ -93,8 +92,6 @@ export default function ProfileScreen() {
   };
 
   const navigateToExercise = (exerciseId: string, isEdit: boolean) => {
-    // TODO: Implementar navegação para EditExercise ou ExerciseDetail
-    console.log(`Navegar para ${isEdit ? 'EditExercise' : 'ExerciseDetail'}:`, exerciseId);
   };
 
   if (loading && !profile) {
@@ -667,4 +664,5 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
 });
+
 

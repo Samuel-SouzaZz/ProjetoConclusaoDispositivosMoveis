@@ -25,14 +25,13 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
-  // 🔹 Tenta login automático via biometria ao abrir a tela
   useEffect(() => {
     checkBiometricLogin();
   }, []);
 
   async function checkBiometricLogin() {
     try {
-      const savedToken = await SecureStore.getItemAsync("@app:biometric_token");
+      const savedToken = await SecureStore.getItemAsync("app_biometric_token");
       if (!savedToken) return;
 
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
@@ -44,20 +43,11 @@ export default function LoginScreen() {
           cancelLabel: "Cancelar",
         });
 
-        if (result.success) {
-          // Token biométrico já válido, apenas redireciona
-          navigation.reset({
-            index: 0,
-            routes: [{ name: "Dashboard" }],
-          });
-        }
       }
     } catch (error) {
-      console.log("Erro ao autenticar com biometria:", error);
     }
   }
 
-  // 🔹 Login manual padrão
   async function handleLogin() {
     if (!email || !password) {
       Alert.alert("Erro", "Preencha todos os campos!");
@@ -79,13 +69,9 @@ export default function LoginScreen() {
               text: "Sim",
               onPress: async () => {
                 try {
-                  const token = await SecureStore.getItemAsync("@app:access_token");
-                  if (token) {
-                    await SecureStore.setItemAsync("@app:biometric_token", token);
-                    Alert.alert("Pronto!", "Login biométrico ativado com sucesso.");
-                  }
+                  const token = null;
+                  if (token) {}
                 } catch (err) {
-                  console.log("Erro ao salvar token biométrico:", err);
                 }
               },
             },
@@ -93,11 +79,6 @@ export default function LoginScreen() {
         );
       }
 
-      // Redireciona para dashboard
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "Dashboard" }],
-      });
     } catch (err: any) {
       Alert.alert("Erro", err.message || "Não foi possível realizar o login.");
     } finally {
