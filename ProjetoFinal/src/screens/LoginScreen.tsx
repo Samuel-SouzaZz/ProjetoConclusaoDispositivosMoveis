@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -9,8 +9,10 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useAuth } from "../contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
+import * as LocalAuthentication from "expo-local-authentication";
+import * as SecureStore from "expo-secure-store";
+import { useAuth } from "../contexts/AuthContext";
 import { styles } from "../styles/authStyles";
 
 export default function LoginScreen() {
@@ -23,6 +25,39 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
 
+  // 🔹 Tenta login automático via biometria ao abrir a tela
+  useEffect(() => {
+    checkBiometricLogin();
+  }, []);
+
+  async function checkBiometricLogin() {
+    try {
+      const savedToken = await SecureStore.getItemAsync("@app:biometric_token");
+      if (!savedToken) return;
+
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+
+      if (hasHardware && enrolled) {
+        const result = await LocalAuthentication.authenticateAsync({
+          promptMessage: "Autentique-se para continuar",
+          cancelLabel: "Cancelar",
+        });
+
+        if (result.success) {
+          // Token biométrico já válido, apenas redireciona
+          navigation.reset({
+            index: 0,
+            routes: [{ name: "Dashboard" }],
+          });
+        }
+      }
+    } catch (error) {
+      console.log("Erro ao autenticar com biometria:", error);
+    }
+  }
+
+  // 🔹 Login manual padrão
   async function handleLogin() {
     if (!email || !password) {
       Alert.alert("Erro", "Preencha todos os campos!");
@@ -32,6 +67,37 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await login(email, password);
+
+      // Pergunta se o usuário quer ativar login biométrico
+      if (!rememberMe) {
+        Alert.alert(
+          "Acesso Biométrico",
+          "Deseja permitir login por biometria nas próximas vezes?",
+          [
+            { text: "Não", style: "cancel" },
+            {
+              text: "Sim",
+              onPress: async () => {
+                try {
+                  const token = await SecureStore.getItemAsync("@app:access_token");
+                  if (token) {
+                    await SecureStore.setItemAsync("@app:biometric_token", token);
+                    Alert.alert("Pronto!", "Login biométrico ativado com sucesso.");
+                  }
+                } catch (err) {
+                  console.log("Erro ao salvar token biométrico:", err);
+                }
+              },
+            },
+          ]
+        );
+      }
+
+      // Redireciona para dashboard
+      navigation.reset({
+        index: 0,
+        routes: [{ name: "Dashboard" }],
+      });
     } catch (err: any) {
       Alert.alert("Erro", err.message || "Não foi possível realizar o login.");
     } finally {
@@ -41,29 +107,24 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Forma decorativa azul no topo */}
       <View style={styles.blueShape} />
-      
-      {/* Forma decorativa amarela no rodapé */}
       <View style={styles.yellowShape} />
 
       <View style={styles.container}>
-        {/* Botão Voltar */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.navigate("Home")}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
         </TouchableOpacity>
-        {/* Conteúdo principal */}
+
         <View style={styles.content}>
           <Text style={styles.title}>Entrar</Text>
           <Text style={styles.subtitle}>
             Aprenda estrutura de dados de forma cativante
           </Text>
 
-          {/* Campo E-mail */}
           <Text style={styles.label}>E-mail</Text>
           <TextInput
             style={styles.input}
@@ -76,7 +137,6 @@ export default function LoginScreen() {
             autoCorrect={false}
           />
 
-          {/* Campo Senha */}
           <Text style={styles.label}>Senha</Text>
           <View style={styles.passwordContainer}>
             <TextInput
@@ -100,19 +160,19 @@ export default function LoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Continuar conectado */}
           <TouchableOpacity
             style={styles.checkboxContainer}
             onPress={() => setRememberMe(!rememberMe)}
             activeOpacity={0.7}
           >
             <View style={styles.checkbox}>
-              {rememberMe && <Ionicons name="checkmark" size={16} color="#3B5BDB" />}
+              {rememberMe && (
+                <Ionicons name="checkmark" size={16} color="#3B5BDB" />
+              )}
             </View>
             <Text style={styles.checkboxLabel}>Continuar conectado</Text>
           </TouchableOpacity>
 
-          {/* Botão Acessar */}
           <TouchableOpacity
             style={[styles.button, loading && styles.buttonDisabled]}
             onPress={handleLogin}
@@ -127,7 +187,6 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Rodapé - Criar conta */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>Não tem uma conta? </Text>
           <TouchableOpacity onPress={() => navigation.navigate("Signup")}>

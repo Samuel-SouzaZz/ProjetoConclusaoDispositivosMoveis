@@ -1,11 +1,14 @@
+// AuthContext.tsx
 import React, { createContext, useState, ReactNode, useContext, useEffect } from "react";
 import { Alert } from "react-native";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { RootStackParamList } from "../navigation/AppNavigator";
+import * as SecureStore from "expo-secure-store";
+import * as LocalAuthentication from "expo-local-authentication";
 import ApiService from "../services/ApiService";
 import UserService from "../services/UserService";
 import DatabaseService from "../services/DatabaseService";
+import { RootStackParamList } from "../navigation/AppNavigator";
 
 interface User {
   id: string;
@@ -31,42 +34,52 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
 
-const USER_ID_KEY = '@app:user_id';
+const USER_ID_KEY = "@app:user_id";
+const BIOMETRIC_TOKEN_KEY = "@app:biometric_token";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
 
-  // Inicializa banco e verifica sessão ao carregar o app
   useEffect(() => {
     initializeAuth();
   }, []);
 
   async function initializeAuth() {
     try {
-      // 1. Inicializa o SQLite (cache local)
       await DatabaseService.initDatabase();
-      
-      // 2. Verifica se há token JWT salvo
+
+      const biometricToken = await SecureStore.getItemAsync(BIOMETRIC_TOKEN_KEY);
+      if (biometricToken) {
+        const hasHardware = await LocalAuthentication.hasHardwareAsync();
+        const enrolled = await LocalAuthentication.isEnrolledAsync();
+
+        if (hasHardware && enrolled) {
+          const result = await LocalAuthentication.authenticateAsync({
+            promptMessage: "Autentique-se para continuar",
+          });
+
+          if (result.success) {
+            const userData = await ApiService.getMe();
+            setUser(userData);
+            navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
+            setLoading(false);
+            return;
+          }
+        }
+      }
+
       const isAuth = await ApiService.isAuthenticated();
-      
       if (isAuth) {
-        // 3. Busca dados atualizados do backend
         const userData = await ApiService.getMe();
-        
-        // 4. Salva ID do usuário
         await AsyncStorage.setItem(USER_ID_KEY, userData.id);
-        
-        // 5. Sincroniza dados no cache local (SQLite)
         await UserService.syncUserFromBackend(userData);
-        
         setUser(userData);
         navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
       }
     } catch (error) {
-      console.log("Não autenticado ou token expirado");
-      // Limpa tokens inválidos
+      console.log("Sessão expirada ou não autenticado:", error);
       await ApiService.clearTokens();
     } finally {
       setLoading(false);
@@ -80,18 +93,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      // 1. Autentica no BACKEND (retorna token + dados do usuário)
-      const userData = await ApiService.login(email, password);
-      
-      // 2. Salva ID do usuário
+      const { user: userData, tokens } = await ApiService.login(email, password);
+
       await AsyncStorage.setItem(USER_ID_KEY, userData.id);
-      
-      // 3. Sincroniza dados no cache local (SQLite)
       await UserService.syncUserFromBackend(userData);
-      
+
       setUser(userData);
       Alert.alert("Sucesso", `Bem-vindo(a), ${userData.name}!`);
       navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
+
+      // Pergunta ao usuário se quer salvar para biometria
+      Alert.alert(
+        "Acesso Biométrico",
+        "Deseja permitir login por biometria nas próximas vezes?",
+        [
+          { text: "Não", style: "cancel" },
+          {
+            text: "Sim",
+            onPress: async () => {
+              await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, tokens.accessToken);
+            },
+          },
+        ]
+      );
     } catch (error: any) {
       const message = ApiService.handleError(error);
       Alert.alert("Erro no Login", message);
@@ -99,56 +123,51 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  async function signup(
-    email: string,
-    password: string,
-    name: string,
-    handle: string,
-    collegeId?: string
-  ) {
+  async function signup(email: string, password: string, name: string, handle: string, collegeId?: string) {
     if (!email || !password || !name || !handle) {
       Alert.alert("Erro", "Preencha todos os campos obrigatórios!");
       return;
     }
 
-    // Validação de email
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       Alert.alert("Erro", "Email inválido!");
       return;
     }
 
-    // Validação de senha
     if (password.length < 6) {
       Alert.alert("Erro", "A senha deve ter no mínimo 6 caracteres!");
       return;
     }
 
-    // Validação de handle
     if (handle.length < 3) {
       Alert.alert("Erro", "O nome de usuário deve ter no mínimo 3 caracteres!");
       return;
     }
 
     try {
-      // 1. Cadastra no BACKEND (retorna token + dados do usuário)
-      const userData = await ApiService.signup({
-        name,
-        email,
-        password,
-        handle,
-        collegeId,
-      });
-
-      // 2. Salva ID do usuário
+      const { user: userData, tokens } = await ApiService.signup({ name, email, password, handle, collegeId });
       await AsyncStorage.setItem(USER_ID_KEY, userData.id);
-
-      // 3. Sincroniza dados no cache local (SQLite)
       await UserService.syncUserFromBackend(userData);
 
       setUser(userData);
       Alert.alert("Sucesso", "Cadastro realizado com sucesso!");
       navigation.reset({ index: 0, routes: [{ name: "Dashboard" }] });
+
+      // Pergunta biometria após cadastro
+      Alert.alert(
+        "Acesso Biométrico",
+        "Deseja permitir login por biometria nas próximas vezes?",
+        [
+          { text: "Não", style: "cancel" },
+          {
+            text: "Sim",
+            onPress: async () => {
+              await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, tokens.accessToken);
+            },
+          },
+        ]
+      );
     } catch (error: any) {
       const message = ApiService.handleError(error);
       Alert.alert("Erro no Cadastro", message);
@@ -158,17 +177,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   async function logout() {
     try {
-      // 1. Limpa tokens JWT
       await ApiService.clearTokens();
-      
-      // 2. Limpa ID do AsyncStorage
       await AsyncStorage.removeItem(USER_ID_KEY);
-      
-      // 3. Limpa cache do SQLite (opcional - pode manter para próximo login)
-      if (user?.id) {
-        await UserService.clearUserCache(user.id);
-      }
-      
+      await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
+
+      if (user?.id) await UserService.clearUserCache(user.id);
+
       setUser(null);
       navigation.reset({ index: 0, routes: [{ name: "Login" }] });
     } catch (error) {
@@ -176,9 +190,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  /**
-   * Atualiza dados do usuário do backend
-   */
   async function refreshUser() {
     try {
       const userData = await ApiService.getMe();
@@ -196,6 +207,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
+// ✅ Export nomeado correto para o LoginScreen
 export function useAuth() {
   return useContext(AuthContext);
 }
