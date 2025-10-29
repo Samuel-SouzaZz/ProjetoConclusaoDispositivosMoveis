@@ -83,6 +83,15 @@ class ApiService {
     return user;
   }
 
+
+  /**
+ * Retornar o token JWT salvo (para uso no AuthContext/biometria)
+ */
+async getToken(): Promise<string | null> {
+  const token = await AsyncStorage.getItem(TOKEN_KEY);
+  return token;
+} 
+
   /**
    * AUTH - Login
    */
