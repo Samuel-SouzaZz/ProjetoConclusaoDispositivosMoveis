@@ -12,6 +12,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import BottomNavigation from "../components/BottomNavigation";
@@ -29,6 +30,7 @@ type TabNavigationProp = BottomTabNavigationProp<{
 
 export default function DashboardScreen() {
   const { user, loading } = useAuth();
+  const { colors, isDarkMode } = useTheme();
   const navigation = useNavigation<TabNavigationProp>();
 
   if (loading) {
@@ -66,15 +68,15 @@ export default function DashboardScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, {backgroundColor: colors.background}]}>
       {/* Header com busca e perfil */}
-      <View style={styles.header}>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#666" />
+      <View style={[styles.header, {backgroundColor: colors.card, borderBottomColor: isDarkMode ? colors.border : "#f0f0f0"}]}>
+        <View style={[styles.searchContainer, {backgroundColor: isDarkMode ? colors.cardSecondary : "#F5F5F5"}]}>
+          <Ionicons name="search" size={20} color={colors.textSecondary} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, {color: colors.text}]}
             placeholder="Search"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textSecondary}
           />
         </View>
         <View style={styles.profileContainer}>
@@ -89,15 +91,15 @@ export default function DashboardScreen() {
       </View>
 
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, {backgroundColor: colors.background}]}
         showsVerticalScrollIndicator={false}
       >
         {/* Saudação */}
         <View style={styles.greetingContainer}>
-          <Text style={styles.greetingTitle}>
+          <Text style={[styles.greetingTitle, {color: colors.text}]}>
             Olá {user?.name?.split(' ')[0] || 'Marcos'}!
           </Text>
-          <Text style={styles.greetingSubtitle}>Boas vindas de volta!</Text>
+          <Text style={[styles.greetingSubtitle, {color: colors.textSecondary}]}>Boas vindas de volta!</Text>
         </View>
 
         {/* Cards de ação rápida */}
@@ -149,17 +151,17 @@ export default function DashboardScreen() {
 
         {/* Seção Em Destaque */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{'{'}<Text style={styles.sectionTitleHighlight}>Em Destaque</Text>{'}'}</Text>
+          <Text style={[styles.sectionTitle, {color: colors.text}]}>{'{'}<Text style={styles.sectionTitleHighlight}>Em Destaque</Text>{'}'}</Text>
           
           <View style={styles.cardsRow}>
-            <TouchableOpacity style={[styles.featuredCard, styles.darkCard]}>
+            <TouchableOpacity style={[styles.featuredCard, styles.darkCard, {backgroundColor: isDarkMode ? colors.cardSecondary : "#1A1A1A"}]}>
               <View style={styles.cardIcon}>
                 <FontAwesome5 name="football-ball" size={24} color="#fff" />
               </View>
-              <Text style={styles.cardTitle}>Lorem ipsum dolor sit amet consectetur.</Text>
-              <TouchableOpacity style={styles.cardButton}>
-                <Text style={styles.cardButtonText}>Comece agora</Text>
-                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              <Text style={[styles.cardTitle, {color: "#fff"}]}>Lorem ipsum dolor sit amet consectetur.</Text>
+              <TouchableOpacity style={[styles.cardButton, {backgroundColor: colors.primary}]}>
+                <Text style={[styles.cardButtonText, {color: isDarkMode ? "#1A1A1A" : "#fff"}]}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color={isDarkMode ? "#1A1A1A" : "#fff"} />
               </TouchableOpacity>
             </TouchableOpacity>
 
@@ -239,7 +241,6 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#FAFAFA",
   },
   scrollView: {
     flex: 1,
@@ -251,15 +252,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
   searchContainer: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
     borderRadius: 25,
     paddingHorizontal: 15,
     paddingVertical: 10,
@@ -269,7 +267,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 10,
     fontSize: 16,
-    color: "#333",
   },
   profileContainer: {
     alignItems: "center",
