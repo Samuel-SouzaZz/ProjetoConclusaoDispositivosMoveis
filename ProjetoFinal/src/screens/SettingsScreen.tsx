@@ -60,8 +60,8 @@ export default function SettingsScreen() {
                 <View style={styles.pickerContainer}>
                   <Picker
                     selectedValue={selectedFontSize}
-                    style={[styles.picker, {color: colors.text}]}
-                    dropdownIconColor={colors.text}
+                    style={[styles.picker, {color: colors.text, backgroundColor: isDarkMode ? colors.card : 'transparent'}]}
+                    dropdownIconColor={colors.primary}
                     onValueChange={(itemValue) => setSelectedFontSize(itemValue)}
                     mode="dropdown"
                   >
@@ -180,8 +180,8 @@ export default function SettingsScreen() {
                 <View style={styles.pickerContainer}>
                   <Picker
                     selectedValue={selectedPrivacy}
-                    style={[styles.picker, {color: colors.text}]}
-                    dropdownIconColor={colors.text}
+                    style={[styles.picker, {color: colors.text, backgroundColor: isDarkMode ? colors.card : 'transparent'}]}
+                    dropdownIconColor={colors.primary}
                     onValueChange={(itemValue) => setSelectedPrivacy(itemValue)}
                     mode="dropdown"
                   >
@@ -238,8 +238,8 @@ export default function SettingsScreen() {
                 <View style={styles.pickerContainer}>
                   <Picker
                     selectedValue={selectedLanguage}
-                    style={[styles.picker, {color: colors.text}]}
-                    dropdownIconColor={colors.text}
+                    style={[styles.picker, {color: colors.text, backgroundColor: isDarkMode ? colors.card : 'transparent'}]}
+                    dropdownIconColor={colors.primary}
                     onValueChange={(itemValue) => setSelectedLanguage(itemValue)}
                     mode="dropdown"
                   >
@@ -258,8 +258,8 @@ export default function SettingsScreen() {
                 <View style={styles.pickerContainer}>
                   <Picker
                     selectedValue={selectedTimeZone}
-                    style={[styles.picker, {color: colors.text}]}
-                    dropdownIconColor={colors.text}
+                    style={[styles.picker, {color: colors.text, backgroundColor: isDarkMode ? colors.card : 'transparent'}]}
+                    dropdownIconColor={colors.primary}
                     onValueChange={(itemValue) => setSelectedTimeZone(itemValue)}
                     mode="dropdown"
                   >
@@ -278,8 +278,8 @@ export default function SettingsScreen() {
                 <View style={styles.pickerContainer}>
                   <Picker
                     selectedValue={selectedDateFormat}
-                    style={[styles.picker, {color: colors.text}]}
-                    dropdownIconColor={colors.text}
+                    style={[styles.picker, {color: colors.text, backgroundColor: isDarkMode ? colors.card : 'transparent'}]}
+                    dropdownIconColor={colors.primary}
                     onValueChange={(itemValue) => setSelectedDateFormat(itemValue)}
                     mode="dropdown"
                   >
@@ -434,6 +434,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderBottomWidth: 0.5,
     borderBottomColor: "rgba(0,0,0,0.05)",
+    backgroundColor: 'transparent',
   },
   accountButtonText: {
     fontSize: 16,
@@ -463,6 +464,7 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     borderRadius: 10,
     alignItems: "center",
+    backgroundColor: '#4A90E2',
   },
   saveButtonText: {
     color: "#fff",

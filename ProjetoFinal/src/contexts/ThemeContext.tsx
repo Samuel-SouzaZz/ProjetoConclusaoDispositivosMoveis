@@ -86,13 +86,13 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
   const isDarkMode = theme === "dark";
 
   const colors = {
-    background: isDarkMode ? '#121212' : '#FAFAFA',
+    background: isDarkMode ? '#1A2942' : '#FAFAFA',
     text: isDarkMode ? '#FFFFFF' : '#1A1A1A',
-    textSecondary: isDarkMode ? '#AAAAAA' : '#666666',
-    primary: isDarkMode ? '#BB86FC' : '#4A90E2',
-    card: isDarkMode ? '#1E1E1E' : '#FFFFFF',
-    cardSecondary: isDarkMode ? '#2D2D2D' : '#F5F5F5',
-    border: isDarkMode ? '#333333' : '#E0E0E0',
+    textSecondary: isDarkMode ? '#CCCCCC' : '#666666',
+    primary: isDarkMode ? '#4A90E2' : '#4A90E2',
+    card: isDarkMode ? '#243656' : '#FFFFFF',
+    cardSecondary: isDarkMode ? '#2F4562' : '#F5F5F5',
+    border: isDarkMode ? '#3A5277' : '#E0E0E0',
     easy: isDarkMode ? '#2E7D32' : '#E8F5E8',
     medium: isDarkMode ? '#EF6C00' : '#FFF3E0', 
     hard: isDarkMode ? '#C62828' : '#FFEBEE',
