@@ -5,6 +5,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { View } from "react-native";
 import LoginScreen from "../screens/LoginScreen";
 import SignupScreen from "../screens/SignupScreen";
+import HomeScreen from "../screens/HomeScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import DiscussionsScreen from "../screens/DiscussionsScreen";
 import RankingScreen from "../screens/RankingScreen";
@@ -16,6 +17,7 @@ import { useTheme } from "../contexts/ThemeContext";
 
 // Tipagem para o Stack Navigator
 export type RootStackParamList = {
+  Home: undefined;
   Login: undefined;
   Signup: undefined;
   Dashboard: undefined;
@@ -48,7 +50,8 @@ export default function AppNavigator() {
 
   if (!user) {
     return (
-      <Stack.Navigator initialRouteName="Login" screenOptions={{ headerShown: false }}>
+      <Stack.Navigator initialRouteName="Home" screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="Home" component={HomeScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Signup" component={SignupScreen} />
       </Stack.Navigator>

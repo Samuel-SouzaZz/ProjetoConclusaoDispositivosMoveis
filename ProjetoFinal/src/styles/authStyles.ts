@@ -48,8 +48,8 @@ export const styles = StyleSheet.create({
     top: 10,
     left: 20,
     zIndex: 10,
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: 22,
     backgroundColor: "#fff",
     justifyContent: "center",
@@ -77,22 +77,23 @@ export const styles = StyleSheet.create({
 
   // Textos
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "700",
     color: "#1A1A1A",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   subtitle: {
-    fontSize: 14,
-    color: "#8E8E93",
+    fontSize: 16,
+    color: "#333333",
     marginBottom: 40,
-    lineHeight: 20,
+    lineHeight: 24,
+    fontWeight: "400",
   },
   label: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#1A1A1A",
-    marginBottom: 8,
-    fontWeight: "500",
+    marginBottom: 10,
+    fontWeight: "600",
   },
 
   // Inputs
@@ -100,8 +101,8 @@ export const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
+    paddingVertical: 16,
+    fontSize: 16,
     color: "#1A1A1A",
     marginBottom: 20,
     borderWidth: 1,
@@ -111,8 +112,8 @@ export const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
+    paddingVertical: 16,
+    fontSize: 16,
     color: "#1A1A1A",
     marginBottom: 16,
     borderWidth: 1,
@@ -126,7 +127,7 @@ export const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 4,
+    paddingVertical: 6,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: "#E8E8E8",
@@ -137,19 +138,19 @@ export const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 4,
+    paddingVertical: 6,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: "#E8E8E8",
   },
   passwordInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16,
     color: "#1A1A1A",
     paddingVertical: 10,
   },
   eyeIcon: {
-    padding: 4,
+    padding: 8,
   },
 
   // Select (Picker)
@@ -166,12 +167,14 @@ export const styles = StyleSheet.create({
     borderColor: "#E8E8E8",
   },
   selectPlaceholder: {
-    fontSize: 15,
-    color: "#999",
+    fontSize: 16,
+    color: "#666666",
+    fontWeight: "400",
   },
   selectText: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#1A1A1A",
+    fontWeight: "500",
   },
 
   // Checkbox
@@ -192,15 +195,16 @@ export const styles = StyleSheet.create({
     marginRight: 10,
   },
   checkboxLabel: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#1A1A1A",
+    fontWeight: "400",
   },
 
   // Botões
   button: {
     backgroundColor: "#3B5BDB",
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#3B5BDB",
@@ -212,7 +216,7 @@ export const styles = StyleSheet.create({
   buttonSignup: {
     backgroundColor: "#3B5BDB",
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
@@ -227,7 +231,7 @@ export const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
   },
 
@@ -241,11 +245,12 @@ export const styles = StyleSheet.create({
     zIndex: 2,
   },
   footerText: {
-    fontSize: 14,
-    color: "#1A1A1A",
+    fontSize: 16,
+    color: "#333333",
+    fontWeight: "400",
   },
   footerLink: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#3B5BDB",
     fontWeight: "600",
     textDecorationLine: "underline",
@@ -275,8 +280,8 @@ export const styles = StyleSheet.create({
     borderBottomColor: "#E8E8E8",
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 20,
+    fontWeight: "700",
     color: "#1A1A1A",
   },
   modalClose: {
@@ -291,9 +296,10 @@ export const styles = StyleSheet.create({
     borderBottomColor: "#F5F5F5",
   },
   collegeItemText: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#1A1A1A",
     flex: 1,
+    fontWeight: "400",
   },
 
   // ==== ESTILOS ANTIGOS (mantidos para compatibilidade) ====

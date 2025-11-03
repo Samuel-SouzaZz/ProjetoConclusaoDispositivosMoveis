@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { TextInput as RNTextInput } from "react-native";
 import {
   View,
   Text,
@@ -24,6 +25,7 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const passwordRef = useRef<RNTextInput>(null);
 
   useEffect(() => {
     checkBiometricLogin();
@@ -96,6 +98,9 @@ export default function LoginScreen() {
           style={styles.backButton}
           onPress={() => navigation.navigate("Home")}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+          accessibilityHint="Voltar para a tela inicial"
         >
           <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
         </TouchableOpacity>
@@ -116,6 +121,12 @@ export default function LoginScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
             autoCorrect={false}
+            autoComplete="email"
+            textContentType="emailAddress"
+            returnKeyType="next"
+            accessibilityLabel="E-mail"
+            accessibilityHint="Digite seu e-mail"
+            onSubmitEditing={() => passwordRef.current?.focus()}
           />
 
           <Text style={styles.label}>Senha</Text>
@@ -128,10 +139,19 @@ export default function LoginScreen() {
               value={password}
               onChangeText={setPassword}
               autoCapitalize="none"
+              ref={passwordRef}
+              autoComplete="password"
+              textContentType="password"
+              returnKeyType="done"
+              accessibilityLabel="Senha"
+              accessibilityHint="Digite sua senha"
             />
             <TouchableOpacity
               style={styles.eyeIcon}
               onPress={() => setShowPassword(!showPassword)}
+              accessibilityRole="button"
+              accessibilityLabel={showPassword ? "Ocultar senha" : "Mostrar senha"}
+              accessibilityHint="Alterna a visibilidade da senha"
             >
               <Ionicons
                 name={showPassword ? "eye-off-outline" : "eye-outline"}
@@ -145,6 +165,9 @@ export default function LoginScreen() {
             style={styles.checkboxContainer}
             onPress={() => setRememberMe(!rememberMe)}
             activeOpacity={0.7}
+            accessibilityRole="checkbox"
+            accessibilityState={{ checked: rememberMe }}
+            accessibilityLabel="Continuar conectado"
           >
             <View style={styles.checkbox}>
               {rememberMe && (
@@ -159,6 +182,9 @@ export default function LoginScreen() {
             onPress={handleLogin}
             disabled={loading}
             activeOpacity={0.8}
+            accessibilityRole="button"
+            accessibilityLabel="Acessar"
+            accessibilityHint="Entrar no aplicativo"
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -170,7 +196,12 @@ export default function LoginScreen() {
 
         <View style={styles.footer}>
           <Text style={styles.footerText}>Não tem uma conta? </Text>
-          <TouchableOpacity onPress={() => navigation.navigate("Signup")}>
+          <TouchableOpacity 
+            onPress={() => navigation.navigate("Signup")}
+            accessibilityRole="button"
+            accessibilityLabel="Criar conta"
+            accessibilityHint="Ir para tela de cadastro"
+          >
             <Text style={styles.footerLink}>Criar conta</Text>
           </TouchableOpacity>
         </View>

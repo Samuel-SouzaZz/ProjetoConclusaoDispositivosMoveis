@@ -83,8 +83,11 @@ export default function SignupScreen() {
         {/* Botão Voltar */}
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => navigation.navigate("Login")}
+          onPress={() => navigation.navigate("Home")}
           activeOpacity={0.7}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+          accessibilityHint="Voltar para a tela inicial"
         >
           <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
         </TouchableOpacity>
@@ -104,6 +107,10 @@ export default function SignupScreen() {
               placeholderTextColor="#999"
               value={firstName}
               onChangeText={setFirstName}
+              accessibilityLabel="Nome"
+              accessibilityHint="Digite seu primeiro nome"
+              textContentType="givenName"
+              autoComplete="name-given"
             />
 
             {/* Sobrenome */}
@@ -114,6 +121,10 @@ export default function SignupScreen() {
               placeholderTextColor="#999"
               value={lastName}
               onChangeText={setLastName}
+              accessibilityLabel="Sobrenome"
+              accessibilityHint="Digite seu sobrenome"
+              textContentType="familyName"
+              autoComplete="name-family"
             />
 
             {/* Nome de usuário */}
@@ -127,6 +138,10 @@ export default function SignupScreen() {
                 setHandle(text.toLowerCase().replace(/\s/g, ""))
               }
               autoCapitalize="none"
+              accessibilityLabel="Nome de usuário"
+              accessibilityHint="Digite um nome de usuário sem espaços"
+              textContentType="username"
+              autoComplete="username"
             />
 
             {/* E-mail */}
@@ -139,6 +154,10 @@ export default function SignupScreen() {
               onChangeText={setEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              accessibilityLabel="E-mail"
+              accessibilityHint="Digite seu e-mail"
+              textContentType="emailAddress"
+              autoComplete="email"
             />
 
             {/* Senha */}
@@ -152,10 +171,17 @@ export default function SignupScreen() {
                 value={password}
                 onChangeText={setPassword}
                 autoCapitalize="none"
+                accessibilityLabel="Senha"
+                accessibilityHint="Digite sua senha com no mínimo 6 caracteres"
+                textContentType="newPassword"
+                autoComplete="password-new"
               />
               <TouchableOpacity
                 style={styles.eyeIcon}
                 onPress={() => setShowPassword(!showPassword)}
+                accessibilityRole="button"
+                accessibilityLabel={showPassword ? "Ocultar senha" : "Mostrar senha"}
+                accessibilityHint="Alterna a visibilidade da senha"
               >
                 <Ionicons
                   name={showPassword ? "eye-off-outline" : "eye-outline"}
@@ -170,6 +196,9 @@ export default function SignupScreen() {
             <TouchableOpacity
               style={styles.selectInput}
               onPress={() => setCollegeModalVisible(true)}
+              accessibilityRole="button"
+              accessibilityLabel="Selecionar faculdade"
+              accessibilityHint="Abre a lista de faculdades"
             >
               <Text
                 style={college ? styles.selectText : styles.selectPlaceholder}
@@ -185,6 +214,9 @@ export default function SignupScreen() {
               onPress={handleSignup}
               disabled={loading}
               activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Cadastrar"
+              accessibilityHint="Criar conta no aplicativo"
             >
               {loading ? (
                 <ActivityIndicator color="#fff" />
@@ -197,7 +229,12 @@ export default function SignupScreen() {
           {/* Rodapé */}
           <View style={styles.footer}>
             <Text style={styles.footerText}>Já tem conta? </Text>
-            <TouchableOpacity onPress={() => navigation.navigate("Login")}>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate("Login")}
+              accessibilityRole="button"
+              accessibilityLabel="Fazer login"
+              accessibilityHint="Voltar para tela de login"
+            >
               <Text style={styles.footerLink}>Fazer login</Text>
             </TouchableOpacity>
           </View>
