@@ -33,6 +33,22 @@ class DatabaseService {
         );
       `);
 
+      await db!.execAsync(`
+        CREATE TABLE IF NOT EXISTS exercises (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          difficulty INTEGER DEFAULT 1,
+          xp INTEGER DEFAULT 100,
+          isPublic INTEGER DEFAULT 1,
+          codeTemplate TEXT,
+          status TEXT DEFAULT 'Draft',
+          progress INTEGER DEFAULT 0,
+          userId TEXT,
+          synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+
       
     } catch (error) {
       
@@ -56,6 +72,7 @@ class DatabaseService {
 
     try {
       await db!.execAsync("DROP TABLE IF EXISTS users;");
+      await db!.execAsync("DROP TABLE IF EXISTS exercises;");
       await this.initDatabase();
     } catch (error) {}
   }

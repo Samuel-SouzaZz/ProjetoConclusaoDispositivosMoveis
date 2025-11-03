@@ -13,36 +13,10 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute, RouteProp } from "@react-navigation/native";
 import { useTheme } from "../contexts/ThemeContext";
+import { useAuth } from "../contexts/AuthContext";
+import ApiService from "../services/ApiService";
+import ExerciseService from "../services/ExerciseService";
 
-const initialExercises = [
-  {
-    id: "1",
-    title: "Algoritmos de Ordenação",
-    description: "Bubble Sort, Quick Sort, Merge Sort",
-    difficulty: "Médio",
-    progress: 60,
-    isPublic: true,
-    xp: 100,
-  },
-  {
-    id: "2", 
-    title: "Estruturas de Dados",
-    description: "Arrays, Listas, Pilhas, Filas",
-    difficulty: "Fácil",
-    progress: 30,
-    isPublic: true,
-    xp: 80,
-  },
-  {
-    id: "3",
-    title: "Árvores e Grafos",
-    description: "BST, AVL, Dijkstra, BFS/DFS",
-    difficulty: "Difícil",
-    progress: 80,
-    isPublic: false,
-    xp: 150,
-  },
-];
 
 const difficultyOptions = [
   { value: 1, label: "Fácil", color: "#4CAF50" },
@@ -128,11 +102,13 @@ const DetailedExerciseCard = ({
 
 export default function ExercisesScreen() {
   const { commonStyles, colors } = useTheme();
+  const { user } = useAuth();
   const route = useRoute<RouteProp<Record<string, { openCreate?: boolean }>, string>>();
-  const [exercises, setExercises] = useState(initialExercises);
+  const [exercises, setExercises] = useState<any[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingExercise, setEditingExercise] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -156,10 +132,66 @@ export default function ExercisesScreen() {
   };
 
   useEffect(() => {
+    loadExercises();
+  }, [user]);
+
+  useEffect(() => {
     if ((route.params as any)?.openCreate) {
       handleAddPress();
     }
   }, [route.params]);
+
+  const loadExercises = async () => {
+    if (!user?.id) {
+      setInitialLoading(false);
+      return;
+    }
+
+    try {
+      setInitialLoading(true);
+      const data = await ApiService.getMyExercises({ status: 'all' });
+      
+      if (data && data.exercises) {
+        const exercisesList = data.exercises.map((ex: any) => ({
+          id: ex.id,
+          title: ex.title,
+          description: ex.description || '',
+          difficulty: ex.difficulty === 1 ? 'Fácil' : ex.difficulty === 2 ? 'Médio' : 'Difícil',
+          progress: ex.progress || 0,
+          isPublic: ex.isPublic !== false,
+          xp: ex.xp || 100,
+        }));
+
+        setExercises(exercisesList);
+
+        for (const exercise of exercisesList) {
+          await ExerciseService.syncExerciseFromBackend({
+            ...exercise,
+            difficulty: exercise.difficulty === 'Fácil' ? 1 : exercise.difficulty === 'Médio' ? 2 : 3,
+            userId: user.id,
+          });
+        }
+      } else {
+        const cachedExercises = await ExerciseService.getExercisesByUserId(user.id);
+        if (cachedExercises.length > 0) {
+          setExercises(cachedExercises.map(ex => ({
+            ...ex,
+            difficulty: ex.difficulty === 1 ? 'Fácil' : ex.difficulty === 2 ? 'Médio' : 'Difícil',
+          })));
+        }
+      }
+    } catch (error) {
+      const cachedExercises = await ExerciseService.getExercisesByUserId(user?.id || '');
+      if (cachedExercises.length > 0) {
+        setExercises(cachedExercises.map(ex => ({
+          ...ex,
+          difficulty: ex.difficulty === 1 ? 'Fácil' : ex.difficulty === 2 ? 'Médio' : 'Difícil',
+        })));
+      }
+    } finally {
+      setInitialLoading(false);
+    }
+  };
 
   const handleEditPress = (exercise: any) => {
     setFormData({
@@ -183,9 +215,16 @@ export default function ExercisesScreen() {
         { 
           text: 'Excluir', 
           style: 'destructive',
-          onPress: () => {
-            setExercises(exercises.filter(e => e.id !== exercise.id));
-            Alert.alert('Sucesso', 'Exercício excluído com sucesso!');
+          onPress: async () => {
+            try {
+              await ApiService.deleteExercise(exercise.id);
+              await ExerciseService.deleteExercise(exercise.id);
+              setExercises(exercises.filter(e => e.id !== exercise.id));
+              Alert.alert('Sucesso', 'Exercício excluído com sucesso!');
+            } catch (error: any) {
+              const message = ApiService.handleError(error);
+              Alert.alert('Erro', message || 'Não foi possível excluir o exercício');
+            }
           }
         }
       ]
@@ -196,39 +235,95 @@ export default function ExercisesScreen() {
     Alert.alert('Exercício', `Abrir "${exercise.title}"`);
   };
 
-  const handleSaveExercise = () => {
+  const handleSaveExercise = async () => {
     if (!formData.title.trim()) {
       Alert.alert('Erro', 'Título é obrigatório');
       return;
     }
 
+    if (!user?.id) {
+      Alert.alert('Erro', 'Usuário não autenticado');
+      return;
+    }
+
     setLoading(true);
     
-    setTimeout(() => {
-      const difficultyLabel = difficultyOptions.find(d => d.value === formData.difficulty)?.label || 'Fácil';
-      
-      const newExercise = {
-        id: editingExercise ? editingExercise.id : Date.now().toString(),
+    try {
+      const exerciseData = {
         title: formData.title,
-        description: formData.description,
-        difficulty: difficultyLabel,
-        progress: 0,
-        isPublic: formData.isPublic,
+        description: formData.description || '',
+        difficulty: formData.difficulty,
         xp: formData.xp,
+        isPublic: formData.isPublic,
+        codeTemplate: formData.codeTemplate || '',
       };
 
       if (editingExercise) {
-        setExercises(exercises.map(e => e.id === editingExercise.id ? newExercise : e));
+        const response = await ApiService.updateExercise(editingExercise.id, exerciseData);
+        
+        const updatedExercise = {
+          id: editingExercise.id,
+          title: response.title || response.exercise?.title || formData.title,
+          description: response.description || response.exercise?.description || formData.description,
+          difficulty: difficultyOptions.find(d => d.value === formData.difficulty)?.label || 'Fácil',
+          progress: editingExercise.progress || 0,
+          isPublic: response.isPublic !== false && formData.isPublic,
+          xp: response.xp || response.exercise?.xp || formData.xp,
+        };
+
+        await ExerciseService.syncExerciseFromBackend({
+          ...updatedExercise,
+          difficulty: formData.difficulty,
+          userId: user.id,
+          status: editingExercise.status || 'Draft',
+        });
+
         Alert.alert('Sucesso', 'Exercício atualizado com sucesso!');
       } else {
-        setExercises([...exercises, newExercise]);
+        const response = await ApiService.createExercise(exerciseData);
+        
+        const newExercise = {
+          id: response.id || response.exercise?.id,
+          title: response.title || response.exercise?.title || formData.title,
+          description: response.description || response.exercise?.description || formData.description,
+          difficulty: difficultyOptions.find(d => d.value === formData.difficulty)?.label || 'Fácil',
+          progress: 0,
+          isPublic: response.isPublic !== false && formData.isPublic,
+          xp: response.xp || response.exercise?.xp || formData.xp,
+        };
+
+        await ExerciseService.syncExerciseFromBackend({
+          ...newExercise,
+          difficulty: formData.difficulty,
+          userId: user.id,
+          status: 'Draft',
+        });
+
         Alert.alert('Sucesso', 'Exercício criado com sucesso!');
       }
 
+      await loadExercises();
       setShowCreateModal(false);
+    } catch (error: any) {
+      const message = ApiService.handleError(error);
+      Alert.alert('Erro', message || 'Não foi possível salvar o exercício');
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
+
+  if (initialLoading) {
+    return (
+      <SafeAreaView style={commonStyles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
+            Carregando desafios...
+          </Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={commonStyles.container}>
@@ -238,7 +333,14 @@ export default function ExercisesScreen() {
       />
       
       <ScrollView style={[commonStyles.scrollView, styles.scrollView]}>
-        {exercises.map((exercise) => (
+        {exercises.length === 0 ? (
+          <View style={styles.emptyContainer}>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              Nenhum desafio criado ainda. Clique em "Criar" para começar!
+            </Text>
+          </View>
+        ) : (
+          exercises.map((exercise) => (
           <DetailedExerciseCard
             key={exercise.id}
             title={exercise.title}
@@ -251,7 +353,8 @@ export default function ExercisesScreen() {
             onEdit={() => handleEditPress(exercise)}
             onDelete={() => handleDeletePress(exercise)}
           />
-        ))}
+          ))
+        )}
       </ScrollView>
       
       <Modal
@@ -574,6 +677,27 @@ const styles = StyleSheet.create({
   checkboxLabel: {
     fontSize: 16,
     flex: 1,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 16,
+  },
+  loadingText: {
+    fontSize: 16,
+  },
+  emptyContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    paddingVertical: 60,
+    paddingHorizontal: 20,
+  },
+  emptyText: {
+    fontSize: 16,
+    textAlign: "center",
+    lineHeight: 24,
   },
 });
 

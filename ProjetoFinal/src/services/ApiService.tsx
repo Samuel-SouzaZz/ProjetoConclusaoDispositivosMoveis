@@ -175,6 +175,30 @@ async getToken(): Promise<string | null> {
   }
 
   /**
+   * EXERCISES - Atualizar exercício
+   */
+  async updateExercise(exerciseId: string, data: {
+    title?: string;
+    description?: string;
+    difficulty?: number;
+    codeTemplate?: string;
+    isPublic?: boolean;
+    languageId?: string;
+    xp?: number;
+  }) {
+    const response = await this.api.patch(`/exercises/${exerciseId}`, data);
+    return response.data;
+  }
+
+  /**
+   * EXERCISES - Excluir exercício
+   */
+  async deleteExercise(exerciseId: string) {
+    const response = await this.api.delete(`/exercises/${exerciseId}`);
+    return response.data;
+  }
+
+  /**
    * SUBMISSIONS - Listar minhas submissões
    */
   async getMySubmissions(params?: {
