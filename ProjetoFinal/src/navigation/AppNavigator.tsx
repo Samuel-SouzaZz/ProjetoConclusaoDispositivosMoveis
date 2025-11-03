@@ -11,6 +11,7 @@ import ExercisesScreen from "../screens/ExercisesScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 
 // Tipagem para o Stack Navigator
 export type RootStackParamList = {
@@ -34,6 +35,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function AppNavigator() {
   const { user, loading } = useAuth();
+  const { colors, isDarkMode } = useTheme();
 
   if (loading) {
     return (
@@ -59,15 +61,16 @@ export default function AppNavigator() {
           <Tab.Navigator
             screenOptions={{
               headerShown: false,
-              tabBarActiveTintColor: "#4A90E2",
-              tabBarInactiveTintColor: "#1A1A1A",
+              tabBarActiveTintColor: colors.primary,
+              tabBarInactiveTintColor: colors.textSecondary,
               tabBarStyle: {
-                backgroundColor: "#E3F2FD",
+                backgroundColor: colors.card,
                 borderTopLeftRadius: 20,
                 borderTopRightRadius: 20,
                 height: 70,
                 paddingBottom: 10,
                 paddingTop: 10,
+                borderTopColor: colors.border,
               },
             }}
           >
