@@ -14,6 +14,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
 import DatabaseService from "../services/DatabaseService";
 
@@ -48,6 +49,7 @@ interface Submission {
 
 export default function ProfileScreen() {
   const { user } = useAuth();
+  const { commonStyles, colors } = useTheme();
   const [activeTab, setActiveTab] = useState<"exercises" | "solved">("exercises");
   const [filter, setFilter] = useState<"all" | "drafts" | "published">("all");
   const [loading, setLoading] = useState(true);
@@ -69,11 +71,10 @@ export default function ProfileScreen() {
       
       setProfile(data.user);
       
-      // Cards de estatísticas
       setStatCards([
-        { id: "1", label: "Criados", value: data.stats.exercisesCreated || 0, icon: "create", color: "#4A90E2" },
+        { id: "1", label: "Criados", value: data.stats.exercisesCreated || 0, icon: "create", color: colors.primary },
         { id: "2", label: "Resolvidos", value: data.stats.exercisesSolved || 0, icon: "checkmark-circle", color: "#4CAF50" },
-        { id: "3", label: "XP Total", value: data.user.xpTotal || 0, icon: "flash", color: "#FFD700" },
+        { id: "3", label: "XP Total", value: data.user.xpTotal || 0, icon: "flash", color: colors.xp },
         { id: "4", label: "Taxa Sucesso", value: `${data.stats.successRate || 0}%`, icon: "stats-chart", color: "#FF9800" },
       ]);
       
@@ -96,10 +97,10 @@ export default function ProfileScreen() {
 
   if (loading && !profile) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={commonStyles.container}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4A90E2" />
-          <Text style={styles.loadingText}>Carregando perfil...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.text }]}>Carregando perfil...</Text>
         </View>
       </SafeAreaView>
     );
@@ -112,103 +113,100 @@ export default function ProfileScreen() {
   });
 
   const StatCard = ({ item }: { item: StatCard }) => (
-    <View style={[styles.statCard, { shadowColor: item.color }]}>
+    <View style={[styles.statCard, { backgroundColor: colors.card, shadowColor: item.color }]}>
       <Ionicons name={item.icon as any} size={24} color={item.color} />
-      <Text style={styles.statValue}>{item.value}</Text>
-      <Text style={styles.statLabel}>{item.label}</Text>
+      <Text style={[styles.statValue, { color: colors.text }]}>{item.value}</Text>
+      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{item.label}</Text>
     </View>
   );
 
   const ExerciseItem = ({ item }: { item: Exercise }) => (
     <TouchableOpacity
-      style={styles.exerciseItem}
+      style={[styles.exerciseItem, { backgroundColor: colors.card }]}
       onPress={() => navigateToExercise(item.id, true)}
     >
       <View style={styles.exerciseHeader}>
-        <Text style={styles.exerciseTitle}>{item.title}</Text>
+        <Text style={[styles.exerciseTitle, { color: colors.text }]}>{item.title}</Text>
         <View style={[styles.statusBadge, item.status === "Published" ? styles.badgePublished : styles.badgeDraft]}>
-          <Text style={styles.badgeText}>{item.status === "Published" ? "📢 Publicado" : "📝 Rascunho"}</Text>
+          <Text style={[styles.badgeText, { color: colors.text }]}>{item.status === "Published" ? "📢 Publicado" : "📝 Rascunho"}</Text>
         </View>
       </View>
-      <Text style={styles.exerciseDescription} numberOfLines={2}>{item.description}</Text>
+      <Text style={[styles.exerciseDescription, { color: colors.text }]} numberOfLines={2}>{item.description}</Text>
       <View style={styles.exerciseFooter}>
         <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(item.difficulty) }]}>
-          <Text style={styles.difficultyText}>{item.difficulty}</Text>
+          <Text style={[styles.difficultyText, { color: colors.text }]}>{item.difficulty}</Text>
         </View>
-        <Text style={styles.dateText}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+        <Text style={[styles.dateText, { color: colors.textSecondary }]}>{new Date(item.createdAt).toLocaleDateString()}</Text>
       </View>
     </TouchableOpacity>
   );
 
   const SubmissionItem = ({ item }: { item: Submission }) => (
     <TouchableOpacity
-      style={styles.submissionItem}
+      style={[styles.submissionItem, { backgroundColor: colors.card }]}
       onPress={() => navigateToExercise(item.exerciseId, false)}
     >
       <View style={styles.submissionHeader}>
-        <Text style={styles.submissionTitle}>{item.exerciseTitle}</Text>
+        <Text style={[styles.submissionTitle, { color: colors.text }]}>{item.exerciseTitle}</Text>
         <View style={[styles.statusBadge, item.status === "Accepted" ? styles.badgeAccepted : styles.badgeRejected]}>
-          <Text style={styles.badgeText}>{item.status === "Accepted" ? "✅ Aceito" : "❌ Rejeitado"}</Text>
+          <Text style={[styles.badgeText, { color: colors.text }]}>{item.status === "Accepted" ? "✅ Aceito" : "❌ Rejeitado"}</Text>
         </View>
       </View>
       <View style={styles.submissionFooter}>
         <View style={styles.submissionStats}>
-          <Text style={styles.scoreText}>{item.score}%</Text>
-          <Text style={styles.xpText}>+{item.xp} XP</Text>
+          <Text style={[styles.scoreText, { color: colors.primary }]}>{item.score}%</Text>
+          <Text style={[styles.submissionXpText, { color: colors.xp }]}>+{item.xp} XP</Text>
         </View>
-        <Text style={styles.dateText}>{new Date(item.submittedAt).toLocaleDateString()}</Text>
+        <Text style={[styles.dateText, { color: colors.textSecondary }]}>{new Date(item.submittedAt).toLocaleDateString()}</Text>
       </View>
     </TouchableOpacity>
   );
 
   const getDifficultyColor = (difficulty: string) => {
     switch (difficulty) {
-      case "Fácil": return "#E8F5E8";
-      case "Médio": return "#FFF3E0";
-      case "Difícil": return "#FFEBEE";
-      default: return "#E8F5E8";
+      case "Fácil": return colors.easy;
+      case "Médio": return colors.medium;
+      case "Difícil": return colors.hard;
+      default: return colors.easy;
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={commonStyles.container}>
       <ScrollView
-        style={styles.scrollView}
+        style={commonStyles.scrollView}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {/* Header */}
-        <View style={styles.header}>
+        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <TouchableOpacity style={styles.avatarContainer}>
-            <View style={styles.avatar}>
+            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
               {profile?.avatarUrl ? (
                 <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
               ) : (
                 <Ionicons name="person" size={40} color="#fff" />
               )}
             </View>
-            <View style={styles.editIcon}>
+            <View style={[styles.editIcon, { backgroundColor: colors.primary }]}>
               <Ionicons name="pencil" size={12} color="#fff" />
             </View>
           </TouchableOpacity>
           
-          <Text style={styles.userName}>{profile?.name || "Usuário"}</Text>
-          <Text style={styles.userHandle}>@{profile?.handle || "user"}</Text>
+          <Text style={[styles.userName, { color: colors.text }]}>{profile?.name || "Usuário"}</Text>
+          <Text style={[styles.userHandle, { color: colors.textSecondary }]}>@{profile?.handle || "user"}</Text>
           
-          {/* Nível e XP */}
           <View style={styles.levelContainer}>
-            <Text style={styles.levelText}>Nível {profile?.level || 1}</Text>
-            <View style={styles.xpBar}>
-              <View style={[styles.xpBarFill, { width: `${(profile?.xpTotal || 0) % 1000 / 10}%` }]} />
+            <Text style={[styles.levelText, { color: colors.text }]}>Nível {profile?.level || 1}</Text>
+            <View style={[styles.xpBar, { backgroundColor: colors.border }]}>
+              <View style={[styles.xpBarFill, { width: `${(profile?.xpTotal || 0) % 1000 / 10}%`, backgroundColor: colors.primary }]} />
             </View>
-            <Text style={styles.xpText}>{profile?.xpTotal || 0} XP</Text>
+            <Text style={[styles.levelXpText, { color: colors.textSecondary }]}>{profile?.xpTotal || 0} XP</Text>
           </View>
           
           {profile?.bio && (
-            <Text style={styles.bio}>{profile.bio}</Text>
+            <Text style={[styles.bio, { color: colors.textSecondary }]}>{profile.bio}</Text>
           )}
         </View>
 
-        {/* Cards de Estatísticas */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -220,63 +218,60 @@ export default function ProfileScreen() {
           ))}
         </ScrollView>
 
-        {/* Abas */}
-        <View style={styles.tabsContainer}>
+        <View style={[styles.tabsContainer, { backgroundColor: colors.card }]}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === "exercises" && styles.tabActive]}
+            style={[styles.tab, activeTab === "exercises" && [styles.tabActive, { borderBottomColor: colors.primary }]]}
             onPress={() => setActiveTab("exercises")}
           >
-            <Text style={[styles.tabText, activeTab === "exercises" && styles.tabTextActive]}>
+            <Text style={[styles.tabText, activeTab === "exercises" && [styles.tabTextActive, { color: colors.primary }], { color: colors.textSecondary }]}>
               Meus Exercícios
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.tab, activeTab === "solved" && styles.tabActive]}
+            style={[styles.tab, activeTab === "solved" && [styles.tabActive, { borderBottomColor: colors.primary }]]}
             onPress={() => setActiveTab("solved")}
           >
-            <Text style={[styles.tabText, activeTab === "solved" && styles.tabTextActive]}>
+            <Text style={[styles.tabText, activeTab === "solved" && [styles.tabTextActive, { color: colors.primary }], { color: colors.textSecondary }]}>
               Resolvidos
             </Text>
           </TouchableOpacity>
         </View>
 
-        {/* Filtros (apenas para aba de exercícios) */}
         {activeTab === "exercises" && (
-          <View style={styles.filtersContainer}>
+          <View style={[styles.filtersContainer, { backgroundColor: colors.background }]}>
             <TouchableOpacity
-              style={[styles.filter, filter === "all" && styles.filterActive]}
+              style={[styles.filter, filter === "all" && [styles.filterActive, { backgroundColor: colors.primary }], { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={() => setFilter("all")}
             >
-              <Text style={[styles.filterText, filter === "all" && styles.filterTextActive]}>
+              <Text style={[styles.filterText, filter === "all" && styles.filterTextActive, { color: colors.text }]}>
                 Todos
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.filter, filter === "drafts" && styles.filterActive]}
+              style={[styles.filter, filter === "drafts" && [styles.filterActive, { backgroundColor: colors.primary }], { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={() => setFilter("drafts")}
             >
-              <Text style={[styles.filterText, filter === "drafts" && styles.filterTextActive]}>
+              <Text style={[styles.filterText, filter === "drafts" && styles.filterTextActive, { color: colors.text }]}>
                 Rascunhos
               </Text>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.filter, filter === "published" && styles.filterActive]}
+              style={[styles.filter, filter === "published" && [styles.filterActive, { backgroundColor: colors.primary }], { backgroundColor: colors.card, borderColor: colors.border }]}
               onPress={() => setFilter("published")}
             >
-              <Text style={[styles.filterText, filter === "published" && styles.filterTextActive]}>
+              <Text style={[styles.filterText, filter === "published" && styles.filterTextActive, { color: colors.text }]}>
                 Publicados
               </Text>
             </TouchableOpacity>
           </View>
         )}
 
-        {/* Lista de Conteúdo */}
-        <View style={styles.contentContainer}>
+        <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
           {activeTab === "exercises" ? (
             filteredExercises.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="document-outline" size={48} color="#ccc" />
-                <Text style={styles.emptyText}>Nenhum exercício encontrado</Text>
+                <Ionicons name="document-outline" size={48} color={colors.textSecondary} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Nenhum exercício encontrado</Text>
               </View>
             ) : (
               <FlatList
@@ -289,8 +284,8 @@ export default function ProfileScreen() {
           ) : (
             submissions.length === 0 ? (
               <View style={styles.emptyContainer}>
-                <Ionicons name="checkmark-circle-outline" size={48} color="#ccc" />
-                <Text style={styles.emptyText}>Nenhuma submissão encontrada</Text>
+                <Ionicons name="checkmark-circle-outline" size={48} color={colors.textSecondary} />
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Nenhuma submissão encontrada</Text>
               </View>
             ) : (
               <FlatList
@@ -303,17 +298,16 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        {/* Badges (placeholder) */}
-        <View style={styles.badgesSection}>
-          <Text style={styles.sectionTitle}>Conquistas</Text>
+        <View style={[styles.badgesSection, { backgroundColor: colors.background }]}>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>Conquistas</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={styles.badgeItem}>
-              <Ionicons name="trophy" size={32} color="#FFD700" />
-              <Text style={styles.badgeLabel}>Primeiro Exercício</Text>
+            <View style={[styles.badgeItem, { backgroundColor: colors.card }]}>
+              <Ionicons name="trophy" size={32} color={colors.xp} />
+              <Text style={[styles.badgeLabel, { color: colors.text }]}>Primeiro Exercício</Text>
             </View>
-            <View style={styles.badgeItem}>
+            <View style={[styles.badgeItem, { backgroundColor: colors.card }]}>
               <Ionicons name="star" size={32} color="#FF9800" />
-              <Text style={styles.badgeLabel}>10 Resolvidos</Text>
+              <Text style={[styles.badgeLabel, { color: colors.text }]}>10 Resolvidos</Text>
             </View>
           </ScrollView>
         </View>
@@ -323,10 +317,6 @@ export default function ProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FAFAFA",
-  },
   loadingContainer: {
     flex: 1,
     justifyContent: "center",
@@ -335,19 +325,13 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: "#666",
-  },
-  scrollView: {
-    flex: 1,
   },
   header: {
-    backgroundColor: "#fff",
     paddingHorizontal: 20,
     paddingTop: 30,
     paddingBottom: 30,
     alignItems: "center",
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
   avatarContainer: {
     position: "relative",
@@ -357,7 +341,6 @@ const styles = StyleSheet.create({
     width: 100,
     height: 100,
     borderRadius: 50,
-    backgroundColor: "#4A90E2",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -370,7 +353,6 @@ const styles = StyleSheet.create({
     position: "absolute",
     bottom: 0,
     right: 0,
-    backgroundColor: "#4A90E2",
     borderRadius: 15,
     width: 30,
     height: 30,
@@ -382,12 +364,10 @@ const styles = StyleSheet.create({
   userName: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#1A1A1A",
     marginBottom: 4,
   },
   userHandle: {
     fontSize: 14,
-    color: "#666",
     marginBottom: 16,
   },
   levelContainer: {
@@ -398,30 +378,25 @@ const styles = StyleSheet.create({
   levelText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#1A1A1A",
     marginBottom: 8,
     textAlign: "center",
   },
   xpBar: {
     width: "100%",
     height: 8,
-    backgroundColor: "#E0E0E0",
     borderRadius: 4,
     marginBottom: 8,
   },
   xpBarFill: {
     height: "100%",
-    backgroundColor: "#4A90E2",
     borderRadius: 4,
   },
-  xpText: {
+  levelXpText: {
     fontSize: 12,
-    color: "#666",
     textAlign: "center",
   },
   bio: {
     fontSize: 14,
-    color: "#666",
     textAlign: "center",
     paddingHorizontal: 20,
   },
@@ -434,7 +409,6 @@ const styles = StyleSheet.create({
   },
   statCard: {
     width: width * 0.35,
-    backgroundColor: "#fff",
     borderRadius: 16,
     padding: 16,
     alignItems: "center",
@@ -447,16 +421,13 @@ const styles = StyleSheet.create({
   statValue: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#1A1A1A",
   },
   statLabel: {
     fontSize: 12,
-    color: "#666",
     textAlign: "center",
   },
   tabsContainer: {
     flexDirection: "row",
-    backgroundColor: "#fff",
     paddingHorizontal: 20,
     paddingTop: 20,
     gap: 12,
@@ -468,16 +439,13 @@ const styles = StyleSheet.create({
     borderBottomColor: "transparent",
   },
   tabActive: {
-    borderBottomColor: "#4A90E2",
   },
   tabText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#666",
     textAlign: "center",
   },
   tabTextActive: {
-    color: "#4A90E2",
   },
   filtersContainer: {
     flexDirection: "row",
@@ -489,17 +457,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 6,
     borderRadius: 16,
-    backgroundColor: "#fff",
     borderWidth: 1,
-    borderColor: "#E0E0E0",
   },
   filterActive: {
-    backgroundColor: "#4A90E2",
-    borderColor: "#4A90E2",
   },
   filterText: {
     fontSize: 14,
-    color: "#666",
     fontWeight: "500",
   },
   filterTextActive: {
@@ -511,11 +474,9 @@ const styles = StyleSheet.create({
     minHeight: 200,
   },
   exerciseItem: {
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -530,13 +491,11 @@ const styles = StyleSheet.create({
   exerciseTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#1A1A1A",
     flex: 1,
     marginRight: 8,
   },
   exerciseDescription: {
     fontSize: 14,
-    color: "#666",
     marginBottom: 12,
     lineHeight: 20,
   },
@@ -553,18 +512,14 @@ const styles = StyleSheet.create({
   difficultyText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#1A1A1A",
   },
   dateText: {
     fontSize: 12,
-    color: "#999",
   },
   submissionItem: {
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -579,7 +534,6 @@ const styles = StyleSheet.create({
   submissionTitle: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#1A1A1A",
     flex: 1,
     marginRight: 8,
   },
@@ -595,12 +549,10 @@ const styles = StyleSheet.create({
   scoreText: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#4A90E2",
   },
-  xpText: {
+  submissionXpText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#FFD700",
   },
   statusBadge: {
     paddingHorizontal: 12,
@@ -622,7 +574,6 @@ const styles = StyleSheet.create({
   badgeText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#1A1A1A",
   },
   emptyContainer: {
     alignItems: "center",
@@ -631,7 +582,6 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: "#999",
     marginTop: 16,
   },
   badgesSection: {
@@ -641,17 +591,14 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#1A1A1A",
     marginBottom: 16,
   },
   badgeItem: {
     alignItems: "center",
-    backgroundColor: "#fff",
     borderRadius: 12,
     padding: 20,
     marginRight: 12,
     width: 120,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
     shadowRadius: 4,
@@ -659,10 +606,8 @@ const styles = StyleSheet.create({
   },
   badgeLabel: {
     fontSize: 12,
-    color: "#666",
     marginTop: 8,
     textAlign: "center",
   },
 });
-
 

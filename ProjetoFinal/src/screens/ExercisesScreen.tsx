@@ -11,6 +11,7 @@ import {
   ActivityIndicator 
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme } from "../contexts/ThemeContext";
 
 const initialExercises = [
   {
@@ -48,14 +49,21 @@ const difficultyOptions = [
   { value: 3, label: "Difícil", color: "#F44336" },
 ];
 
-const ScreenHeader = ({ title, onAddPress }: { title: string; onAddPress: () => void }) => (
-  <View style={styles.header}>
-    <Text style={styles.title}>{title}</Text>
-    <TouchableOpacity style={styles.addButton} onPress={onAddPress}>
-      <Text style={styles.addButtonText}>Criar</Text>
-    </TouchableOpacity>
-  </View>
-);
+const ScreenHeader = ({ title, onAddPress }: { title: string; onAddPress: () => void }) => {
+  const { colors, commonStyles } = useTheme();
+  
+  return (
+    <View style={[commonStyles.header, styles.header]}>
+      <Text style={[commonStyles.text, styles.title]}>{title}</Text>
+      <TouchableOpacity 
+        style={[styles.addButton, { backgroundColor: colors.primary }]} 
+        onPress={onAddPress}
+      >
+        <Text style={styles.addButtonText}>Criar</Text>
+      </TouchableOpacity>
+    </View>
+  );
+};
 
 const DetailedExerciseCard = ({ 
   title, 
@@ -67,55 +75,47 @@ const DetailedExerciseCard = ({
   onPress,
   onEdit,
   onDelete
-}: {
-  title: string;
-  description: string;
-  difficulty: string;
-  progress: number;
-  isPublic: boolean;
-  xp: number;
-  onPress: () => void;
-  onEdit: () => void;
-  onDelete: () => void;
-}) => {
+}: any) => {
+  const { colors, commonStyles } = useTheme();
+
   const getDifficultyStyle = () => {
     switch (difficulty) {
-      case 'Fácil': return styles.easyBadge;
-      case 'Médio': return styles.mediumBadge;
-      case 'Difícil': return styles.hardBadge;
-      default: return styles.easyBadge;
+      case 'Fácil': return [styles.difficultyBadge, { backgroundColor: colors.easy }];
+      case 'Médio': return [styles.difficultyBadge, { backgroundColor: colors.medium }];
+      case 'Difícil': return [styles.difficultyBadge, { backgroundColor: colors.hard }];
+      default: return [styles.difficultyBadge, { backgroundColor: colors.easy }];
     }
   };
 
   return (
-    <View style={styles.exerciseCard}>
+    <View style={[commonStyles.card, styles.exerciseCard]}>
       <TouchableOpacity onPress={onPress} style={styles.exerciseContent}>
-      <View style={styles.exerciseHeader}>
-        <Text style={styles.exerciseTitle}>{title}</Text>
-        <View style={[styles.difficultyBadge, getDifficultyStyle()]}>
-          <Text style={styles.difficultyText}>{difficulty}</Text>
+        <View style={styles.exerciseHeader}>
+          <Text style={[commonStyles.text, styles.exerciseTitle]}>{title}</Text>
+          <View style={getDifficultyStyle()}>
+            <Text style={[styles.difficultyText, { color: colors.text }]}>{difficulty}</Text>
+          </View>
         </View>
-      </View>
-      <Text style={styles.exerciseDescription}>{description}</Text>
+        <Text style={[commonStyles.text, styles.exerciseDescription]}>{description}</Text>
         <View style={styles.exerciseFooter}>
-      <View style={styles.progressContainer}>
-        <View style={styles.progressBar}>
-          <View style={[styles.progressFill, { width: `${progress}%` }]} />
-        </View>
-        <Text style={styles.progressText}>{progress}%</Text>
-      </View>
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+              <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.primary }]} />
+            </View>
+            <Text style={[styles.progressText, { color: colors.primary }]}>{progress}%</Text>
+          </View>
           <View style={styles.exerciseInfo}>
-            <Text style={styles.xpText}>{xp} XP</Text>
-            <Text style={[styles.visibilityText, { color: isPublic ? "#4CAF50" : "#666" }]}>
+            <Text style={[styles.xpText, { color: colors.xp }]}>{xp} XP</Text>
+            <Text style={[styles.visibilityText, { color: isPublic ? colors.primary : colors.textSecondary }]}>
               {isPublic ? "Público" : "Privado"}
             </Text>
           </View>
         </View>
       </TouchableOpacity>
       
-      <View style={styles.exerciseActions}>
+      <View style={[styles.exerciseActions, { backgroundColor: colors.cardSecondary }]}>
         <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
-          <Text style={styles.actionButtonText}>Editar</Text>
+          <Text style={[styles.actionButtonText, { color: colors.primary }]}>Editar</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
           <Text style={[styles.actionButtonText, { color: "#F44336" }]}>Excluir</Text>
@@ -126,12 +126,11 @@ const DetailedExerciseCard = ({
 };
 
 export default function ExercisesScreen() {
+  const { commonStyles, colors } = useTheme();
   const [exercises, setExercises] = useState(initialExercises);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingExercise, setEditingExercise] = useState<any>(null);
   const [loading, setLoading] = useState(false);
-
-  // Formulário de criação/edição
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -197,7 +196,6 @@ export default function ExercisesScreen() {
 
     setLoading(true);
     
-    // Simula salvamento
     setTimeout(() => {
       const difficultyLabel = difficultyOptions.find(d => d.value === formData.difficulty)?.label || 'Fácil';
       
@@ -225,13 +223,13 @@ export default function ExercisesScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={commonStyles.container}>
       <ScreenHeader 
         title="Meus Desafios" 
         onAddPress={handleAddPress}
       />
       
-      <ScrollView style={styles.scrollView}>
+      <ScrollView style={[commonStyles.scrollView, styles.scrollView]}>
         {exercises.map((exercise) => (
           <DetailedExerciseCard
             key={exercise.id}
@@ -248,48 +246,49 @@ export default function ExercisesScreen() {
         ))}
       </ScrollView>
       
-      {/* Modal de Criação/Edição */}
       <Modal
         visible={showCreateModal}
         animationType="slide"
         presentationStyle="pageSheet"
       >
-        <SafeAreaView style={styles.modalContainer}>
-          <View style={styles.modalHeader}>
+        <SafeAreaView style={commonStyles.container}>
+          <View style={[commonStyles.header, styles.modalHeader]}>
             <TouchableOpacity onPress={() => setShowCreateModal(false)}>
-              <Text style={styles.cancelButton}>Cancelar</Text>
+              <Text style={[styles.cancelButton, { color: colors.textSecondary }]}>Cancelar</Text>
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>
+            <Text style={[commonStyles.text, styles.modalTitle]}>
               {editingExercise ? 'Editar Exercício' : 'Criar Exercício'}
             </Text>
             <TouchableOpacity onPress={handleSaveExercise} disabled={loading}>
               {loading ? (
-                <ActivityIndicator size="small" color="#4A90E2" />
+                <ActivityIndicator size="small" color={colors.primary} />
               ) : (
-                <Text style={styles.saveButton}>Salvar</Text>
+                <Text style={[styles.saveButton, { color: colors.primary }]}>Salvar</Text>
               )}
             </TouchableOpacity>
           </View>
 
-          <ScrollView style={styles.modalContent}>
+          <ScrollView style={[commonStyles.scrollView, styles.modalContent]}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Título *</Text>
+              <Text style={[commonStyles.text, styles.label]}>Título *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
                 value={formData.title}
                 onChangeText={(text) => setFormData({...formData, title: text})}
                 placeholder="Digite o título do exercício"
+                placeholderTextColor={colors.textSecondary}
                 maxLength={100}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Descrição</Text>
+              <Text style={[commonStyles.text, styles.label]}>Descrição</Text>
               <TextInput
-                style={[styles.input, styles.textArea]}
+                style={[styles.input, styles.textArea, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
                 value={formData.description}
                 onChangeText={(text) => setFormData({...formData, description: text})}
                 placeholder="Descreva o exercício"
+                placeholderTextColor={colors.textSecondary}
                 multiline
                 numberOfLines={3}
                 maxLength={500}
@@ -297,7 +296,7 @@ export default function ExercisesScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Dificuldade</Text>
+              <Text style={[commonStyles.text, styles.label]}>Dificuldade</Text>
               <View style={styles.difficultySelector}>
                 {difficultyOptions.map((option) => (
                   <TouchableOpacity
@@ -321,24 +320,26 @@ export default function ExercisesScreen() {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>XP Base</Text>
+              <Text style={[commonStyles.text, styles.label]}>XP Base</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
                 value={formData.xp.toString()}
                 onChangeText={(text) => setFormData({...formData, xp: parseInt(text) || 0})}
                 placeholder="100"
+                placeholderTextColor={colors.textSecondary}
                 keyboardType="numeric"
                 maxLength={4}
               />
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>Template de Código</Text>
+              <Text style={[commonStyles.text, styles.label]}>Template de Código</Text>
               <TextInput
-                style={[styles.input, styles.codeInput]}
+                style={[styles.input, styles.codeInput, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
                 value={formData.codeTemplate}
                 onChangeText={(text) => setFormData({...formData, codeTemplate: text})}
                 placeholder="// Seu código aqui"
+                placeholderTextColor={colors.textSecondary}
                 multiline
                 numberOfLines={6}
                 textAlignVertical="top"
@@ -347,12 +348,12 @@ export default function ExercisesScreen() {
 
             <View style={styles.checkboxContainer}>
               <TouchableOpacity
-                style={[styles.checkbox, formData.isPublic && styles.checkboxSelected]}
+                style={[styles.checkbox, formData.isPublic && styles.checkboxSelected, { borderColor: colors.primary }]}
                 onPress={() => setFormData({...formData, isPublic: !formData.isPublic})}
               >
                 {formData.isPublic && <Text style={styles.checkmark}>✓</Text>}
               </TouchableOpacity>
-              <Text style={styles.checkboxLabel}>Desafio público (visível para todos)</Text>
+              <Text style={[styles.checkboxLabel, { color: colors.text }]}>Desafio público (visível para todos)</Text>
             </View>
           </ScrollView>
         </SafeAreaView>
@@ -362,27 +363,19 @@ export default function ExercisesScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FAFAFA",
-  },
   header: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#1A1A1A",
   },
   addButton: {
-    backgroundColor: "#4A90E2",
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 16,
@@ -393,15 +386,12 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   scrollView: {
-    flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
   },
   exerciseCard: {
-    backgroundColor: "#fff",
     borderRadius: 12,
     marginBottom: 16,
-    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -420,7 +410,6 @@ const styles = StyleSheet.create({
   exerciseTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#1A1A1A",
     flex: 1,
     marginRight: 8,
   },
@@ -429,23 +418,12 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
     borderRadius: 12,
   },
-  easyBadge: {
-    backgroundColor: "#E8F5E8",
-  },
-  mediumBadge: {
-    backgroundColor: "#FFF3E0",
-  },
-  hardBadge: {
-    backgroundColor: "#FFEBEE",
-  },
   difficultyText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#1A1A1A",
   },
   exerciseDescription: {
     fontSize: 14,
-    color: "#666",
     marginBottom: 12,
     lineHeight: 20,
   },
@@ -463,19 +441,16 @@ const styles = StyleSheet.create({
   progressBar: {
     flex: 1,
     height: 6,
-    backgroundColor: "#E0E0E0",
     borderRadius: 3,
     marginRight: 8,
   },
   progressFill: {
     height: "100%",
-    backgroundColor: "#4A90E2",
     borderRadius: 3,
   },
   progressText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#4A90E2",
   },
   exerciseInfo: {
     flexDirection: "row",
@@ -485,7 +460,6 @@ const styles = StyleSheet.create({
   xpText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#FFD700",
   },
   visibilityText: {
     fontSize: 12,
@@ -493,7 +467,6 @@ const styles = StyleSheet.create({
   },
   exerciseActions: {
     flexDirection: "row",
-    backgroundColor: "#F5F5F5",
     paddingHorizontal: 16,
     paddingVertical: 8,
     gap: 16,
@@ -504,11 +477,6 @@ const styles = StyleSheet.create({
   actionButtonText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#4A90E2",
-  },
-  modalContainer: {
-    flex: 1,
-    backgroundColor: "#FAFAFA",
   },
   modalHeader: {
     flexDirection: "row",
@@ -516,26 +484,20 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
   modalTitle: {
     fontSize: 18,
     fontWeight: "bold",
-    color: "#1A1A1A",
   },
   cancelButton: {
     fontSize: 16,
-    color: "#666",
   },
   saveButton: {
     fontSize: 16,
-    color: "#4A90E2",
     fontWeight: "600",
   },
   modalContent: {
-    flex: 1,
     padding: 20,
   },
   inputGroup: {
@@ -544,18 +506,14 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 16,
     fontWeight: "600",
-    color: "#1A1A1A",
     marginBottom: 8,
   },
   input: {
-    backgroundColor: "#fff",
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 12,
     fontSize: 16,
-    color: "#1A1A1A",
     borderWidth: 1,
-    borderColor: "#E0E0E0",
   },
   textArea: {
     height: 80,
@@ -563,7 +521,6 @@ const styles = StyleSheet.create({
   },
   codeInput: {
     fontFamily: "monospace",
-    backgroundColor: "#F5F5F5",
     height: 120,
   },
   difficultySelector: {
@@ -576,7 +533,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     borderRadius: 8,
     borderWidth: 2,
-    borderColor: "#E0E0E0",
     alignItems: "center",
   },
   difficultyOptionSelected: {
@@ -585,7 +541,6 @@ const styles = StyleSheet.create({
   difficultyOptionText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#666",
   },
   checkboxContainer: {
     flexDirection: "row",
@@ -597,7 +552,6 @@ const styles = StyleSheet.create({
     height: 20,
     borderRadius: 4,
     borderWidth: 2,
-    borderColor: "#4A90E2",
     alignItems: "center",
     justifyContent: "center",
   },
@@ -611,7 +565,6 @@ const styles = StyleSheet.create({
   },
   checkboxLabel: {
     fontSize: 16,
-    color: "#1A1A1A",
     flex: 1,
   },
 });

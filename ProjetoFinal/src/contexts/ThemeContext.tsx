@@ -1,36 +1,152 @@
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
 import { Appearance } from "react-native";
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface ThemeContextData {
   theme: "light" | "dark";
   isDarkMode: boolean;
   toggleTheme: () => void;
+  isThemeLoading: boolean;
+  colors: {
+    background: string;
+    text: string;
+    textSecondary: string;
+    primary: string;
+    card: string;
+    cardSecondary: string;
+    border: string;
+    easy: string;
+    medium: string;
+    hard: string;
+    xp: string;
+  };
+  commonStyles: {
+    container: { flex: number; backgroundColor: string };
+    scrollView: { flex: number; backgroundColor: string };
+    text: { color: string };
+    card: { backgroundColor: string; shadowColor: string; shadowOffset: { width: number; height: number }; shadowOpacity: number; shadowRadius: number; elevation: number };
+    header: { backgroundColor: string; borderBottomColor: string };
+  };
 }
 
-const ThemeContext = createContext<ThemeContextData>({
-  theme: "light",
-  isDarkMode: false,
-  toggleTheme: () => {},
-});
+const ThemeContext = createContext<ThemeContextData>({} as ThemeContextData);
+
+const THEME_STORAGE_KEY = '@app_theme';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
-  // Detecta o tema do sistema ao iniciar
-  const colorScheme = Appearance.getColorScheme();
-  const [theme, setTheme] = useState<"light" | "dark">(colorScheme || "light");
+  const [theme, setTheme] = useState<"light" | "dark">("light");
+  const [isThemeLoading, setIsThemeLoading] = useState(true);
 
-  const toggleTheme = () => {
-    setTheme((prev) => (prev === "light" ? "dark" : "light"));
+  useEffect(() => {
+    initializeTheme();
+  }, []);
+
+  useEffect(() => {
+    const subscription = Appearance.addChangeListener(({ colorScheme }) => {
+      AsyncStorage.getItem(THEME_STORAGE_KEY).then((savedTheme) => {
+        if (!savedTheme) {
+          setTheme(colorScheme || "light");
+        }
+      });
+    });
+
+    return () => subscription.remove();
+  }, []);
+
+  const initializeTheme = async () => {
+    try {
+      setIsThemeLoading(true);
+      
+      const savedTheme = await AsyncStorage.getItem(THEME_STORAGE_KEY);
+      
+      if (savedTheme === 'light' || savedTheme === 'dark') {
+        setTheme(savedTheme);
+      } else {
+        const colorScheme = Appearance.getColorScheme();
+        setTheme(colorScheme || "light");
+      }
+    } catch (error) {
+      setTheme("light");
+    } finally {
+      setIsThemeLoading(false);
+    }
+  };
+
+  const toggleTheme = async () => {
+    const newTheme = theme === "light" ? "dark" : "light";
+    setTheme(newTheme);
+    
+    try {
+      await AsyncStorage.setItem(THEME_STORAGE_KEY, newTheme);
+    } catch (error) {
+      console.error('Erro ao salvar tema:', error);
+    }
   };
 
   const isDarkMode = theme === "dark";
 
+  const colors = {
+    background: isDarkMode ? '#121212' : '#FAFAFA',
+    text: isDarkMode ? '#FFFFFF' : '#1A1A1A',
+    textSecondary: isDarkMode ? '#AAAAAA' : '#666666',
+    primary: isDarkMode ? '#BB86FC' : '#4A90E2',
+    card: isDarkMode ? '#1E1E1E' : '#FFFFFF',
+    cardSecondary: isDarkMode ? '#2D2D2D' : '#F5F5F5',
+    border: isDarkMode ? '#333333' : '#E0E0E0',
+    easy: isDarkMode ? '#2E7D32' : '#E8F5E8',
+    medium: isDarkMode ? '#EF6C00' : '#FFF3E0', 
+    hard: isDarkMode ? '#C62828' : '#FFEBEE',
+    xp: isDarkMode ? '#FFD700' : '#FFD700',
+  };
+
+  const commonStyles = {
+    container: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    scrollView: {
+      flex: 1,
+      backgroundColor: colors.background,
+    },
+    header: {
+      backgroundColor: colors.card,
+      borderBottomColor: colors.border,
+    },
+    text: {
+      color: colors.text,
+    },
+    card: {
+      backgroundColor: colors.card,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.1,
+      shadowRadius: 4,
+      elevation: 3,
+    },
+  };
+
+  const contextValue: ThemeContextData = {
+    theme,
+    isDarkMode,
+    toggleTheme,
+    isThemeLoading,
+    colors,
+    commonStyles,
+  };
+
   return (
-    <ThemeContext.Provider value={{ theme, isDarkMode, toggleTheme }}>
+    <ThemeContext.Provider value={contextValue}>
       {children}
     </ThemeContext.Provider>
   );
 }
 
 export function useTheme() {
-  return useContext(ThemeContext);
+  const context = useContext(ThemeContext);
+  
+  if (!context) {
+    throw new Error('useTheme deve ser usado dentro de um ThemeProvider');
+  }
+  
+  return context;
 }

@@ -1,12 +1,15 @@
 import React from "react";
 import { View, Text, StyleSheet } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useTheme } from "../contexts/ThemeContext"; 
 
 export default function RankingScreen() {
+  const { commonStyles } = useTheme(); 
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={commonStyles.container}> 
       <View style={styles.content}>
-        <Text style={styles.title}>Ranking</Text>
+        <Text style={[commonStyles.text, styles.title]}>Ranking</Text> 
       </View>
       {/* Bottom Navigation removida - agora usamos Tab Navigator nativo */}
     </SafeAreaView>
@@ -14,10 +17,6 @@ export default function RankingScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#FAFAFA",
-  },
   content: {
     flex: 1,
     justifyContent: "center",
@@ -26,7 +25,6 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    color: "#1A1A1A",
+    // ❌ REMOVER: color: "#1A1A1A" (agora vem do commonStyles.text)
   },
 });
-
