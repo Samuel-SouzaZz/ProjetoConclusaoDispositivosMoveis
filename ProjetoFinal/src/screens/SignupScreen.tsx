@@ -83,7 +83,7 @@ export default function SignupScreen() {
         {/* Botão Voltar */}
         <TouchableOpacity 
           style={styles.backButton}
-          onPress={() => navigation.navigate("Home")}
+          onPress={() => navigation.navigate("Login")}
           activeOpacity={0.7}
         >
           <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
