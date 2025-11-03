@@ -11,7 +11,6 @@ export default function DiscussionsScreen() {
       <View style={styles.content}>
         <Text style={[commonStyles.text, styles.title]}>Discussões</Text> 
       </View>
-      {/* Bottom Navigation removida - agora usamos Tab Navigator nativo */}
     </SafeAreaView>
   );
 }
@@ -25,6 +24,5 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    // ❌ REMOVER: color: "#1A1A1A" (agora vem do commonStyles.text)
   },
 });

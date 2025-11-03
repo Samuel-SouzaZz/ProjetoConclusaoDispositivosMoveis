@@ -1,10 +1,8 @@
-// src/styles/authStyles.ts
 import { StyleSheet, Dimensions } from "react-native";
 
 const { width, height } = Dimensions.get("window");
 
 export const styles = StyleSheet.create({
-  // Container principal
   safeArea: {
     flex: 1,
     backgroundColor: "#FAFAFA",
@@ -20,7 +18,6 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  // Formas decorativas
   blueShape: {
     position: "absolute",
     top: -100,
@@ -42,14 +39,13 @@ export const styles = StyleSheet.create({
     borderTopRightRadius: width * 0.8,
   },
 
-  // Botão Voltar
   backButton: {
     position: "absolute",
     top: 10,
     left: 20,
     zIndex: 10,
-    width: 44,
-    height: 44,
+    width: 48,
+    height: 48,
     borderRadius: 22,
     backgroundColor: "#fff",
     justifyContent: "center",
@@ -61,7 +57,6 @@ export const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  // Conteúdo
   content: {
     flex: 1,
     paddingHorizontal: 28,
@@ -75,33 +70,32 @@ export const styles = StyleSheet.create({
     zIndex: 1,
   },
 
-  // Textos
   title: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: "700",
     color: "#1A1A1A",
-    marginBottom: 8,
+    marginBottom: 12,
   },
   subtitle: {
-    fontSize: 14,
-    color: "#8E8E93",
+    fontSize: 16,
+    color: "#333333",
     marginBottom: 40,
-    lineHeight: 20,
+    lineHeight: 24,
+    fontWeight: "400",
   },
   label: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#1A1A1A",
-    marginBottom: 8,
-    fontWeight: "500",
+    marginBottom: 10,
+    fontWeight: "600",
   },
 
-  // Inputs
   input: {
     backgroundColor: "#F5F5F5",
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
+    paddingVertical: 16,
+    fontSize: 16,
     color: "#1A1A1A",
     marginBottom: 20,
     borderWidth: 1,
@@ -111,22 +105,21 @@ export const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
+    paddingVertical: 16,
+    fontSize: 16,
     color: "#1A1A1A",
     marginBottom: 16,
     borderWidth: 1,
     borderColor: "#E8E8E8",
   },
 
-  // Password container
   passwordContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#F5F5F5",
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 4,
+    paddingVertical: 6,
     marginBottom: 20,
     borderWidth: 1,
     borderColor: "#E8E8E8",
@@ -137,22 +130,21 @@ export const styles = StyleSheet.create({
     backgroundColor: "#F5F5F5",
     borderRadius: 12,
     paddingHorizontal: 16,
-    paddingVertical: 4,
+    paddingVertical: 6,
     marginBottom: 16,
     borderWidth: 1,
     borderColor: "#E8E8E8",
   },
   passwordInput: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 16,
     color: "#1A1A1A",
     paddingVertical: 10,
   },
   eyeIcon: {
-    padding: 4,
+    padding: 8,
   },
 
-  // Select (Picker)
   selectInput: {
     flexDirection: "row",
     alignItems: "center",
@@ -166,15 +158,16 @@ export const styles = StyleSheet.create({
     borderColor: "#E8E8E8",
   },
   selectPlaceholder: {
-    fontSize: 15,
-    color: "#999",
+    fontSize: 16,
+    color: "#666666",
+    fontWeight: "400",
   },
   selectText: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#1A1A1A",
+    fontWeight: "500",
   },
 
-  // Checkbox
   checkboxContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -192,15 +185,15 @@ export const styles = StyleSheet.create({
     marginRight: 10,
   },
   checkboxLabel: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#1A1A1A",
+    fontWeight: "400",
   },
 
-  // Botões
   button: {
     backgroundColor: "#3B5BDB",
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: "#3B5BDB",
@@ -212,7 +205,7 @@ export const styles = StyleSheet.create({
   buttonSignup: {
     backgroundColor: "#3B5BDB",
     borderRadius: 12,
-    paddingVertical: 16,
+    paddingVertical: 18,
     alignItems: "center",
     justifyContent: "center",
     marginTop: 8,
@@ -227,11 +220,10 @@ export const styles = StyleSheet.create({
   },
   buttonText: {
     color: "#fff",
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: "600",
   },
 
-  // Rodapé
   footer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -241,17 +233,17 @@ export const styles = StyleSheet.create({
     zIndex: 2,
   },
   footerText: {
-    fontSize: 14,
-    color: "#1A1A1A",
+    fontSize: 16,
+    color: "#333333",
+    fontWeight: "400",
   },
   footerLink: {
-    fontSize: 14,
+    fontSize: 16,
     color: "#3B5BDB",
     fontWeight: "600",
     textDecorationLine: "underline",
   },
 
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -275,8 +267,8 @@ export const styles = StyleSheet.create({
     borderBottomColor: "#E8E8E8",
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "600",
+    fontSize: 20,
+    fontWeight: "700",
     color: "#1A1A1A",
   },
   modalClose: {
@@ -291,14 +283,12 @@ export const styles = StyleSheet.create({
     borderBottomColor: "#F5F5F5",
   },
   collegeItemText: {
-    fontSize: 15,
+    fontSize: 16,
     color: "#1A1A1A",
     flex: 1,
+    fontWeight: "400",
   },
 
-  // ==== ESTILOS ANTIGOS (mantidos para compatibilidade) ====
-
-  // Card (uso genérico). card alias para compatibilidade com versões antigas.
   cardSmall: {
     width: "90%",
     backgroundColor: "#fff",
@@ -326,7 +316,6 @@ export const styles = StyleSheet.create({
     color: "#ff3b30",
   },
 
-  // Inputs antigos
   inputSmall: {
     borderWidth: 1,
     borderColor: "#ddd",
@@ -337,7 +326,6 @@ export const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
   },
 
-  // Picker wrapper e estilo do picker
   pickerContainer: {
     width: "100%",
     borderWidth: 1,
@@ -352,7 +340,6 @@ export const styles = StyleSheet.create({
     width: "100%",
   },
 
-  // Botões antigos
   buttonPrimarySmall: {
     backgroundColor: "#007AFF",
     paddingVertical: 10,
@@ -368,7 +355,6 @@ export const styles = StyleSheet.create({
     marginTop: 10,
   },
 
-  // Links antigos
   linkText: {
     textAlign: "center",
     marginTop: 12,
@@ -380,7 +366,6 @@ export const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  // Social antigos
   socialContainerSmall: {
     marginTop: 16,
     flexDirection: "row",

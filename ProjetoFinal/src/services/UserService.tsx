@@ -16,9 +16,7 @@ class UserService {
    * Salva/atualiza dados do usuário no cache local (após login via backend)
    */
   static async syncUserFromBackend(userData: any): Promise<void> {
-    // SQLite não funciona no web
     if (Platform.OS === 'web') {
-      console.log("⚠️ Cache SQLite não disponível no web");
       return;
     }
 
@@ -26,14 +24,12 @@ class UserService {
       const db = DatabaseService.getDatabase();
       if (!db) return;
 
-      // Verifica se usuário já existe no cache
       const existing = await db.getFirstAsync(
         "SELECT * FROM users WHERE id = ?",
         [userData.id]
       );
 
       if (existing) {
-        // Atualiza cache
         await db.runAsync(
           `UPDATE users SET 
             name = ?, 
@@ -59,7 +55,6 @@ class UserService {
           ]
         );
       } else {
-        // Cria novo registro no cache
         await db.runAsync(
           `INSERT INTO users (id, name, email, handle, college, level, xpTotal, avatarUrl, bio) 
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -77,9 +72,9 @@ class UserService {
         );
       }
 
-      console.log("✅ Dados do usuário sincronizados no cache local");
+      
     } catch (error: any) {
-      console.error("❌ Erro ao sincronizar usuário:", error);
+      
       throw error;
     }
   }
@@ -101,7 +96,7 @@ class UserService {
 
       return user || null;
     } catch (error) {
-      console.error("❌ Erro ao buscar usuário no cache:", error);
+      
       return null;
     }
   }
@@ -117,9 +112,9 @@ class UserService {
       if (!db) return;
       
       await db.runAsync("DELETE FROM users WHERE id = ?", [userId]);
-      console.log("🗑️ Cache do usuário limpo");
+      
     } catch (error) {
-      console.error("❌ Erro ao limpar cache:", error);
+      
     }
   }
 
@@ -134,9 +129,9 @@ class UserService {
       if (!db) return;
       
       await db.runAsync("DELETE FROM users");
-      console.log("🗑️ Todo o cache foi limpo");
+      
     } catch (error) {
-      console.error("❌ Erro ao limpar cache:", error);
+      
     }
   }
 }

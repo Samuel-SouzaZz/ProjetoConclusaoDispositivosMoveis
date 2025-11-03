@@ -1,7 +1,6 @@
 import * as SQLite from "expo-sqlite";
 import { Platform } from "react-native";
 
-// Abre/cria o banco de dados (apenas em mobile)
 const db = Platform.OS !== "web" ? SQLite.openDatabaseSync("appdb.db") : null;
 
 /**
@@ -13,9 +12,7 @@ class DatabaseService {
    * Inicializa o banco de dados e cria as tabelas
    */
   static async initDatabase() {
-    // SQLite não funciona no web
     if (Platform.OS === "web") {
-      console.log("⚠️ SQLite não disponível no web - usando apenas backend");
       return;
     }
 
@@ -36,9 +33,25 @@ class DatabaseService {
         );
       `);
 
-      console.log("✅ Banco de dados inicializado com sucesso!");
+      await db!.execAsync(`
+        CREATE TABLE IF NOT EXISTS exercises (
+          id TEXT PRIMARY KEY,
+          title TEXT NOT NULL,
+          description TEXT,
+          difficulty INTEGER DEFAULT 1,
+          xp INTEGER DEFAULT 100,
+          isPublic INTEGER DEFAULT 1,
+          codeTemplate TEXT,
+          status TEXT DEFAULT 'Draft',
+          progress INTEGER DEFAULT 0,
+          userId TEXT,
+          synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+
+      
     } catch (error) {
-      console.error("❌ Erro ao inicializar banco de dados:", error);
+      
       throw error;
     }
   }
@@ -59,11 +72,9 @@ class DatabaseService {
 
     try {
       await db!.execAsync("DROP TABLE IF EXISTS users;");
+      await db!.execAsync("DROP TABLE IF EXISTS exercises;");
       await this.initDatabase();
-      console.log("🗑️ Banco de dados limpo!");
-    } catch (error) {
-      console.error("❌ Erro ao limpar banco:", error);
-    }
+    } catch (error) {}
   }
 
   /**
@@ -71,17 +82,13 @@ class DatabaseService {
    */
   static async debugTable(tableName: string) {
     if (Platform.OS === "web") {
-      console.log("⚠️ SQLite debug não disponível no web");
       return;
     }
 
     try {
       const result = await db!.getAllAsync(`SELECT * FROM ${tableName}`);
-      console.log(`📊 Dados da tabela ${tableName}:`, result);
       return result;
-    } catch (error) {
-      console.error(`❌ Erro ao ler tabela ${tableName}:`, error);
-    }
+    } catch (error) {}
   }
 }
 

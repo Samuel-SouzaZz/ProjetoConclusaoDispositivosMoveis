@@ -1,4 +1,3 @@
-// AuthContext.tsx
 import React, { createContext, useState, ReactNode, useContext, useEffect } from "react";
 import { Alert } from "react-native";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
@@ -204,7 +203,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ✅ Export nomeado correto para o LoginScreen
 export function useAuth() {
   return useContext(AuthContext);
 }

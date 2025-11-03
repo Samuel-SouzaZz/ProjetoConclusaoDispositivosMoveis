@@ -1,7 +1,7 @@
 /**
  * User Model
  * 
- * ⚠️ IMPORTANTE: NÃO contém senha!
+ * IMPORTANTE: NÃO contém senha!
  * Senha é gerenciada apenas pelo backend
  */
 export interface User {
