@@ -7,7 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  * IMPORTANTE: Altere a BASE_URL para o IP do seu computador quando testar no celular
  * Exemplo: http://192.168.1.100:3000/api
  */
-const BASE_URL = 'http://172.20.10.2:3000/api';
+const BASE_URL = 'http://localhost:3000/api';
 
 // Chaves de armazenamento
 const TOKEN_KEY = '@app:access_token';
