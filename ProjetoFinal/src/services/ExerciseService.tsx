@@ -93,7 +93,7 @@ class ExerciseService {
 
       return exercises.map(ex => ({
         ...ex,
-        isPublic: ex.isPublic === 1,
+        isPublic: !!ex.isPublic,
       }));
     } catch (error) {
       return [];
@@ -116,7 +116,7 @@ class ExerciseService {
 
       return {
         ...exercise,
-        isPublic: exercise.isPublic === 1,
+        isPublic: !!exercise.isPublic,
       };
     } catch (error) {
       return null;
