@@ -11,7 +11,6 @@ export default function RankingScreen() {
       <View style={styles.content}>
         <Text style={[commonStyles.text, styles.title]}>Ranking</Text> 
       </View>
-      {/* Bottom Navigation removida - agora usamos Tab Navigator nativo */}
     </SafeAreaView>
   );
 }

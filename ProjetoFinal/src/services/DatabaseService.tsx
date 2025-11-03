@@ -1,7 +1,6 @@
 import * as SQLite from "expo-sqlite";
 import { Platform } from "react-native";
 
-// Abre/cria o banco de dados (apenas em mobile)
 const db = Platform.OS !== "web" ? SQLite.openDatabaseSync("appdb.db") : null;
 
 /**

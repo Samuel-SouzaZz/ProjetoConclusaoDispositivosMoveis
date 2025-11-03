@@ -16,7 +16,6 @@ class UserService {
    * Salva/atualiza dados do usuário no cache local (após login via backend)
    */
   static async syncUserFromBackend(userData: any): Promise<void> {
-    // SQLite não funciona no web
     if (Platform.OS === 'web') {
       return;
     }
@@ -25,14 +24,12 @@ class UserService {
       const db = DatabaseService.getDatabase();
       if (!db) return;
 
-      // Verifica se usuário já existe no cache
       const existing = await db.getFirstAsync(
         "SELECT * FROM users WHERE id = ?",
         [userData.id]
       );
 
       if (existing) {
-        // Atualiza cache
         await db.runAsync(
           `UPDATE users SET 
             name = ?, 
@@ -58,7 +55,6 @@ class UserService {
           ]
         );
       } else {
-        // Cria novo registro no cache
         await db.runAsync(
           `INSERT INTO users (id, name, email, handle, college, level, xpTotal, avatarUrl, bio) 
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,

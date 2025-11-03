@@ -1,10 +1,8 @@
-// src/styles/authStyles.ts
 import { StyleSheet, Dimensions } from "react-native";
 
 const { width, height } = Dimensions.get("window");
 
 export const styles = StyleSheet.create({
-  // Container principal
   safeArea: {
     flex: 1,
     backgroundColor: "#FAFAFA",
@@ -20,7 +18,6 @@ export const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
 
-  // Formas decorativas
   blueShape: {
     position: "absolute",
     top: -100,
@@ -42,7 +39,6 @@ export const styles = StyleSheet.create({
     borderTopRightRadius: width * 0.8,
   },
 
-  // Botão Voltar
   backButton: {
     position: "absolute",
     top: 10,
@@ -61,7 +57,6 @@ export const styles = StyleSheet.create({
     elevation: 3,
   },
 
-  // Conteúdo
   content: {
     flex: 1,
     paddingHorizontal: 28,
@@ -75,7 +70,6 @@ export const styles = StyleSheet.create({
     zIndex: 1,
   },
 
-  // Textos
   title: {
     fontSize: 32,
     fontWeight: "700",
@@ -96,7 +90,6 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // Inputs
   input: {
     backgroundColor: "#F5F5F5",
     borderRadius: 12,
@@ -120,7 +113,6 @@ export const styles = StyleSheet.create({
     borderColor: "#E8E8E8",
   },
 
-  // Password container
   passwordContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -153,7 +145,6 @@ export const styles = StyleSheet.create({
     padding: 8,
   },
 
-  // Select (Picker)
   selectInput: {
     flexDirection: "row",
     alignItems: "center",
@@ -177,7 +168,6 @@ export const styles = StyleSheet.create({
     fontWeight: "500",
   },
 
-  // Checkbox
   checkboxContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -200,7 +190,6 @@ export const styles = StyleSheet.create({
     fontWeight: "400",
   },
 
-  // Botões
   button: {
     backgroundColor: "#3B5BDB",
     borderRadius: 12,
@@ -235,7 +224,6 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
-  // Rodapé
   footer: {
     flexDirection: "row",
     justifyContent: "center",
@@ -256,7 +244,6 @@ export const styles = StyleSheet.create({
     textDecorationLine: "underline",
   },
 
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
@@ -302,9 +289,6 @@ export const styles = StyleSheet.create({
     fontWeight: "400",
   },
 
-  // ==== ESTILOS ANTIGOS (mantidos para compatibilidade) ====
-
-  // Card (uso genérico). card alias para compatibilidade com versões antigas.
   cardSmall: {
     width: "90%",
     backgroundColor: "#fff",
@@ -332,7 +316,6 @@ export const styles = StyleSheet.create({
     color: "#ff3b30",
   },
 
-  // Inputs antigos
   inputSmall: {
     borderWidth: 1,
     borderColor: "#ddd",
@@ -343,7 +326,6 @@ export const styles = StyleSheet.create({
     backgroundColor: "#fafafa",
   },
 
-  // Picker wrapper e estilo do picker
   pickerContainer: {
     width: "100%",
     borderWidth: 1,
@@ -358,7 +340,6 @@ export const styles = StyleSheet.create({
     width: "100%",
   },
 
-  // Botões antigos
   buttonPrimarySmall: {
     backgroundColor: "#007AFF",
     paddingVertical: 10,
@@ -374,7 +355,6 @@ export const styles = StyleSheet.create({
     marginTop: 10,
   },
 
-  // Links antigos
   linkText: {
     textAlign: "center",
     marginTop: 12,
@@ -386,7 +366,6 @@ export const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  // Social antigos
   socialContainerSmall: {
     marginTop: 16,
     flexDirection: "row",

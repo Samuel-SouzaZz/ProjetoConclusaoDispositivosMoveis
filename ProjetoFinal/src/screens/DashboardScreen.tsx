@@ -236,7 +236,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
 
-  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",
@@ -294,7 +293,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Saudação
   greetingContainer: {
     paddingHorizontal: 20,
     paddingVertical: 20,
@@ -308,7 +306,6 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 
-  // Quick Actions
   quickActionsContainer: {
     paddingHorizontal: 20,
     marginBottom: 20,
@@ -353,7 +350,6 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
 
-  // Sections
   section: {
     paddingHorizontal: 20,
     marginBottom: 25,
@@ -365,7 +361,6 @@ const styles = StyleSheet.create({
   },
   sectionTitleHighlight: {},
 
-  // Cards
   cardsRow: {
     flexDirection: "row",
     justifyContent: "space-between",

@@ -1,4 +1,3 @@
-// AuthContext.tsx
 import React, { createContext, useState, ReactNode, useContext, useEffect } from "react";
 import { Alert } from "react-native";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
