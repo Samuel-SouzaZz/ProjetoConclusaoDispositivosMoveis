@@ -13,9 +13,7 @@ class DatabaseService {
    * Inicializa o banco de dados e cria as tabelas
    */
   static async initDatabase() {
-    // SQLite não funciona no web
     if (Platform.OS === "web") {
-      console.log("⚠️ SQLite não disponível no web - usando apenas backend");
       return;
     }
 
@@ -36,9 +34,9 @@ class DatabaseService {
         );
       `);
 
-      console.log("✅ Banco de dados inicializado com sucesso!");
+      
     } catch (error) {
-      console.error("❌ Erro ao inicializar banco de dados:", error);
+      
       throw error;
     }
   }
@@ -60,10 +58,7 @@ class DatabaseService {
     try {
       await db!.execAsync("DROP TABLE IF EXISTS users;");
       await this.initDatabase();
-      console.log("🗑️ Banco de dados limpo!");
-    } catch (error) {
-      console.error("❌ Erro ao limpar banco:", error);
-    }
+    } catch (error) {}
   }
 
   /**
@@ -71,17 +66,13 @@ class DatabaseService {
    */
   static async debugTable(tableName: string) {
     if (Platform.OS === "web") {
-      console.log("⚠️ SQLite debug não disponível no web");
       return;
     }
 
     try {
       const result = await db!.getAllAsync(`SELECT * FROM ${tableName}`);
-      console.log(`📊 Dados da tabela ${tableName}:`, result);
       return result;
-    } catch (error) {
-      console.error(`❌ Erro ao ler tabela ${tableName}:`, error);
-    }
+    } catch (error) {}
   }
 }
 

@@ -12,25 +12,17 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
-import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
+import { useTheme } from "../contexts/ThemeContext";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import ApiService from "../services/ApiService";
 import BottomNavigation from "../components/BottomNavigation";
 
 const { width } = Dimensions.get("window");
 
-// Tipo para navegação entre tabs
-type TabNavigationProp = BottomTabNavigationProp<{
-  DashboardTab: undefined;
-  ExercisesTab: undefined;
-  DiscussionsTab: undefined;
-  RankingTab: undefined;
-  SettingsTab: undefined;
-}>;
-
 export default function DashboardScreen() {
   const { user, loading } = useAuth();
-  const navigation = useNavigation<TabNavigationProp>();
+  const { colors, commonStyles } = useTheme();
+  const navigation = useNavigation<any>();
   const [discussionsCount, setDiscussionsCount] = useState<number>(0);
 
   useEffect(() => {
@@ -46,10 +38,10 @@ export default function DashboardScreen() {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4A90E2" />
-          <Text style={styles.loadingText}>Carregando...</Text>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Carregando...</Text>
         </View>
       </SafeAreaView>
     );
@@ -57,21 +49,21 @@ export default function DashboardScreen() {
 
   if (!user) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
         <View style={styles.loginContainer}>
-          <Text style={styles.welcomeTitle}>Bem-vindo!</Text>
-          <Text style={styles.welcomeSubtitle}>Faça login para continuar</Text>
+          <Text style={[styles.welcomeTitle, { color: colors.text }]}>Bem-vindo!</Text>
+          <Text style={[styles.welcomeSubtitle, { color: colors.textSecondary }]}>Faça login para continuar</Text>
           <TouchableOpacity 
-            style={styles.loginButton}
+            style={[styles.loginButton, { backgroundColor: colors.primary }]}
             onPress={() => navigation.navigate("Login")}
           >
             <Text style={styles.loginButtonText}>Fazer Login</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={styles.signupButton}
+            style={[styles.signupButton, { borderColor: colors.primary }]}
             onPress={() => navigation.navigate("Signup")}
           >
-            <Text style={styles.signupButtonText}>Criar Conta</Text>
+            <Text style={[styles.signupButtonText, { color: colors.primary }]}>Criar Conta</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -79,153 +71,153 @@ export default function DashboardScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <View style={styles.searchContainer}>
-          <Ionicons name="search" size={20} color="#666" />
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+        <View style={[styles.searchContainer, { backgroundColor: colors.cardSecondary }]}>
+          <Ionicons name="search" size={20} color={colors.textSecondary} />
           <TextInput
-            style={styles.searchInput}
+            style={[styles.searchInput, { color: colors.text }]}
             placeholder="Search"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.textSecondary}
           />
         </View>
         <TouchableOpacity style={styles.profileContainer} onPress={() => navigation.navigate('ProfileTab')} activeOpacity={0.7}>
-          <View style={styles.avatar}>
+          <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
             <Ionicons name="person" size={20} color="#fff" />
           </View>
-          <View style={styles.levelBadge}>
-            <Text style={styles.levelText}>1</Text>
+          <View style={[styles.levelBadge, { backgroundColor: colors.text }]}>
+            <Text style={styles.levelText}>{user?.level || 1}</Text>
           </View>
-          <Text style={styles.levelLabel}>Level</Text>
+          <Text style={[styles.levelLabel, { color: colors.textSecondary }]}>Level</Text>
         </TouchableOpacity>
       </View>
 
       <ScrollView
-        style={styles.scrollView}
+        style={[styles.scrollView, { backgroundColor: colors.background }]}
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.greetingContainer}>
-          <Text style={styles.greetingTitle}>
+          <Text style={[styles.greetingTitle, { color: colors.text }]}>
             Olá {user?.name?.split(' ')[0] || 'Marcos'}!
           </Text>
-          <Text style={styles.greetingSubtitle}>Boas vindas de volta!</Text>
+          <Text style={[styles.greetingSubtitle, { color: colors.textSecondary }]}>Boas vindas de volta!</Text>
         </View>
 
         <View style={styles.quickActionsContainer}>
           <View style={styles.quickActionsRow}>
             <TouchableOpacity 
-              style={[styles.quickActionCard, styles.discussionsCard]}
+              style={[styles.quickActionCard, { backgroundColor: colors.card }]}
               onPress={() => navigation.navigate('DiscussionsTab')}
             >
               <View style={styles.quickActionIcon}>
-                <Ionicons name="chatbubbles" size={28} color="#4A90E2" />
+                <Ionicons name="chatbubbles" size={28} color={colors.primary} />
               </View>
-              <Text style={styles.quickActionText}>Discussões</Text>
-              <View style={styles.notificationBadge}>
+              <Text style={[styles.quickActionText, { color: colors.text }]}>Discussões</Text>
+              <View style={[styles.notificationBadge, { backgroundColor: colors.text }]}>
                 <Text style={styles.notificationText}>{discussionsCount}</Text>
               </View>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.quickActionCard, styles.exerciseCard]}
+              style={[styles.quickActionCard, { backgroundColor: colors.card }]}
               onPress={() => navigation.navigate('ExercisesTab')}
             >
               <View style={styles.quickActionIcon}>
-                <Ionicons name="school" size={28} color="#F5A623" />
+                <Ionicons name="school" size={28} color={colors.xp} />
               </View>
-              <Text style={styles.quickActionText}>Desafio</Text>
+              <Text style={[styles.quickActionText, { color: colors.text }]}>Desafio</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.quickActionsRow}>
             <TouchableOpacity 
-              style={[styles.quickActionCard, styles.createCard]}
+              style={[styles.quickActionCard, { backgroundColor: colors.card }]}
               onPress={() => navigation.navigate('ExercisesTab', { openCreate: true })}
             >
               <View style={styles.quickActionIcon}>
-                <Ionicons name="add-circle" size={28} color="#4A90E2" />
+                <Ionicons name="add-circle" size={28} color={colors.primary} />
               </View>
-              <Text style={styles.quickActionText}>Criar{'\n'}desafio</Text>
+              <Text style={[styles.quickActionText, { color: colors.text }]}>Criar{'\n'}desafio</Text>
             </TouchableOpacity>
             
           </View>
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>{'{'}<Text style={styles.sectionTitleHighlight}>Em Destaque</Text>{'}'}</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{'{'}<Text style={[styles.sectionTitleHighlight, { color: colors.xp }]}>Em Destaque</Text>{'}'}</Text>
           
           <View style={styles.cardsRow}>
-            <TouchableOpacity style={[styles.featuredCard, styles.darkCard]}>
+            <TouchableOpacity style={[styles.featuredCard, { backgroundColor: colors.card }]}>
               <View style={styles.cardIcon}>
-                <FontAwesome5 name="football-ball" size={24} color="#fff" />
+                <FontAwesome5 name="football-ball" size={24} color={colors.text} />
               </View>
-              <Text style={styles.cardTitle}>Lorem ipsum dolor sit amet consectetur.</Text>
-              <TouchableOpacity style={styles.cardButton}>
-                <Text style={styles.cardButtonText}>Comece agora</Text>
-                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              <Text style={[styles.cardTitle, { color: colors.text }]}>Lorem ipsum dolor sit amet consectetur.</Text>
+              <TouchableOpacity style={[styles.cardButton, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.cardButtonText, { color: '#fff' }]}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color="#fff" />
               </TouchableOpacity>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.featuredCard, styles.darkCard]}>
+            <TouchableOpacity style={[styles.featuredCard, { backgroundColor: colors.card }]}>
               <View style={styles.cardIcon}>
-                <FontAwesome5 name="football-ball" size={24} color="#fff" />
+                <FontAwesome5 name="football-ball" size={24} color={colors.text} />
               </View>
-              <Text style={styles.cardTitle}>Lorem ipsum dolor sit amet consectetur.</Text>
-              <TouchableOpacity style={styles.cardButton}>
-                <Text style={styles.cardButtonText}>Comece agora</Text>
-                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              <Text style={[styles.cardTitle, { color: colors.text }]}>Lorem ipsum dolor sit amet consectetur.</Text>
+              <TouchableOpacity style={[styles.cardButton, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.cardButtonText, { color: '#fff' }]}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color="#fff" />
               </TouchableOpacity>
             </TouchableOpacity>
           </View>
 
           <View style={styles.cardsRow}>
-            <TouchableOpacity style={[styles.featuredCard, styles.darkCard]}>
+            <TouchableOpacity style={[styles.featuredCard, { backgroundColor: colors.card }]}>
               <View style={styles.cardIcon}>
-                <FontAwesome5 name="football-ball" size={24} color="#fff" />
+                <FontAwesome5 name="football-ball" size={24} color={colors.text} />
               </View>
-              <Text style={styles.cardTitle}>Lorem ipsum dolor sit amet consectetur.</Text>
-              <TouchableOpacity style={styles.cardButton}>
-                <Text style={styles.cardButtonText}>Comece agora</Text>
-                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              <Text style={[styles.cardTitle, { color: colors.text }]}>Lorem ipsum dolor sit amet consectetur.</Text>
+              <TouchableOpacity style={[styles.cardButton, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.cardButtonText, { color: '#fff' }]}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color="#fff" />
               </TouchableOpacity>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.featuredCard, styles.darkCard]}>
+            <TouchableOpacity style={[styles.featuredCard, { backgroundColor: colors.card }]}>
               <View style={styles.cardIcon}>
-                <FontAwesome5 name="football-ball" size={24} color="#fff" />
+                <FontAwesome5 name="football-ball" size={24} color={colors.text} />
               </View>
-              <Text style={styles.cardTitle}>Lorem ipsum dolor sit amet consectetur.</Text>
-              <TouchableOpacity style={styles.cardButton}>
-                <Text style={styles.cardButtonText}>Comece agora</Text>
-                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              <Text style={[styles.cardTitle, { color: colors.text }]}>Lorem ipsum dolor sit amet consectetur.</Text>
+              <TouchableOpacity style={[styles.cardButton, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.cardButtonText, { color: '#fff' }]}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color="#fff" />
               </TouchableOpacity>
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={[styles.section, { marginBottom: 100 }]}>
-          <Text style={styles.sectionTitle}>{'{'}<Text style={styles.sectionTitleHighlight}>Recomendações</Text>{'}'}</Text>
+          <Text style={[styles.sectionTitle, { color: colors.text }]}>{'{'}<Text style={[styles.sectionTitleHighlight, { color: colors.xp }]}>Recomendações</Text>{'}'}</Text>
           
           <View style={styles.cardsRow}>
-            <TouchableOpacity style={[styles.featuredCard, styles.yellowCard]}>
+            <TouchableOpacity style={[styles.featuredCard, { backgroundColor: colors.xp }]}>
               <View style={styles.cardIcon}>
-                <FontAwesome5 name="football-ball" size={24} color="#000" />
+                <FontAwesome5 name="football-ball" size={24} color={colors.text} />
               </View>
-              <Text style={[styles.cardTitle, { color: '#1A1A1A' }]}>Novos exercícios sobre árvore de decisão</Text>
-              <TouchableOpacity style={[styles.cardButton, styles.yellowButton]}>
-                <Text style={[styles.cardButtonText, { color: '#1A1A1A' }]}>Comece agora</Text>
-                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              <Text style={[styles.cardTitle, { color: colors.text }]}>Novos exercícios sobre árvore de decisão</Text>
+              <TouchableOpacity style={[styles.cardButton, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.cardButtonText, { color: '#fff' }]}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color="#fff" />
               </TouchableOpacity>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.featuredCard, styles.lightCard]}>
+            <TouchableOpacity style={[styles.featuredCard, { backgroundColor: colors.cardSecondary }]}>
               <View style={styles.cardIcon}>
-                <FontAwesome5 name="football-ball" size={24} color="#000" />
+                <FontAwesome5 name="football-ball" size={24} color={colors.text} />
               </View>
-              <Text style={[styles.cardTitle, { color: '#1A1A1A' }]}>Lorem ipsum dolor sit amet consectetur.</Text>
-              <TouchableOpacity style={[styles.cardButton, styles.lightButton]}>
-                <Text style={[styles.cardButtonText, { color: '#1A1A1A' }]}>Comece agora</Text>
-                <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
+              <Text style={[styles.cardTitle, { color: colors.text }]}>Lorem ipsum dolor sit amet consectetur.</Text>
+              <TouchableOpacity style={[styles.cardButton, { backgroundColor: colors.primary }]}>
+                <Text style={[styles.cardButtonText, { color: '#fff' }]}>Comece agora</Text>
+                <Ionicons name="arrow-forward" size={16} color="#fff" />
               </TouchableOpacity>
             </TouchableOpacity>
           </View>
@@ -239,7 +231,6 @@ export default function DashboardScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#FAFAFA",
   },
   scrollView: {
     flex: 1,
@@ -251,15 +242,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingHorizontal: 20,
     paddingVertical: 15,
-    backgroundColor: "#fff",
     borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
   },
   searchContainer: {
     flex: 1,
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#F5F5F5",
     borderRadius: 25,
     paddingHorizontal: 15,
     paddingVertical: 10,
@@ -269,7 +257,6 @@ const styles = StyleSheet.create({
     flex: 1,
     marginLeft: 10,
     fontSize: 16,
-    color: "#333",
   },
   profileContainer: {
     alignItems: "center",
@@ -315,11 +302,9 @@ const styles = StyleSheet.create({
   greetingTitle: {
     fontSize: 22,
     fontWeight: "bold",
-    color: "#1A1A1A",
   },
   greetingSubtitle: {
     fontSize: 14,
-    color: "#666",
     marginTop: 4,
   },
 
@@ -335,7 +320,6 @@ const styles = StyleSheet.create({
   },
   quickActionCard: {
     width: (width - 55) / 2,
-    backgroundColor: "#fff",
     borderRadius: 20,
     padding: 20,
     position: "relative",
@@ -345,25 +329,12 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  discussionsCard: {
-    backgroundColor: "#E3F2FD",
-  },
-  exerciseCard: {
-    backgroundColor: "#FFF3E0",
-  },
-  createCard: {
-    backgroundColor: "#E3F2FD",
-  },
-  examplesCard: {
-    backgroundColor: "#FFF3E0",
-  },
   quickActionIcon: {
     marginBottom: 10,
   },
   quickActionText: {
     fontSize: 14,
     fontWeight: "600",
-    color: "#1A1A1A",
   },
   notificationBadge: {
     position: "absolute",
@@ -390,12 +361,9 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 20,
     fontWeight: "bold",
-    color: "#1A1A1A",
     marginBottom: 15,
   },
-  sectionTitleHighlight: {
-    color: "#F5A623",
-  },
+  sectionTitleHighlight: {},
 
   // Cards
   cardsRow: {
@@ -413,44 +381,26 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
-  darkCard: {
-    backgroundColor: "#1A1A1A",
-  },
-  yellowCard: {
-    backgroundColor: "#FFE66D",
-  },
-  lightCard: {
-    backgroundColor: "#E0E0E0",
-  },
   cardIcon: {
     marginBottom: 12,
   },
   cardTitle: {
     fontSize: 13,
-    color: "#fff",
     marginBottom: 15,
     lineHeight: 18,
   },
   cardButton: {
     flexDirection: "row",
     alignItems: "center",
-    backgroundColor: "#fff",
     paddingVertical: 8,
     paddingHorizontal: 12,
     borderRadius: 20,
     alignSelf: "flex-start",
     gap: 5,
   },
-  yellowButton: {
-    backgroundColor: "#FFE66D",
-  },
-  lightButton: {
-    backgroundColor: "#fff",
-  },
   cardButtonText: {
     fontSize: 12,
     fontWeight: "600",
-    color: "#1A1A1A",
   },
   loadingContainer: {
     flex: 1,
@@ -460,7 +410,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
-    color: "#666",
   },
   loginContainer: {
     flex: 1,
@@ -472,12 +421,10 @@ const styles = StyleSheet.create({
   welcomeTitle: {
     fontSize: 28,
     fontWeight: "bold",
-    color: "#1A1A1A",
     textAlign: "center",
   },
   welcomeSubtitle: {
     fontSize: 16,
-    color: "#666",
     textAlign: "center",
     lineHeight: 24,
   },

@@ -25,6 +25,5 @@ const styles = StyleSheet.create({
   title: {
     fontSize: 24,
     fontWeight: "bold",
-    // ❌ REMOVER: color: "#1A1A1A" (agora vem do commonStyles.text)
   },
 });

@@ -78,9 +78,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     
     try {
       await AsyncStorage.setItem(THEME_STORAGE_KEY, newTheme);
-    } catch (error) {
-      console.error('Erro ao salvar tema:', error);
-    }
+    } catch (error) {}
   };
 
   const isDarkMode = theme === "dark";

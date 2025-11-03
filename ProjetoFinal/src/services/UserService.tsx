@@ -18,7 +18,6 @@ class UserService {
   static async syncUserFromBackend(userData: any): Promise<void> {
     // SQLite não funciona no web
     if (Platform.OS === 'web') {
-      console.log("⚠️ Cache SQLite não disponível no web");
       return;
     }
 
@@ -77,9 +76,9 @@ class UserService {
         );
       }
 
-      console.log("✅ Dados do usuário sincronizados no cache local");
+      
     } catch (error: any) {
-      console.error("❌ Erro ao sincronizar usuário:", error);
+      
       throw error;
     }
   }
@@ -101,7 +100,7 @@ class UserService {
 
       return user || null;
     } catch (error) {
-      console.error("❌ Erro ao buscar usuário no cache:", error);
+      
       return null;
     }
   }
@@ -117,9 +116,9 @@ class UserService {
       if (!db) return;
       
       await db.runAsync("DELETE FROM users WHERE id = ?", [userId]);
-      console.log("🗑️ Cache do usuário limpo");
+      
     } catch (error) {
-      console.error("❌ Erro ao limpar cache:", error);
+      
     }
   }
 
@@ -134,9 +133,9 @@ class UserService {
       if (!db) return;
       
       await db.runAsync("DELETE FROM users");
-      console.log("🗑️ Todo o cache foi limpo");
+      
     } catch (error) {
-      console.error("❌ Erro ao limpar cache:", error);
+      
     }
   }
 }

@@ -204,7 +204,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// ✅ Export nomeado correto para o LoginScreen
 export function useAuth() {
   return useContext(AuthContext);
 }

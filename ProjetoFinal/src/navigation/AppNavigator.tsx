@@ -2,6 +2,7 @@ import React from "react";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
+import { View } from "react-native";
 import LoginScreen from "../screens/LoginScreen";
 import SignupScreen from "../screens/SignupScreen";
 import DashboardScreen from "../screens/DashboardScreen";
@@ -11,6 +12,7 @@ import ExercisesScreen from "../screens/ExercisesScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import { useAuth } from "../contexts/AuthContext";
+import { useTheme } from "../contexts/ThemeContext";
 
 // Tipagem para o Stack Navigator
 export type RootStackParamList = {
@@ -34,6 +36,7 @@ const Tab = createBottomTabNavigator<TabParamList>();
 
 export default function AppNavigator() {
   const { user, loading } = useAuth();
+  const { colors } = useTheme();
 
   if (loading) {
     return (
@@ -59,16 +62,20 @@ export default function AppNavigator() {
           <Tab.Navigator
             screenOptions={{
               headerShown: false,
-              tabBarActiveTintColor: "#4A90E2",
-              tabBarInactiveTintColor: "#1A1A1A",
+              tabBarActiveTintColor: colors.primary,
+              tabBarInactiveTintColor: colors.text,
+              sceneContainerStyle: { backgroundColor: colors.background },
               tabBarStyle: {
-                backgroundColor: "#E3F2FD",
-                borderTopLeftRadius: 20,
-                borderTopRightRadius: 20,
+                backgroundColor: colors.card,
+                borderTopColor: colors.border,
+                borderTopWidth: 1,
                 height: 70,
                 paddingBottom: 10,
                 paddingTop: 10,
               },
+              tabBarBackground: () => (
+                <View style={{ flex: 1, backgroundColor: colors.card }} />
+              ),
             }}
           >
             <Tab.Screen
