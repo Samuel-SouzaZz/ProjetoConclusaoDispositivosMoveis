@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { 
   View, 
   Text, 
@@ -11,6 +11,7 @@ import {
   ActivityIndicator 
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useRoute, RouteProp } from "@react-navigation/native";
 import { useTheme } from "../contexts/ThemeContext";
 
 const initialExercises = [
@@ -127,6 +128,7 @@ const DetailedExerciseCard = ({
 
 export default function ExercisesScreen() {
   const { commonStyles, colors } = useTheme();
+  const route = useRoute<RouteProp<Record<string, { openCreate?: boolean }>, string>>();
   const [exercises, setExercises] = useState(initialExercises);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [editingExercise, setEditingExercise] = useState<any>(null);
@@ -152,6 +154,12 @@ export default function ExercisesScreen() {
     setEditingExercise(null);
     setShowCreateModal(true);
   };
+
+  useEffect(() => {
+    if ((route.params as any)?.openCreate) {
+      handleAddPress();
+    }
+  }, [route.params]);
 
   const handleEditPress = (exercise: any) => {
     setFormData({

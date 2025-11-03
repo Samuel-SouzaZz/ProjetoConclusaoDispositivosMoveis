@@ -81,11 +81,11 @@ export default function AppNavigator() {
                 ),
               }}
             />
-            <Tab.Screen
-              name="ExercisesTab"
+            <Tab.Screen 
+              name="ExercisesTab" 
               component={ExercisesScreen}
               options={{
-                tabBarLabel: "Exercícios",
+                tabBarLabel: "Desafios",
                 tabBarIcon: ({ color, size }) => (
                   <Ionicons name="code-slash" size={size} color={color} />
                 ),

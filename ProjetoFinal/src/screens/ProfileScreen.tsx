@@ -128,7 +128,7 @@ export default function ProfileScreen() {
       <View style={styles.exerciseHeader}>
         <Text style={[styles.exerciseTitle, { color: colors.text }]}>{item.title}</Text>
         <View style={[styles.statusBadge, item.status === "Published" ? styles.badgePublished : styles.badgeDraft]}>
-          <Text style={[styles.badgeText, { color: colors.text }]}>{item.status === "Published" ? "📢 Publicado" : "📝 Rascunho"}</Text>
+          <Text style={[styles.badgeText, { color: colors.text }]}>{item.status === "Published" ? "Publicado" : "Rascunho"}</Text>
         </View>
       </View>
       <Text style={[styles.exerciseDescription, { color: colors.text }]} numberOfLines={2}>{item.description}</Text>
@@ -149,7 +149,7 @@ export default function ProfileScreen() {
       <View style={styles.submissionHeader}>
         <Text style={[styles.submissionTitle, { color: colors.text }]}>{item.exerciseTitle}</Text>
         <View style={[styles.statusBadge, item.status === "Accepted" ? styles.badgeAccepted : styles.badgeRejected]}>
-          <Text style={[styles.badgeText, { color: colors.text }]}>{item.status === "Accepted" ? "✅ Aceito" : "❌ Rejeitado"}</Text>
+          <Text style={[styles.badgeText, { color: colors.text }]}>{item.status === "Accepted" ? "Aceito" : "Rejeitado"}</Text>
         </View>
       </View>
       <View style={styles.submissionFooter}>

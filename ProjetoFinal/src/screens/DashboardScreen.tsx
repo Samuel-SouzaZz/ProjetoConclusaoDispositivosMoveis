@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useAuth } from "../contexts/AuthContext";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
+import ApiService from "../services/ApiService";
 import BottomNavigation from "../components/BottomNavigation";
 
 const { width } = Dimensions.get("window");
@@ -30,6 +31,18 @@ type TabNavigationProp = BottomTabNavigationProp<{
 export default function DashboardScreen() {
   const { user, loading } = useAuth();
   const navigation = useNavigation<TabNavigationProp>();
+  const [discussionsCount, setDiscussionsCount] = useState<number>(0);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const stats = await ApiService.getStats();
+        if (stats && typeof stats.discussionsCount === 'number') {
+          setDiscussionsCount(stats.discussionsCount);
+        }
+      } catch {}
+    })();
+  }, []);
 
   if (loading) {
     return (
@@ -67,7 +80,6 @@ export default function DashboardScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* Header com busca e perfil */}
       <View style={styles.header}>
         <View style={styles.searchContainer}>
           <Ionicons name="search" size={20} color="#666" />
@@ -77,7 +89,7 @@ export default function DashboardScreen() {
             placeholderTextColor="#999"
           />
         </View>
-        <View style={styles.profileContainer}>
+        <TouchableOpacity style={styles.profileContainer} onPress={() => navigation.navigate('ProfileTab')} activeOpacity={0.7}>
           <View style={styles.avatar}>
             <Ionicons name="person" size={20} color="#fff" />
           </View>
@@ -85,14 +97,13 @@ export default function DashboardScreen() {
             <Text style={styles.levelText}>1</Text>
           </View>
           <Text style={styles.levelLabel}>Level</Text>
-        </View>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
       >
-        {/* Saudação */}
         <View style={styles.greetingContainer}>
           <Text style={styles.greetingTitle}>
             Olá {user?.name?.split(' ')[0] || 'Marcos'}!
@@ -100,54 +111,46 @@ export default function DashboardScreen() {
           <Text style={styles.greetingSubtitle}>Boas vindas de volta!</Text>
         </View>
 
-        {/* Cards de ação rápida */}
         <View style={styles.quickActionsContainer}>
           <View style={styles.quickActionsRow}>
-            <TouchableOpacity style={[styles.quickActionCard, styles.discussionsCard]}>
+            <TouchableOpacity 
+              style={[styles.quickActionCard, styles.discussionsCard]}
+              onPress={() => navigation.navigate('DiscussionsTab')}
+            >
               <View style={styles.quickActionIcon}>
                 <Ionicons name="chatbubbles" size={28} color="#4A90E2" />
               </View>
               <Text style={styles.quickActionText}>Discussões</Text>
               <View style={styles.notificationBadge}>
-                <Text style={styles.notificationText}>2</Text>
+                <Text style={styles.notificationText}>{discussionsCount}</Text>
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.quickActionCard, styles.exerciseCard]}>
+            <TouchableOpacity 
+              style={[styles.quickActionCard, styles.exerciseCard]}
+              onPress={() => navigation.navigate('ExercisesTab')}
+            >
               <View style={styles.quickActionIcon}>
                 <Ionicons name="school" size={28} color="#F5A623" />
               </View>
-              <Text style={styles.quickActionText}>Exercício</Text>
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationText}>2</Text>
-              </View>
+              <Text style={styles.quickActionText}>Desafio</Text>
             </TouchableOpacity>
           </View>
 
           <View style={styles.quickActionsRow}>
             <TouchableOpacity 
               style={[styles.quickActionCard, styles.createCard]}
-              onPress={() => navigation.navigate('ExercisesTab')}
+              onPress={() => navigation.navigate('ExercisesTab', { openCreate: true })}
             >
               <View style={styles.quickActionIcon}>
                 <Ionicons name="add-circle" size={28} color="#4A90E2" />
               </View>
-              <Text style={styles.quickActionText}>Criar{'\n'}exercício</Text>
+              <Text style={styles.quickActionText}>Criar{'\n'}desafio</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.quickActionCard, styles.examplesCard]}>
-              <View style={styles.quickActionIcon}>
-                <Ionicons name="book" size={28} color="#F5A623" />
-              </View>
-              <Text style={styles.quickActionText}>Exemplos</Text>
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationText}>2</Text>
-              </View>
-            </TouchableOpacity>
+            
           </View>
         </View>
 
-        {/* Seção Em Destaque */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>{'{'}<Text style={styles.sectionTitleHighlight}>Em Destaque</Text>{'}'}</Text>
           
@@ -200,7 +203,6 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Seção Recomendações */}
         <View style={[styles.section, { marginBottom: 100 }]}>
           <Text style={styles.sectionTitle}>{'{'}<Text style={styles.sectionTitleHighlight}>Recomendações</Text>{'}'}</Text>
           
@@ -230,8 +232,6 @@ export default function DashboardScreen() {
         </View>
       </ScrollView>
 
-      {/* Bottom Navigation - Removida porque agora usamos Tab Navigator nativo */}
-      {/* <BottomNavigation activeRoute="Dashboard" /> */}
     </SafeAreaView>
   );
 }
