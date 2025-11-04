@@ -24,7 +24,7 @@ interface ThemeContextData {
     container: { flex: number; backgroundColor: string };
     scrollView: { flex: number; backgroundColor: string };
     text: { color: string };
-    card: { backgroundColor: string; shadowColor: string; shadowOffset: { width: number; height: number }; shadowOpacity: number; shadowRadius: number; elevation: number };
+    card: { backgroundColor: string; boxShadow: string; elevation: number };
     header: { backgroundColor: string; borderBottomColor: string };
   };
 }
@@ -115,10 +115,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     },
     card: {
       backgroundColor: colors.card,
-      shadowColor: '#000',
-      shadowOffset: { width: 0, height: 2 },
-      shadowOpacity: 0.1,
-      shadowRadius: 4,
+      boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
       elevation: 3,
     },
   };
