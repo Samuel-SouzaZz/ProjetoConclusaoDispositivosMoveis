@@ -5,11 +5,11 @@ import { User } from "../models/UserModel";
 /**
  * Serviço de Usuários - Cache Local (SQLite)
  * 
- * ⚠️ IMPORTANTE: Este serviço NÃO faz autenticação!
+ * IMPORTANTE: Este serviço NÃO faz autenticação!
  * Autenticação é feita via ApiService (backend)
  * SQLite apenas armazena dados do usuário logado (cache)
  * 
- * 📱 Funciona apenas em MOBILE (não funciona no web)
+ * Funciona apenas em MOBILE (não funciona no web)
  */
 class UserService {
   /**

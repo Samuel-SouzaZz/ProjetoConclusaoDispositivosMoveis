@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect,useCallback } from "react";
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
 import DatabaseService from "../services/DatabaseService";
+import { useFocusEffect } from '@react-navigation/native';
 
 const { width } = Dimensions.get("window");
 
@@ -54,11 +55,16 @@ export default function ProfileScreen() {
   const [filter, setFilter] = useState<"all" | "drafts" | "published">("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
   const [profile, setProfile] = useState<any>(null);
   const [statCards, setStatCards] = useState<StatCard[]>([]);
   const [exercises, setExercises] = useState<Exercise[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadProfile();
+    }, [])
+  );
 
   useEffect(() => {
     loadProfile();
@@ -78,12 +84,13 @@ export default function ProfileScreen() {
         { id: "4", label: "Taxa Sucesso", value: `${data.stats.successRate || 0}%`, icon: "stats-chart", color: "#FF9800" },
       ]);
       
-      setExercises(data.exercises || []);
-      setSubmissions(data.submissions || []);
-    } catch (error) {
-    } finally {
-      setLoading(false);
-    }
+    setExercises(data.exercises || []);
+    setSubmissions(data.submissions || []);
+  } catch (error) {
+    console.log(error);
+  } finally {
+    setLoading(false);
+  }
   };
 
   const onRefresh = async () => {

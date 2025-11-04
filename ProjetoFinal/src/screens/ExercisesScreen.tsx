@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState,useCallback } from "react";
 import { 
   View, 
   Text, 
@@ -16,6 +16,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import ApiService from "../services/ApiService";
 import ExerciseService from "../services/ExerciseService";
+import { useFocusEffect } from '@react-navigation/native';
 
 
 const difficultyOptions = [
@@ -131,6 +132,12 @@ export default function ExercisesScreen() {
     setShowCreateModal(true);
   };
 
+  useFocusEffect(
+    useCallback(() => {
+      loadExercises();
+    }, [user?.id])
+  );
+
   useEffect(() => {
     loadExercises();
   }, [user]);
@@ -142,52 +149,13 @@ export default function ExercisesScreen() {
   }, [route.params]);
 
   const loadExercises = async () => {
-    if (!user?.id) {
-      setInitialLoading(false);
-      return;
-    }
-
+    setInitialLoading(true);
+  
     try {
-      setInitialLoading(true);
-      const data = await ApiService.getMyExercises({ status: 'all' });
-      
-      if (data && data.exercises) {
-        const exercisesList = data.exercises.map((ex: any) => ({
-          id: ex.id,
-          title: ex.title,
-          description: ex.description || '',
-          difficulty: ex.difficulty === 1 ? 'Fácil' : ex.difficulty === 2 ? 'Médio' : 'Difícil',
-          progress: ex.progress || 0,
-          isPublic: ex.isPublic !== false,
-          xp: ex.xp || 100,
-        }));
-
-        setExercises(exercisesList);
-
-        for (const exercise of exercisesList) {
-          await ExerciseService.syncExerciseFromBackend({
-            ...exercise,
-            difficulty: exercise.difficulty === 'Fácil' ? 1 : exercise.difficulty === 'Médio' ? 2 : 3,
-            userId: user.id,
-          });
-        }
-      } else {
-        const cachedExercises = await ExerciseService.getExercisesByUserId(user.id);
-        if (cachedExercises.length > 0) {
-          setExercises(cachedExercises.map(ex => ({
-            ...ex,
-            difficulty: ex.difficulty === 1 ? 'Fácil' : ex.difficulty === 2 ? 'Médio' : 'Difícil',
-          })));
-        }
-      }
-    } catch (error) {
-      const cachedExercises = await ExerciseService.getExercisesByUserId(user?.id || '');
-      if (cachedExercises.length > 0) {
-        setExercises(cachedExercises.map(ex => ({
-          ...ex,
-          difficulty: ex.difficulty === 1 ? 'Fácil' : ex.difficulty === 2 ? 'Médio' : 'Difícil',
-        })));
-      }
+      const response = await ApiService.getExercises();
+      setExercises(response.items || response.data || []);
+    } catch (err) {
+      Alert.alert("Erro", "Não foi possível carregar exercícios");
     } finally {
       setInitialLoading(false);
     }
@@ -217,13 +185,16 @@ export default function ExercisesScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await ApiService.deleteExercise(exercise.id);
-              await ExerciseService.deleteExercise(exercise.id);
-              setExercises(exercises.filter(e => e.id !== exercise.id));
-              Alert.alert('Sucesso', 'Exercício excluído com sucesso!');
+              const exerciseId = exercise.id || exercise._id;
+          
+              await ApiService.deleteExercise(exerciseId);
+              if (ExerciseService.deleteExercise) {
+                try { await ExerciseService.deleteExercise(exerciseId); } catch {}
+              }
+              await loadExercises();
+              Alert.alert("Sucesso", "Exercício excluído com sucesso!");
             } catch (error: any) {
-              const message = ApiService.handleError(error);
-              Alert.alert('Erro', message || 'Não foi possível excluir o exercício');
+              Alert.alert("Erro", ApiService.handleError(error));
             }
           }
         }
@@ -240,73 +211,27 @@ export default function ExercisesScreen() {
       Alert.alert('Erro', 'Título é obrigatório');
       return;
     }
-
     if (!user?.id) {
       Alert.alert('Erro', 'Usuário não autenticado');
       return;
     }
-
     setLoading(true);
-    
     try {
-      const exerciseData = {
+      await ApiService.createExercise({
         title: formData.title,
-        description: formData.description || '',
+        description: formData.description,
         difficulty: formData.difficulty,
         xp: formData.xp,
         isPublic: formData.isPublic,
-        codeTemplate: formData.codeTemplate || '',
-      };
-
-      if (editingExercise) {
-        const response = await ApiService.updateExercise(editingExercise.id, exerciseData);
-        
-        const updatedExercise = {
-          id: editingExercise.id,
-          title: response.title || response.exercise?.title || formData.title,
-          description: response.description || response.exercise?.description || formData.description,
-          difficulty: difficultyOptions.find(d => d.value === formData.difficulty)?.label || 'Fácil',
-          progress: editingExercise.progress || 0,
-          isPublic: response.isPublic !== false && formData.isPublic,
-          xp: response.xp || response.exercise?.xp || formData.xp,
-        };
-
-        await ExerciseService.syncExerciseFromBackend({
-          ...updatedExercise,
-          difficulty: formData.difficulty,
-          userId: user.id,
-          status: editingExercise.status || 'Draft',
-        });
-
-        Alert.alert('Sucesso', 'Exercício atualizado com sucesso!');
-      } else {
-        const response = await ApiService.createExercise(exerciseData);
-        
-        const newExercise = {
-          id: response.id || response.exercise?.id,
-          title: response.title || response.exercise?.title || formData.title,
-          description: response.description || response.exercise?.description || formData.description,
-          difficulty: difficultyOptions.find(d => d.value === formData.difficulty)?.label || 'Fácil',
-          progress: 0,
-          isPublic: response.isPublic !== false && formData.isPublic,
-          xp: response.xp || response.exercise?.xp || formData.xp,
-        };
-
-        await ExerciseService.syncExerciseFromBackend({
-          ...newExercise,
-          difficulty: formData.difficulty,
-          userId: user.id,
-          status: 'Draft',
-        });
-
-        Alert.alert('Sucesso', 'Exercício criado com sucesso!');
-      }
-
+        codeTemplate: formData.codeTemplate,
+      });
+  
+      Alert.alert("Sucesso", "Exercício criado!");
       await loadExercises();
       setShowCreateModal(false);
-    } catch (error: any) {
-      const message = ApiService.handleError(error);
-      Alert.alert('Erro', message || 'Não foi possível salvar o exercício');
+  
+    } catch (e) {
+      Alert.alert("Erro", ApiService.handleError(e));
     } finally {
       setLoading(false);
     }

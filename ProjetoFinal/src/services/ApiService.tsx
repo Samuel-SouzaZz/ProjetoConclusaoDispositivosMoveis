@@ -157,6 +157,7 @@ async getToken(): Promise<string | null> {
     codeTemplate?: string;
     isPublic?: boolean;
     languageId?: string;
+    xp?: number;
   }) {
     const response = await this.api.post('/exercises', data);
     return response.data;
