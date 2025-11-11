@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, FlatList } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -18,6 +18,9 @@ export default function GroupDetailsScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [group, setGroup] = useState<any | null>(null);
+  const [members, setMembers] = useState<any[]>([]);
+  const [challenges, setChallenges] = useState<any[]>([]);
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -27,6 +30,18 @@ export default function GroupDetailsScreen() {
         const data = await ApiService.getGroup(groupId);
         if (!mounted) return;
         setGroup(data);
+        // membros
+        try {
+          const mm = Array.isArray(data?.members) ? data.members : await ApiService.getGroupMembers(groupId);
+          const mItems = Array.isArray(mm) ? mm : mm?.items || [];
+          setMembers(mItems);
+        } catch {}
+        // desafios
+        try {
+          const cc = Array.isArray(data?.challenges) ? data.challenges : await ApiService.getGroupChallenges(groupId);
+          const cItems = Array.isArray(cc) ? cc : cc?.items || [];
+          setChallenges(cItems);
+        } catch {}
         setError(null);
       } catch (err: any) {
         if (!mounted) return;
@@ -44,7 +59,7 @@ export default function GroupDetailsScreen() {
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>Detalhes do Grupo</Text>
+        <Text style={[styles.title, { color: colors.text }]}>Voltar para Grupos</Text>
       </View>
 
       {loading ? (
@@ -88,12 +103,68 @@ export default function GroupDetailsScreen() {
             </View>
             <View style={styles.actions}> 
               <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => {}}>
-                <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Ver Discussões</Text>
+                <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Ver Desafios</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={() => {}}>
-                <Text style={styles.primaryButtonText}>Acessar</Text>
+              <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => {}}>
+                <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Meu Progresso</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                onPress={async () => { try { setLeaving(true); await ApiService.leaveGroup(String(group.id)); } catch {} finally { setLeaving(false); } }}
+                disabled={leaving}
+              >
+                <Text style={styles.primaryButtonText}>{leaving ? 'Saindo...' : 'Sair do Grupo'}</Text>
               </TouchableOpacity>
             </View>
+          </View>
+
+          {/* Membros do Grupo */}
+          <View style={[styles.section, { backgroundColor: colors.background }]}> 
+            <Text style={[styles.sectionTitle, { color: colors.text }]}>Membros do Grupo</Text>
+            {members.length === 0 ? (
+              <View style={[styles.emptyBox, { borderColor: colors.border }]}><Text style={{ color: colors.textSecondary }}>Nenhum membro encontrado</Text></View>
+            ) : (
+              <FlatList
+                data={members}
+                keyExtractor={(item, index) => String(item.id || index)}
+                renderItem={({ item }) => (
+                  <View style={[styles.memberItem, { borderBottomColor: colors.border }]}> 
+                    <View style={[styles.avatar, { backgroundColor: isDarkMode ? '#2D3748' : '#EDF2F7' }]}> 
+                      <Text style={[styles.avatarText, { color: colors.text }]}>{String(item.name || item.handle || 'U').charAt(0).toUpperCase()}</Text>
+                    </View>
+                    <View style={{ flex: 1 }}> 
+                      <Text style={[styles.memberName, { color: colors.text }]}>{item.name || item.handle} {item.isYou ? '(Você)' : ''}</Text>
+                      <Text style={[styles.memberRole, { color: colors.textSecondary }]}>{item.role || 'Membro'}</Text>
+                    </View>
+                    <Text style={[styles.joinedAt, { color: colors.textSecondary }]}>Entrou em: {formatDate(item.joinedAt)}</Text>
+                  </View>
+                )}
+              />
+            )}
+          </View>
+
+          {/* Desafios do Grupo */}
+          <View style={[styles.section, { backgroundColor: colors.background }]}> 
+            <View style={styles.rowSpace}> 
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Desafios do Grupo ({challenges.length || 0})</Text>
+              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={() => {}}>
+                <Text style={styles.primaryButtonText}>Criar Desafio</Text>
+              </TouchableOpacity>
+            </View>
+            {challenges.length === 0 ? (
+              <View style={[styles.emptyBox, { borderColor: colors.border }]}> 
+                <Text style={{ color: colors.textSecondary }}>Nenhum Desafio criado ainda</Text>
+              </View>
+            ) : (
+              <View style={{ gap: 8 }}> 
+                {challenges.map((ch, idx) => (
+                  <View key={idx} style={[styles.challengeItem, { backgroundColor: colors.card }]}> 
+                    <Text style={[styles.challengeTitle, { color: colors.text }]}>{ch.title || 'Desafio'}</Text>
+                    <Text style={[styles.challengeMeta, { color: colors.textSecondary }]}>Dificuldade: {ch.difficulty ?? '-'} • XP: {ch.xp ?? '-'}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </ScrollView>
       )}
@@ -137,4 +208,16 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: "#fff", fontWeight: "700" },
   secondaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
   secondaryButtonText: { fontWeight: "700" },
+  section: { marginTop: 20 },
+  sectionTitle: { fontSize: 16, fontWeight: "700" },
+  emptyBox: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 10 },
+  memberItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1 },
+  avatar: { width: 34, height: 34, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontWeight: '700' },
+  memberName: { fontSize: 14, fontWeight: '600' },
+  memberRole: { fontSize: 12 },
+  joinedAt: { fontSize: 12 },
+  challengeItem: { borderRadius: 12, padding: 12 },
+  challengeTitle: { fontSize: 14, fontWeight: '700' },
+  challengeMeta: { fontSize: 12 },
 });

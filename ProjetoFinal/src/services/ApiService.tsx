@@ -296,6 +296,35 @@ async getToken(): Promise<string | null> {
   }
 
   /**
+   * GROUPS - Membros do grupo
+   */
+  async getGroupMembers(groupId: string) {
+    const response = await this.api.get(`/groups/${groupId}/members`);
+    return response.data;
+  }
+
+  /**
+   * GROUPS - Desafios do grupo
+   */
+  async getGroupChallenges(groupId: string) {
+    const response = await this.api.get(`/groups/${groupId}/challenges`);
+    return response.data;
+  }
+
+  /**
+   * GROUPS - Entrar/Sair do grupo
+   */
+  async joinGroup(groupId: string) {
+    const response = await this.api.post(`/groups/${groupId}/join`);
+    return response.data;
+  }
+
+  async leaveGroup(groupId: string) {
+    const response = await this.api.post(`/groups/${groupId}/leave`);
+    return response.data;
+  }
+
+  /**
    * STATS - Estatísticas
    */
   async getStats() {
