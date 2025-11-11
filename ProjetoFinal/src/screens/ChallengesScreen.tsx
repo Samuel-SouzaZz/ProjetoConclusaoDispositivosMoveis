@@ -15,7 +15,7 @@ import { useRoute, RouteProp } from "@react-navigation/native";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import ApiService from "../services/ApiService";
-import ExerciseService from "../services/ExerciseService";
+import ChallengeService from "../services/ChallengeService";
 import { useFocusEffect } from '@react-navigation/native';
 
 
@@ -41,7 +41,7 @@ const ScreenHeader = ({ title, onAddPress }: { title: string; onAddPress: () => 
   );
 };
 
-const DetailedExerciseCard = ({ 
+const DetailedChallengeCard = ({ 
   title, 
   description, 
   difficulty, 
@@ -64,23 +64,23 @@ const DetailedExerciseCard = ({
   };
 
   return (
-    <View style={[commonStyles.card, styles.exerciseCard]}>
-      <TouchableOpacity onPress={onPress} style={styles.exerciseContent}>
-        <View style={styles.exerciseHeader}>
-          <Text style={[commonStyles.text, styles.exerciseTitle]}>{title}</Text>
+    <View style={[commonStyles.card, styles.challengeCard]}>
+      <TouchableOpacity onPress={onPress} style={styles.challengeContent}>
+        <View style={styles.challengeHeader}>
+          <Text style={[commonStyles.text, styles.challengeTitle]}>{title}</Text>
           <View style={getDifficultyStyle()}>
             <Text style={[styles.difficultyText, { color: colors.text }]}>{difficulty}</Text>
           </View>
         </View>
-        <Text style={[commonStyles.text, styles.exerciseDescription]}>{description}</Text>
-        <View style={styles.exerciseFooter}>
+        <Text style={[commonStyles.text, styles.challengeDescription]}>{description}</Text>
+        <View style={styles.challengeFooter}>
           <View style={styles.progressContainer}>
             <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
               <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.primary }]} />
             </View>
             <Text style={[styles.progressText, { color: colors.primary }]}>{progress}%</Text>
           </View>
-          <View style={styles.exerciseInfo}>
+          <View style={styles.challengeInfo}>
             <Text style={[styles.xpText, { color: colors.xp }]}>{xp} XP</Text>
             <Text style={[styles.visibilityText, { color: isPublic ? colors.primary : colors.textSecondary }]}>
               {isPublic ? "Público" : "Privado"}
@@ -89,7 +89,7 @@ const DetailedExerciseCard = ({
         </View>
       </TouchableOpacity>
       
-      <View style={[styles.exerciseActions, { backgroundColor: colors.cardSecondary }]}>
+      <View style={[styles.challengeActions, { backgroundColor: colors.cardSecondary }]}>
         <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
           <Text style={[styles.actionButtonText, { color: colors.primary }]}>Editar</Text>
         </TouchableOpacity>
@@ -101,13 +101,13 @@ const DetailedExerciseCard = ({
   );
 };
 
-export default function ExercisesScreen() {
+export default function ChallengesScreen() {
   const { commonStyles, colors } = useTheme();
   const { user } = useAuth();
   const route = useRoute<RouteProp<Record<string, { openCreate?: boolean }>, string>>();
-  const [exercises, setExercises] = useState<any[]>([]);
+  const [challenges, setChallenges] = useState<any[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [editingExercise, setEditingExercise] = useState<any>(null);
+  const [editingChallenge, setEditingChallenge] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   const [formData, setFormData] = useState({
@@ -128,18 +128,18 @@ export default function ExercisesScreen() {
       isPublic: true,
       codeTemplate: '// Seu código aqui\n'
     });
-    setEditingExercise(null);
+    setEditingChallenge(null);
     setShowCreateModal(true);
   };
 
   useFocusEffect(
     useCallback(() => {
-      loadExercises();
+      loadChallenges();
     }, [user?.id])
   );
 
   useEffect(() => {
-    loadExercises();
+    loadChallenges();
   }, [user]);
 
   useEffect(() => {
@@ -148,36 +148,36 @@ export default function ExercisesScreen() {
     }
   }, [route.params]);
 
-  const loadExercises = async () => {
+  const loadChallenges = async () => {
     setInitialLoading(true);
   
     try {
-      const response = await ApiService.getExercises();
-      setExercises(response.items || response.data || []);
+      const response = await ApiService.getChallenges();
+      setChallenges(response.items || response.data || []);
     } catch (err) {
-      Alert.alert("Erro", "Não foi possível carregar exercícios");
+      Alert.alert("Erro", "Não foi possível carregar desafios");
     } finally {
       setInitialLoading(false);
     }
   };
 
-  const handleEditPress = (exercise: any) => {
+  const handleEditPress = (challenge: any) => {
     setFormData({
-      title: exercise.title,
-      description: exercise.description,
-      difficulty: difficultyOptions.find(d => d.label === exercise.difficulty)?.value || 1,
-      xp: exercise.xp,
-      isPublic: exercise.isPublic,
+      title: challenge.title,
+      description: challenge.description,
+      difficulty: difficultyOptions.find(d => d.label === challenge.difficulty)?.value || 1,
+      xp: challenge.xp,
+      isPublic: challenge.isPublic,
       codeTemplate: '// Seu código aqui\n'
     });
-    setEditingExercise(exercise);
+    setEditingChallenge(challenge);
     setShowCreateModal(true);
   };
 
-  const handleDeletePress = (exercise: any) => {
+  const handleDeletePress = (challenge: any) => {
     Alert.alert(
-      'Excluir Exercício',
-      `Tem certeza que deseja excluir "${exercise.title}"?`,
+      'Excluir Desafio',
+      `Tem certeza que deseja excluir "${challenge.title}"?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         { 
@@ -185,14 +185,14 @@ export default function ExercisesScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              const exerciseId = exercise.id || exercise._id;
+              const challengeId = challenge.id || challenge._id;
           
-              await ApiService.deleteExercise(exerciseId);
-              if (ExerciseService.deleteExercise) {
-                try { await ExerciseService.deleteExercise(exerciseId); } catch {}
+              await ApiService.deleteChallenge(challengeId);
+              if (ChallengeService.deleteChallenge) {
+                try { await ChallengeService.deleteChallenge(challengeId); } catch {}
               }
-              await loadExercises();
-              Alert.alert("Sucesso", "Exercício excluído com sucesso!");
+              await loadChallenges();
+              Alert.alert("Sucesso", "Desafio excluído com sucesso!");
             } catch (error: any) {
               Alert.alert("Erro", ApiService.handleError(error));
             }
@@ -202,11 +202,11 @@ export default function ExercisesScreen() {
     );
   };
 
-  const handleExercisePress = (exercise: any) => {
-    Alert.alert('Exercício', `Abrir "${exercise.title}"`);
+  const handleChallengePress = (challenge: any) => {
+    Alert.alert('Desafio', `Abrir "${challenge.title}"`);
   };
 
-  const handleSaveExercise = async () => {
+  const handleSaveChallenge = async () => {
     if (!formData.title.trim()) {
       Alert.alert('Erro', 'Título é obrigatório');
       return;
@@ -217,7 +217,7 @@ export default function ExercisesScreen() {
     }
     setLoading(true);
     try {
-      await ApiService.createExercise({
+      await ApiService.createChallenge({
         title: formData.title,
         description: formData.description,
         difficulty: formData.difficulty,
@@ -226,8 +226,8 @@ export default function ExercisesScreen() {
         codeTemplate: formData.codeTemplate,
       });
   
-      Alert.alert("Sucesso", "Exercício criado!");
-      await loadExercises();
+      Alert.alert("Sucesso", "Desafio criado!");
+      await loadChallenges();
       setShowCreateModal(false);
   
     } catch (e) {
@@ -258,25 +258,25 @@ export default function ExercisesScreen() {
       />
       
       <ScrollView style={[commonStyles.scrollView, styles.scrollView]}>
-        {exercises.length === 0 ? (
+        {challenges.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
               Nenhum desafio criado ainda. Clique em "Criar" para começar!
             </Text>
           </View>
         ) : (
-          exercises.map((exercise) => (
-          <DetailedExerciseCard
-            key={exercise.id}
-            title={exercise.title}
-            description={exercise.description}
-            difficulty={exercise.difficulty}
-            progress={exercise.progress}
-            isPublic={exercise.isPublic}
-            xp={exercise.xp}
-            onPress={() => handleExercisePress(exercise)}
-            onEdit={() => handleEditPress(exercise)}
-            onDelete={() => handleDeletePress(exercise)}
+          challenges.map((challenge) => (
+          <DetailedChallengeCard
+            key={challenge.id}
+            title={challenge.title}
+            description={challenge.description}
+            difficulty={challenge.difficulty}
+            progress={challenge.progress}
+            isPublic={challenge.isPublic}
+            xp={challenge.xp}
+            onPress={() => handleChallengePress(challenge)}
+            onEdit={() => handleEditPress(challenge)}
+            onDelete={() => handleDeletePress(challenge)}
           />
           ))
         )}
@@ -293,9 +293,9 @@ export default function ExercisesScreen() {
               <Text style={[styles.cancelButton, { color: colors.textSecondary }]}>Cancelar</Text>
             </TouchableOpacity>
             <Text style={[commonStyles.text, styles.modalTitle]}>
-              {editingExercise ? 'Editar Exercício' : 'Criar Exercício'}
+              {editingChallenge ? 'Editar Desafio' : 'Criar Desafio'}
             </Text>
-            <TouchableOpacity onPress={handleSaveExercise} disabled={loading}>
+            <TouchableOpacity onPress={handleSaveChallenge} disabled={loading}>
               {loading ? (
                 <ActivityIndicator size="small" color={colors.primary} />
               ) : (
@@ -311,7 +311,7 @@ export default function ExercisesScreen() {
                 style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
                 value={formData.title}
                 onChangeText={(text) => setFormData({...formData, title: text})}
-                placeholder="Digite o título do exercício"
+                placeholder="Digite o título do desafio"
                 placeholderTextColor={colors.textSecondary}
                 maxLength={100}
               />
@@ -323,7 +323,7 @@ export default function ExercisesScreen() {
                 style={[styles.input, styles.textArea, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
                 value={formData.description}
                 onChangeText={(text) => setFormData({...formData, description: text})}
-                placeholder="Descreva o exercício"
+                placeholder="Descreva o desafio"
                 placeholderTextColor={colors.textSecondary}
                 multiline
                 numberOfLines={3}
@@ -425,7 +425,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
   },
-  exerciseCard: {
+  challengeCard: {
     borderRadius: 12,
     marginBottom: 16,
     shadowOffset: { width: 0, height: 2 },
@@ -434,16 +434,16 @@ const styles = StyleSheet.create({
     elevation: 3,
     overflow: "hidden",
   },
-  exerciseContent: {
+  challengeContent: {
     padding: 16,
   },
-  exerciseHeader: {
+  challengeHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 8,
   },
-  exerciseTitle: {
+  challengeTitle: {
     fontSize: 18,
     fontWeight: "bold",
     flex: 1,
@@ -458,12 +458,12 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-  exerciseDescription: {
+  challengeDescription: {
     fontSize: 14,
     marginBottom: 12,
     lineHeight: 20,
   },
-  exerciseFooter: {
+  challengeFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
@@ -488,7 +488,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "600",
   },
-  exerciseInfo: {
+  challengeInfo: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
@@ -501,7 +501,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "500",
   },
-  exerciseActions: {
+  challengeActions: {
     flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 8,

@@ -22,7 +22,15 @@ class UserService {
 
     try {
       const db = DatabaseService.getDatabase();
-      if (!db) return;
+      if (!db) {
+        console.warn("Database não disponível para sync");
+        return;
+      }
+
+      if (!userData || !userData.id) {
+        console.warn("Dados de usuário inválidos para sync");
+        return;
+      }
 
       const existing = await db.getFirstAsync(
         "SELECT * FROM users WHERE id = ?",
@@ -43,8 +51,8 @@ class UserService {
             synced_at = CURRENT_TIMESTAMP
           WHERE id = ?`,
           [
-            userData.name,
-            userData.email,
+            userData.name || '',
+            userData.email || '',
             userData.handle || null,
             userData.collegeId || null,
             userData.level || 1,
@@ -60,8 +68,8 @@ class UserService {
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             userData.id,
-            userData.name,
-            userData.email,
+            userData.name || '',
+            userData.email || '',
             userData.handle || null,
             userData.collegeId || null,
             userData.level || 1,
@@ -71,11 +79,10 @@ class UserService {
           ]
         );
       }
-
-      
     } catch (error: any) {
-      
-      throw error;
+      // Log do erro mas não interrompe o fluxo
+      console.error("Erro ao sincronizar usuário com banco local:", error);
+      // Não re-throw para não quebrar o fluxo de autenticação
     }
   }
 

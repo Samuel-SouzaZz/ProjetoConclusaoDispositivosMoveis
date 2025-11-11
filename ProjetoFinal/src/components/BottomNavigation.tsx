@@ -4,7 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 interface BottomNavigationProps {
-  activeRoute: "Home" | "Dashboard" | "Discussions" | "Ranking" | "Exercises" | "Settings";
+  activeRoute: "Home" | "Dashboard" | "Discussions" | "Ranking" | "Challenges" | "Settings";
 }
 
 export default function BottomNavigation({ activeRoute }: BottomNavigationProps) {
@@ -46,13 +46,13 @@ export default function BottomNavigation({ activeRoute }: BottomNavigationProps)
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.navItem, activeRoute === "Exercises" && styles.navItemActive]}
-        onPress={() => navigation.navigate("Exercises")}
+        style={[styles.navItem, activeRoute === "Challenges" && styles.navItemActive]}
+        onPress={() => navigation.navigate("ChallengesTab")}
       >
         <Ionicons
           name="code-slash"
           size={24}
-          color={activeRoute === "Exercises" ? "#4A90E2" : "#1A1A1A"}
+          color={activeRoute === "Challenges" ? "#4A90E2" : "#1A1A1A"}
         />
       </TouchableOpacity>
 

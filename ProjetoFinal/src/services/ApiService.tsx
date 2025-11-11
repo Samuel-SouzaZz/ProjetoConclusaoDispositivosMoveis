@@ -80,7 +80,7 @@ class ApiService {
     const response = await this.api.post('/auth/signup', data);
     const { user, tokens } = response.data;
     await this.saveTokens(tokens.accessToken, tokens.refreshToken);
-    return user;
+    return { user, tokens };
   }
 
 
@@ -140,7 +140,7 @@ async getToken(): Promise<string | null> {
   }
 
   /**
-   * USERS - Perfil completo com estatísticas, exercícios e submissões
+   * USERS - Perfil completo com estatísticas, desafios e submissões
    */
   async getUserCompleteProfile() {
     const response = await this.api.get('/users/me/profile/complete');
@@ -148,9 +148,9 @@ async getToken(): Promise<string | null> {
   }
 
   /**
-   * EXERCISES - Criar exercício
+   * CHALLENGES - Criar desafio
    */
-  async createExercise(data: {
+  async createChallenge(data: {
     title: string;
     description?: string;
     difficulty?: number;
@@ -164,9 +164,9 @@ async getToken(): Promise<string | null> {
   }
 
   /**
-   * EXERCISES - Listar meus exercícios
+   * CHALLENGES - Listar meus desafios
    */
-  async getMyExercises(params?: {
+  async getMyChallenges(params?: {
     status?: 'Draft' | 'Published' | 'all';
     page?: number;
     limit?: number;
@@ -176,9 +176,9 @@ async getToken(): Promise<string | null> {
   }
 
   /**
-   * EXERCISES - Atualizar exercício
+   * CHALLENGES - Atualizar desafio
    */
-  async updateExercise(exerciseId: string, data: {
+  async updateChallenge(challengeId: string, data: {
     title?: string;
     description?: string;
     difficulty?: number;
@@ -187,15 +187,15 @@ async getToken(): Promise<string | null> {
     languageId?: string;
     xp?: number;
   }) {
-    const response = await this.api.patch(`/exercises/${exerciseId}`, data);
+    const response = await this.api.patch(`/exercises/${challengeId}`, data);
     return response.data;
   }
 
   /**
-   * EXERCISES - Excluir exercício
+   * CHALLENGES - Excluir desafio
    */
-  async deleteExercise(exerciseId: string) {
-    const response = await this.api.delete(`/exercises/${exerciseId}`);
+  async deleteChallenge(challengeId: string) {
+    const response = await this.api.delete(`/exercises/${challengeId}`);
     return response.data;
   }
 
@@ -220,9 +220,9 @@ async getToken(): Promise<string | null> {
   }
 
   /**
-   * EXERCISES - Listar exercícios
+   * CHALLENGES - Listar desafios
    */
-  async getExercises(params?: {
+  async getChallenges(params?: {
     page?: number;
     limit?: number;
     difficulty?: string;
@@ -235,7 +235,7 @@ async getToken(): Promise<string | null> {
   /**
    * SUBMISSIONS - Submeter solução
    */
-  async submitExercise(data: {
+  async submitChallenge(data: {
     exerciseId: string;
     code: string;
     languageId: string;
@@ -315,12 +315,22 @@ async getToken(): Promise<string | null> {
         return message || 'Erro ao comunicar com o servidor';
       } else if (error.request) {
         // Sem resposta do servidor
-        return 'Não foi possível conectar ao servidor. Verifique sua conexão.';
+        return 'Não foi possível conectar ao servidor. Verifique sua conexão e se o servidor está rodando em ' + BASE_URL;
+      } else if (error.code === 'ECONNABORTED') {
+        // Timeout
+        return 'Tempo de conexão esgotado. Verifique sua conexão.';
       }
     }
+    
+    // Erro de rede ou outros
+    if (error.message?.includes('Network Error') || error.message?.includes('network')) {
+      return 'Erro de rede. Verifique sua conexão com a internet.';
+    }
+    
     return error.message || 'Erro desconhecido';
   }
 }
 
 export default new ApiService();
+
 

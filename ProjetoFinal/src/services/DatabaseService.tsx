@@ -34,7 +34,7 @@ class DatabaseService {
       `);
 
       await db!.execAsync(`
-        CREATE TABLE IF NOT EXISTS exercises (
+        CREATE TABLE IF NOT EXISTS challenges (
           id TEXT PRIMARY KEY,
           title TEXT NOT NULL,
           description TEXT,
@@ -72,7 +72,7 @@ class DatabaseService {
 
     try {
       await db!.execAsync("DROP TABLE IF EXISTS users;");
-      await db!.execAsync("DROP TABLE IF EXISTS exercises;");
+      await db!.execAsync("DROP TABLE IF EXISTS challenges;");
       await this.initDatabase();
     } catch (error) {}
   }

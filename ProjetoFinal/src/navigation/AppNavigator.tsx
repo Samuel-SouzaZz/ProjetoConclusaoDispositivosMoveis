@@ -7,7 +7,7 @@ import SignupScreen from "../screens/SignupScreen";
 import DashboardScreen from "../screens/DashboardScreen";
 import DiscussionsScreen from "../screens/DiscussionsScreen";
 import RankingScreen from "../screens/RankingScreen";
-import ExercisesScreen from "../screens/ExercisesScreen";
+import ChallengesScreen from "../screens/ChallengesScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import { useAuth } from "../contexts/AuthContext";
@@ -23,7 +23,7 @@ export type RootStackParamList = {
 // Tipagem para o Tab Navigator
 type TabParamList = {
   DashboardTab: undefined;
-  ExercisesTab: undefined;
+  ChallengesTab: undefined;
   DiscussionsTab: undefined;
   RankingTab: undefined;
   SettingsTab: undefined;
@@ -85,10 +85,10 @@ export default function AppNavigator() {
               }}
             />
             <Tab.Screen
-              name="ExercisesTab"
-              component={ExercisesScreen}
+              name="ChallengesTab"
+              component={ChallengesScreen}
               options={{
-                tabBarLabel: "Exercícios",
+                tabBarLabel: "Desafios",
                 tabBarIcon: ({ color, size }) => (
                   <Ionicons name="code-slash" size={size} color={color} />
                 ),

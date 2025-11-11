@@ -29,7 +29,7 @@ interface StatCard {
   color: string;
 }
 
-interface Exercise {
+interface Challenge {
   id: string;
   title: string;
   description: string;
@@ -51,13 +51,13 @@ interface Submission {
 export default function ProfileScreen() {
   const { user } = useAuth();
   const { commonStyles, colors } = useTheme();
-  const [activeTab, setActiveTab] = useState<"exercises" | "solved">("exercises");
+  const [activeTab, setActiveTab] = useState<"challenges" | "solved">("challenges");
   const [filter, setFilter] = useState<"all" | "drafts" | "published">("all");
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [profile, setProfile] = useState<any>(null);
   const [statCards, setStatCards] = useState<StatCard[]>([]);
-  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
 
   useFocusEffect(
@@ -84,7 +84,7 @@ export default function ProfileScreen() {
         { id: "4", label: "Taxa Sucesso", value: `${data.stats.successRate || 0}%`, icon: "stats-chart", color: "#FF9800" },
       ]);
       
-    setExercises(data.exercises || []);
+    setChallenges(data.exercises || []);
     setSubmissions(data.submissions || []);
   } catch (error) {
     console.log(error);
@@ -99,7 +99,7 @@ export default function ProfileScreen() {
     setRefreshing(false);
   };
 
-  const navigateToExercise = (exerciseId: string, isEdit: boolean) => {
+  const navigateToChallenge = (challengeId: string, isEdit: boolean) => {
   };
 
   if (loading && !profile) {
@@ -113,9 +113,9 @@ export default function ProfileScreen() {
     );
   }
 
-  const filteredExercises = exercises.filter(ex => {
-    if (filter === "drafts") return ex.status === "Draft";
-    if (filter === "published") return ex.status === "Published";
+  const filteredChallenges = challenges.filter(ch => {
+    if (filter === "drafts") return ch.status === "Draft";
+    if (filter === "published") return ch.status === "Published";
     return true;
   });
 
@@ -127,19 +127,19 @@ export default function ProfileScreen() {
     </View>
   );
 
-  const ExerciseItem = ({ item }: { item: Exercise }) => (
+  const ChallengeItem = ({ item }: { item: Challenge }) => (
     <TouchableOpacity
-      style={[styles.exerciseItem, { backgroundColor: colors.card }]}
-      onPress={() => navigateToExercise(item.id, true)}
+      style={[styles.challengeItem, { backgroundColor: colors.card }]}
+      onPress={() => navigateToChallenge(item.id, true)}
     >
-      <View style={styles.exerciseHeader}>
-        <Text style={[styles.exerciseTitle, { color: colors.text }]}>{item.title}</Text>
+      <View style={styles.challengeHeader}>
+        <Text style={[styles.challengeTitle, { color: colors.text }]}>{item.title}</Text>
         <View style={[styles.statusBadge, item.status === "Published" ? styles.badgePublished : styles.badgeDraft]}>
           <Text style={[styles.badgeText, { color: colors.text }]}>{item.status === "Published" ? "Publicado" : "Rascunho"}</Text>
         </View>
       </View>
-      <Text style={[styles.exerciseDescription, { color: colors.text }]} numberOfLines={2}>{item.description}</Text>
-      <View style={styles.exerciseFooter}>
+      <Text style={[styles.challengeDescription, { color: colors.text }]} numberOfLines={2}>{item.description}</Text>
+      <View style={styles.challengeFooter}>
         <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(item.difficulty) }]}>
           <Text style={[styles.difficultyText, { color: colors.text }]}>{item.difficulty}</Text>
         </View>
@@ -151,7 +151,7 @@ export default function ProfileScreen() {
   const SubmissionItem = ({ item }: { item: Submission }) => (
     <TouchableOpacity
       style={[styles.submissionItem, { backgroundColor: colors.card }]}
-      onPress={() => navigateToExercise(item.exerciseId, false)}
+      onPress={() => navigateToChallenge(item.exerciseId, false)}
     >
       <View style={styles.submissionHeader}>
         <Text style={[styles.submissionTitle, { color: colors.text }]}>{item.exerciseTitle}</Text>
@@ -227,11 +227,11 @@ export default function ProfileScreen() {
 
         <View style={[styles.tabsContainer, { backgroundColor: colors.card }]}>
           <TouchableOpacity
-            style={[styles.tab, activeTab === "exercises" && [styles.tabActive, { borderBottomColor: colors.primary }]]}
-            onPress={() => setActiveTab("exercises")}
+            style={[styles.tab, activeTab === "challenges" && [styles.tabActive, { borderBottomColor: colors.primary }]]}
+            onPress={() => setActiveTab("challenges")}
           >
-            <Text style={[styles.tabText, activeTab === "exercises" && [styles.tabTextActive, { color: colors.primary }], { color: colors.textSecondary }]}>
-              Meus Exercícios
+            <Text style={[styles.tabText, activeTab === "challenges" && [styles.tabTextActive, { color: colors.primary }], { color: colors.textSecondary }]}>
+              Meus Desafios
             </Text>
           </TouchableOpacity>
           <TouchableOpacity
@@ -244,7 +244,7 @@ export default function ProfileScreen() {
           </TouchableOpacity>
         </View>
 
-        {activeTab === "exercises" && (
+        {activeTab === "challenges" && (
           <View style={[styles.filtersContainer, { backgroundColor: colors.background }]}>
             <TouchableOpacity
               style={[styles.filter, filter === "all" && [styles.filterActive, { backgroundColor: colors.primary }], { backgroundColor: colors.card, borderColor: colors.border }]}
@@ -274,16 +274,16 @@ export default function ProfileScreen() {
         )}
 
         <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
-          {activeTab === "exercises" ? (
-            filteredExercises.length === 0 ? (
+          {activeTab === "challenges" ? (
+            filteredChallenges.length === 0 ? (
               <View style={styles.emptyContainer}>
                 <Ionicons name="document-outline" size={48} color={colors.textSecondary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Nenhum exercício encontrado</Text>
+                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Nenhum desafio encontrado</Text>
               </View>
             ) : (
               <FlatList
-                data={filteredExercises}
-                renderItem={({ item }) => <ExerciseItem item={item} />}
+                data={filteredChallenges}
+                renderItem={({ item }) => <ChallengeItem item={item} />}
                 keyExtractor={(item) => item.id}
                 scrollEnabled={false}
               />
@@ -310,7 +310,7 @@ export default function ProfileScreen() {
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
             <View style={[styles.badgeItem, { backgroundColor: colors.card }]}>
               <Ionicons name="trophy" size={32} color={colors.xp} />
-              <Text style={[styles.badgeLabel, { color: colors.text }]}>Primeiro Exercício</Text>
+              <Text style={[styles.badgeLabel, { color: colors.text }]}>Primeiro Desafio</Text>
             </View>
             <View style={[styles.badgeItem, { backgroundColor: colors.card }]}>
               <Ionicons name="star" size={32} color="#FF9800" />
@@ -480,7 +480,7 @@ const styles = StyleSheet.create({
     paddingBottom: 20,
     minHeight: 200,
   },
-  exerciseItem: {
+  challengeItem: {
     borderRadius: 12,
     padding: 16,
     marginBottom: 12,
@@ -489,24 +489,24 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
-  exerciseHeader: {
+  challengeHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "flex-start",
     marginBottom: 8,
   },
-  exerciseTitle: {
+  challengeTitle: {
     fontSize: 16,
     fontWeight: "600",
     flex: 1,
     marginRight: 8,
   },
-  exerciseDescription: {
+  challengeDescription: {
     fontSize: 14,
     marginBottom: 12,
     lineHeight: 20,
   },
-  exerciseFooter: {
+  challengeFooter: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",

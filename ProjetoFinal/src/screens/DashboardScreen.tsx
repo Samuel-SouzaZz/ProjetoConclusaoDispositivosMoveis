@@ -22,7 +22,7 @@ const { width } = Dimensions.get("window");
 // Tipo para navegação entre tabs
 type TabNavigationProp = BottomTabNavigationProp<{
   DashboardTab: undefined;
-  ExercisesTab: undefined;
+  ChallengesTab: undefined;
   DiscussionsTab: undefined;
   RankingTab: undefined;
   SettingsTab: undefined;
@@ -115,11 +115,11 @@ export default function DashboardScreen() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.quickActionCard, styles.exerciseCard]}>
+            <TouchableOpacity style={[styles.quickActionCard, styles.challengeCard]}>
               <View style={styles.quickActionIcon}>
                 <Ionicons name="school" size={28} color="#F5A623" />
               </View>
-              <Text style={styles.quickActionText}>Exercício</Text>
+              <Text style={styles.quickActionText}>Desafio</Text>
               <View style={styles.notificationBadge}>
                 <Text style={styles.notificationText}>2</Text>
               </View>
@@ -129,12 +129,12 @@ export default function DashboardScreen() {
           <View style={styles.quickActionsRow}>
             <TouchableOpacity 
               style={[styles.quickActionCard, styles.createCard]}
-              onPress={() => navigation.navigate('ExercisesTab')}
+              onPress={() => navigation.navigate('ChallengesTab')}
             >
               <View style={styles.quickActionIcon}>
                 <Ionicons name="add-circle" size={28} color="#4A90E2" />
               </View>
-              <Text style={styles.quickActionText}>Criar{'\n'}exercício</Text>
+              <Text style={styles.quickActionText}>Criar{'\n'}desafio</Text>
             </TouchableOpacity>
 
             <TouchableOpacity style={[styles.quickActionCard, styles.examplesCard]}>
@@ -211,7 +211,7 @@ export default function DashboardScreen() {
               <View style={styles.cardIcon}>
                 <FontAwesome5 name="football-ball" size={24} color="#000" />
               </View>
-              <Text style={[styles.cardTitle, { color: '#1A1A1A' }]}>Novos exercícios sobre árvore de decisão</Text>
+              <Text style={[styles.cardTitle, { color: '#1A1A1A' }]}>Novos desafios sobre árvore de decisão</Text>
               <TouchableOpacity style={[styles.cardButton, styles.yellowButton]}>
                 <Text style={[styles.cardButtonText, { color: '#1A1A1A' }]}>Comece agora</Text>
                 <Ionicons name="arrow-forward" size={16} color="#1A1A1A" />
@@ -345,7 +345,7 @@ const styles = StyleSheet.create({
   discussionsCard: {
     backgroundColor: "#E3F2FD",
   },
-  exerciseCard: {
+  challengeCard: {
     backgroundColor: "#FFF3E0",
   },
   createCard: {
