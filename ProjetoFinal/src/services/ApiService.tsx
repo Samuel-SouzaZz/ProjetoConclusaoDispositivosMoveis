@@ -259,8 +259,31 @@ async getToken(): Promise<string | null> {
     collegeId?: string;
     limit?: number;
   }) {
-    const response = await this.api.get('/leaderboards', { params });
-    return response.data;
+    try {
+      const response = await this.api.get('/leaderboards', { params });
+      return response.data;
+    } catch (error: any) {
+      const status = error?.response?.status;
+      const isNetworkIssue = !error?.response;
+      // Fallback amigável para WEB quando API não está disponível (404/sem servidor)
+      if (Platform.OS === 'web' && (status === 404 || isNetworkIssue)) {
+        console.warn('[ApiService] /leaderboards indisponível. Usando dados mock para preview web.');
+        const mock = [
+          { id: 'u1', name: 'Victor Demarque', xpTotal: 10000 },
+          { id: 'u2', name: 'João Antônio Souza', xpTotal: 3200 },
+          { id: 'u3', name: 'Maria Silva', xpTotal: 1500 },
+          { id: 'u4', name: 'Samuel Carlos', xpTotal: 300 },
+          { id: 'u5', name: 'Testando Silva', xpTotal: 0 },
+          { id: 'u6', name: 'Ana Pereira', xpTotal: 980 },
+          { id: 'u7', name: 'Lucas Lima', xpTotal: 750 },
+          { id: 'u8', name: 'Beatriz Santos', xpTotal: 640 },
+          { id: 'u9', name: 'Rafael Torres', xpTotal: 520 },
+          { id: 'u10', name: 'Carla Nunes', xpTotal: 410 },
+        ];
+        return mock;
+      }
+      throw error;
+    }
   }
 
   /**
