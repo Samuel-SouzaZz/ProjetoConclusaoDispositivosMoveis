@@ -1,13 +1,20 @@
 import axios, { AxiosInstance, AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
 /**
  * Configuração da API
- * 
- * IMPORTANTE: Altere a BASE_URL para o IP do seu computador quando testar no celular
- * Exemplo: http://192.168.1.100:3000/api
+ *
+ * Usa `EXPO_PUBLIC_API_BASE_URL` se definido (ex.: http://192.168.1.100:3000/api)
+ * Caso contrário, escolhe um valor padrão por plataforma:
+ * - Android (emulador): http://10.0.2.2:3000/api
+ * - iOS (simulador) / Web: http://localhost:3000/api
  */
-const BASE_URL = 'http://localhost:3000/api';
+const BASE_URL =
+  process.env.EXPO_PUBLIC_API_BASE_URL ||
+  (Platform.OS === 'android'
+    ? 'http://10.0.2.2:3000/api'
+    : 'http://localhost:3000/api');
 
 // Chaves de armazenamento
 const TOKEN_KEY = '@app:access_token';
@@ -269,6 +276,22 @@ async getToken(): Promise<string | null> {
    */
   async getGroups() {
     const response = await this.api.get('/groups');
+    return response.data;
+  }
+
+  /**
+   * GROUPS - Meus grupos
+   */
+  async getMyGroups() {
+    const response = await this.api.get('/groups/my');
+    return response.data;
+  }
+
+  /**
+   * GROUPS - Detalhes de um grupo
+   */
+  async getGroup(groupId: string) {
+    const response = await this.api.get(`/groups/${groupId}`);
     return response.data;
   }
 

@@ -10,6 +10,7 @@ import RankingScreen from "../screens/RankingScreen";
 import ChallengesScreen from "../screens/ChallengesScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
+import GroupsScreen from "../screens/GroupsScreen";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 
@@ -18,6 +19,7 @@ export type RootStackParamList = {
   Login: undefined;
   Signup: undefined;
   Dashboard: undefined;
+  GroupDetails: { groupId: string };
 };
 
 // Tipagem para o Tab Navigator
@@ -25,6 +27,7 @@ type TabParamList = {
   DashboardTab: undefined;
   ChallengesTab: undefined;
   DiscussionsTab: undefined;
+  GroupsTab: undefined;
   RankingTab: undefined;
   SettingsTab: undefined;
   ProfileTab: undefined;
@@ -105,6 +108,16 @@ export default function AppNavigator() {
               }}
             />
             <Tab.Screen
+              name="GroupsTab"
+              component={GroupsScreen}
+              options={{
+                tabBarLabel: "Grupos",
+                tabBarIcon: ({ color, size }) => (
+                  <Ionicons name="people" size={size} color={color} />
+                ),
+              }}
+            />
+            <Tab.Screen
               name="RankingTab"
               component={RankingScreen}
               options={{
@@ -137,6 +150,8 @@ export default function AppNavigator() {
           </Tab.Navigator>
         )}
       </Stack.Screen>
+      {/* Tela de detalhes de grupo */}
+      <Stack.Screen name="GroupDetails" component={require('../screens/GroupDetailsScreen').default} />
     </Stack.Navigator>
   );
 }

@@ -1,0 +1,140 @@
+import React, { useEffect, useState } from "react";
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
+import { useTheme } from "../contexts/ThemeContext";
+import ApiService from "../services/ApiService";
+import { RootStackParamList } from "../navigation/AppNavigator";
+
+type GroupDetailsRoute = RouteProp<RootStackParamList, "GroupDetails">;
+
+export default function GroupDetailsScreen() {
+  const { colors, commonStyles, isDarkMode } = useTheme();
+  const route = useRoute<GroupDetailsRoute>();
+  const navigation = useNavigation();
+  const { groupId } = route.params;
+
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [group, setGroup] = useState<any | null>(null);
+
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const data = await ApiService.getGroup(groupId);
+        if (!mounted) return;
+        setGroup(data);
+        setError(null);
+      } catch (err: any) {
+        if (!mounted) return;
+        setError(ApiService.handleError(err));
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [groupId]);
+
+  return (
+    <SafeAreaView style={commonStyles.container}>
+      <View style={[styles.header, { borderBottomColor: colors.border }]}> 
+        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
+          <Ionicons name="arrow-back" size={22} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.title, { color: colors.text }]}>Detalhes do Grupo</Text>
+      </View>
+
+      {loading ? (
+        <View style={styles.center}> 
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+      ) : error ? (
+        <View style={styles.center}> 
+          <Text style={{ color: colors.text }}>{error}</Text>
+        </View>
+      ) : !group ? (
+        <View style={styles.center}> 
+          <Text style={{ color: colors.textSecondary }}>Grupo não encontrado</Text>
+        </View>
+      ) : (
+        <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}> 
+          <View style={[styles.card, { backgroundColor: colors.card }]}> 
+            <View style={styles.rowSpace}> 
+              <Text style={[styles.name, { color: colors.text }]}>{group.name || group.title}</Text>
+              <View style={[styles.badge, { backgroundColor: isDarkMode ? "#2D3748" : "#EDF2F7" }]}> 
+                <Ionicons name={group.isPublic ? "earth" : "lock-closed"} size={14} color={colors.textSecondary} />
+                <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{group.isPublic ? "Público" : "Privado"}</Text>
+              </View>
+            </View>
+            {group.description ? (
+              <Text style={[styles.description, { color: colors.textSecondary }]}>{group.description}</Text>
+            ) : null}
+            <View style={styles.metaRow}> 
+              <View style={styles.metaItem}> 
+                <Ionicons name="people" size={18} color={colors.primary} />
+                <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                  {group.membersCount ?? 0} membros
+                </Text>
+              </View>
+              <View style={styles.metaItem}> 
+                <Ionicons name="calendar" size={18} color={colors.primary} />
+                <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                  Criado em: {formatDate(group.createdAt)}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.actions}> 
+              <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => {}}>
+                <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Ver Discussões</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={() => {}}>
+                <Text style={styles.primaryButtonText}>Acessar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </ScrollView>
+      )}
+    </SafeAreaView>
+  );
+}
+
+function formatDate(date?: string) {
+  if (!date) return "--/--/----";
+  try {
+    const d = new Date(date);
+    return d.toLocaleDateString();
+  } catch {
+    return String(date);
+  }
+}
+
+const styles = StyleSheet.create({
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  back: { marginRight: 8 },
+  title: { fontSize: 20, fontWeight: "600" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  content: { padding: 16 },
+  card: { borderRadius: 14, padding: 16 },
+  rowSpace: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  name: { fontSize: 18, fontWeight: "700" },
+  description: { marginTop: 8, fontSize: 14 },
+  metaRow: { flexDirection: "row", marginTop: 12, gap: 16 },
+  metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  metaText: { fontSize: 13 },
+  badge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+  badgeText: { fontSize: 12 },
+  actions: { flexDirection: "row", gap: 12, marginTop: 16 },
+  primaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
+  primaryButtonText: { color: "#fff", fontWeight: "700" },
+  secondaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
+  secondaryButtonText: { fontWeight: "700" },
+});
