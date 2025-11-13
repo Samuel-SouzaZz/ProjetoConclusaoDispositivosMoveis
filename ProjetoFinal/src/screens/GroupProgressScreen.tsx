@@ -25,11 +25,15 @@ export default function GroupProgressScreen() {
 
   const layout = useMemo(() => {
     const gutter = 16;
-    const isWide = width >= 900; // 2+ cols
-    const flexBasis = isWide ? '48%' : '100%';
     const minWidth = 280;
-    const maxWidth = 520;
-    return { gutter, isWide, flexBasis, minWidth, maxWidth };
+    // breakpoints: 1 col (<700), 2 cols (700-1199), 3 cols (>=1200)
+    const cols = width >= 1200 ? 3 : width >= 700 ? 2 : 1;
+    const horizontalPadding = 16 * 2; // content padding
+    const totalGutters = gutter * (cols - 1);
+    const available = Math.max(0, width - horizontalPadding - totalGutters);
+    const rawCard = available / cols;
+    const cardWidth = Math.max(minWidth, rawCard);
+    return { gutter, cols, cardWidth };
   }, [width]);
 
   const [loading, setLoading] = useState(true);
@@ -120,8 +124,8 @@ export default function GroupProgressScreen() {
         <Text style={[styles.pageTitle, { color: colors.text, fontSize: scale(28) }]}>Meu Progresso no Grupo</Text>
         <Text style={[styles.groupName, { color: colors.textSecondary, fontSize: scale(14) }]}>{groupName || ''}</Text>
 
-        <View style={[styles.grid, { gap: layout.gutter }]}> 
-          <View style={[styles.card, { backgroundColor: colors.card, flexBasis: layout.flexBasis, minWidth: layout.minWidth, maxWidth: layout.maxWidth }]}> 
+        <View style={[styles.grid, { gap: layout.gutter, justifyContent: layout.cols === 1 ? 'center' : 'space-between' }]}> 
+          <View style={[styles.card, { backgroundColor: colors.card, width: layout.cardWidth }]}> 
             <Text style={[styles.kpiNumber, { color: colors.text, fontSize: scale(32) }]}>{metrics.completed}/{metrics.total}</Text>
             <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Exercícios Concluídos</Text>
             <View style={[styles.progressBar, { backgroundColor: colors.border, height: scale(8) }]}> 
@@ -130,19 +134,19 @@ export default function GroupProgressScreen() {
             <Text style={[styles.progressCaption, { color: colors.textSecondary }]}>{metrics.completionPct.toFixed(1)}% de conclusão</Text>
           </View>
 
-          <View style={[styles.card, { backgroundColor: colors.card, flexBasis: layout.flexBasis, minWidth: layout.minWidth, maxWidth: layout.maxWidth }]}> 
+          <View style={[styles.card, { backgroundColor: colors.card, width: layout.cardWidth }]}> 
             <Text style={[styles.kpiNumber, { color: colors.text, fontSize: scale(32) }]}>{metrics.xpTotal}</Text>
             <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>XP Total Conquistado</Text>
             <Text style={[styles.caption, { color: colors.textSecondary }]}>No grupo {groupName || ''}</Text>
           </View>
 
-          <View style={[styles.card, { backgroundColor: colors.card, flexBasis: layout.flexBasis, minWidth: layout.minWidth, maxWidth: layout.maxWidth }]}> 
+          <View style={[styles.card, { backgroundColor: colors.card, width: layout.cardWidth }]}> 
             <Text style={[styles.kpiNumber, { color: colors.text, fontSize: scale(32) }]}>#{metrics.myPosition ?? '-'}</Text>
             <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Posição no Ranking</Text>
             <Text style={[styles.caption, { color: colors.textSecondary }]}>Entre {metrics.membersCount} membros</Text>
           </View>
 
-          <View style={[styles.card, { backgroundColor: colors.card, flexBasis: layout.flexBasis, minWidth: layout.minWidth, maxWidth: layout.maxWidth }]}> 
+          <View style={[styles.card, { backgroundColor: colors.card, width: layout.cardWidth }]}> 
             <Text style={[styles.kpiNumber, { color: colors.text, fontSize: scale(32) }]}>{metrics.avgDifficulty.toFixed(1)}/5</Text>
             <Text style={[styles.kpiLabel, { color: colors.textSecondary }]}>Dificuldade Média</Text>
             <Text style={[styles.caption, { color: colors.textSecondary }]}>Dos exercícios do grupo</Text>

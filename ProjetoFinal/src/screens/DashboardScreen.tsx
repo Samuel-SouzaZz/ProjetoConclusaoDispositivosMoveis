@@ -10,12 +10,14 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
+import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { BottomTabNavigationProp } from "@react-navigation/bottom-tabs";
 import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import BottomNavigation from "../components/BottomNavigation";
+import type { RootStackParamList } from "../navigation/AppNavigator";
 
 const { width } = Dimensions.get("window");
 
@@ -28,10 +30,13 @@ type TabNavigationProp = BottomTabNavigationProp<{
   SettingsTab: undefined;
 }>;
 
+type StackNavigationProp = NativeStackNavigationProp<RootStackParamList>;
+type AppNavigationProp = CompositeNavigationProp<TabNavigationProp, StackNavigationProp>;
+
 export default function DashboardScreen() {
   const { user, loading } = useAuth();
   const { colors, isDarkMode } = useTheme();
-  const navigation = useNavigation<TabNavigationProp>();
+  const navigation = useNavigation<AppNavigationProp>();
 
   if (loading) {
     return (
