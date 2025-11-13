@@ -339,10 +339,36 @@ async getToken(): Promise<string | null> {
   }
 
   /**
-   * GROUPS - Desafios do grupo
+   * GROUPS - Desafios (exercícios) do grupo
    */
   async getGroupChallenges(groupId: string) {
-    const response = await this.api.get(`/groups/${groupId}/challenges`);
+    const response = await this.api.get(`/groups/${groupId}/exercises`);
+    return response.data;
+  }
+
+  /**
+   * GROUPS - Criar desafio (exercise) no grupo
+   * Backend espera POST /exercises com { groupId, baseXp, ... }
+   */
+  async createGroupChallenge(groupId: string, data: {
+    title: string;
+    description?: string;
+    difficulty?: number;
+    codeTemplate?: string;
+    isPublic?: boolean;
+    languageId?: string;
+    xp?: number;
+  }) {
+    const payload: any = {
+      title: data.title,
+      description: data.description,
+      difficulty: data.difficulty,
+      codeTemplate: data.codeTemplate,
+      languageId: data.languageId,
+      baseXp: data.xp, // mapear xp -> baseXp
+      groupId: groupId,
+    };
+    const response = await this.api.post(`/exercises`, payload);
     return response.data;
   }
 

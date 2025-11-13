@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, FlatList } from "react-native";
+import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, FlatList, Modal, TextInput, Alert } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -7,6 +8,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
 import { RootStackParamList } from "../navigation/AppNavigator";
 import { useAuth } from "../contexts/AuthContext";
+import DetailedChallengeCard from "../components/DetailedChallengeCard";
 
 type GroupDetailsRoute = RouteProp<RootStackParamList, "GroupDetails">;
 
@@ -24,6 +26,22 @@ export default function GroupDetailsScreen() {
   const [challenges, setChallenges] = useState<any[]>([]);
   const [leaving, setLeaving] = useState(false);
   const [joining, setJoining] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    description: '',
+    difficulty: 1,
+    xp: 100,
+    isPublic: true,
+    codeTemplate: '// Seu código aqui\n'
+  });
+
+  const difficultyOptions = [
+    { value: 1, label: 'Fácil', color: '#4CAF50' },
+    { value: 2, label: 'Médio', color: '#FF9800' },
+    { value: 3, label: 'Difícil', color: '#F44336' },
+  ];
 
   useEffect(() => {
     let mounted = true;
@@ -61,8 +79,49 @@ export default function GroupDetailsScreen() {
   }
 
   function isMember({ group, members, userId }: { group: any, members: any[], userId: string }) {
-    if (!group || !members) return false;
-    return members.some((member: any) => String(member.id) === userId);
+    if (!group || !members || !userId) return false;
+    return members.some((member: any) => {
+      const mid = String(member?.id ?? member?.userId ?? member?.user?.id ?? '');
+      return mid && mid === userId;
+    });
+  }
+
+  function isOwner({ group, members, userId }: { group: any, members: any[], userId: string }) {
+    if (!userId) return false;
+    if (group?.ownerId && String(group.ownerId) === userId) return true;
+    if (group?.owner?.id && String(group.owner.id) === userId) return true;
+    const me = members.find((m: any) => {
+      const mid = String(m?.id ?? m?.userId ?? m?.user?.id ?? '');
+      return mid && mid === userId;
+    });
+    const role = String(me?.role || '').toLowerCase();
+    return role === 'owner' || role === 'admin' || role === 'moderator';
+  }
+
+  async function handleCreateChallenge() {
+    if (!formData.title.trim()) {
+      Alert.alert('Erro', 'Título é obrigatório');
+      return;
+    }
+    try {
+      setCreating(true);
+      await ApiService.createGroupChallenge(String(groupId), {
+        title: formData.title,
+        description: formData.description,
+        difficulty: formData.difficulty,
+        xp: formData.xp,
+        isPublic: formData.isPublic,
+        codeTemplate: formData.codeTemplate,
+      });
+      setShowCreate(false);
+      setFormData({ title: '', description: '', difficulty: 1, xp: 100, isPublic: true, codeTemplate: '// Seu código aqui\n' });
+      await loadData();
+      Alert.alert('Sucesso', 'Desafio criado com sucesso');
+    } catch (err: any) {
+      Alert.alert('Erro', ApiService.handleError(err));
+    } finally {
+      setCreating(false);
+    }
   }
 
   return (
@@ -179,9 +238,11 @@ export default function GroupDetailsScreen() {
           <View style={[styles.section, { backgroundColor: colors.background }]}> 
             <View style={styles.rowSpace}> 
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Desafios do Grupo ({challenges.length || 0})</Text>
-              <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={() => {}}>
-                <Text style={styles.primaryButtonText}>Criar Desafio</Text>
-              </TouchableOpacity>
+              {isOwner({ group, members, userId: String(user?.id || '') }) && (
+                <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={() => setShowCreate(true)}>
+                  <Text style={styles.primaryButtonText}>Criar Desafio</Text>
+                </TouchableOpacity>
+              )}
             </View>
             {challenges.length === 0 ? (
               <View style={[styles.emptyBox, { borderColor: colors.border }]}> 
@@ -189,15 +250,116 @@ export default function GroupDetailsScreen() {
               </View>
             ) : (
               <View style={{ gap: 8 }}> 
-                {challenges.map((ch: any, idx: number) => (
-                  <View key={idx} style={[styles.challengeItem, { backgroundColor: colors.card }]}> 
-                    <Text style={[styles.challengeTitle, { color: colors.text }]}>{ch.title || 'Desafio'}</Text>
-                    <Text style={[styles.challengeMeta, { color: colors.textSecondary }]}>Dificuldade: {ch.difficulty ?? '-'} • XP: {ch.xp ?? '-'}</Text>
-                  </View>
-                ))}
+                {challenges.map((ch: any, idx: number) => {
+                  const diffNum = Number(ch.difficulty ?? 1);
+                  const diffLabel = diffNum <= 1 ? 'Fácil' : diffNum === 2 ? 'Médio' : 'Difícil';
+                  const xp = ch.xp ?? ch.baseXp ?? 0;
+                  return (
+                    <DetailedChallengeCard
+                      key={String(ch.id || ch._id || idx)}
+                      title={ch.title || 'Desafio'}
+                      description={ch.description}
+                      difficulty={diffLabel}
+                      progress={ch.progress ?? 0}
+                      isPublic={Boolean(ch.isPublic ?? false)}
+                      xp={xp}
+                      onPress={() => {}}
+                    />
+                  );
+                })}
               </View>
             )}
           </View>
+
+          {/* Modal Criar Desafio */}
+          <Modal visible={showCreate} animationType="slide" onRequestClose={() => setShowCreate(false)}>
+            <SafeAreaView style={commonStyles.container}>
+              <View style={[commonStyles.header, styles.modalHeader, { borderBottomColor: colors.border }]}> 
+                <TouchableOpacity onPress={() => setShowCreate(false)}>
+                  <Text style={{ color: colors.textSecondary, fontSize: 16 }}>Cancelar</Text>
+                </TouchableOpacity>
+                <Text style={[styles.title, { color: colors.text }]}>
+                  {creating ? 'Criando...' : 'Criar Desafio'}
+                </Text>
+                <TouchableOpacity onPress={handleCreateChallenge} disabled={creating}>
+                  {creating ? (
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  ) : (
+                    <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '600' }}>Salvar</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
+
+              <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}> 
+                <View style={[styles.card, { backgroundColor: colors.card }]}> 
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Título *</Text>
+                  <TextInput
+                    style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                    value={formData.title}
+                    onChangeText={(t) => setFormData({ ...formData, title: t })}
+                    placeholder="Digite o título do desafio"
+                    placeholderTextColor={colors.textSecondary}
+                  />
+
+                  <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 12 }]}>Descrição</Text>
+                  <TextInput
+                    style={[styles.input, { borderColor: colors.border, color: colors.text, height: 90 }]}
+                    value={formData.description}
+                    onChangeText={(t) => setFormData({ ...formData, description: t })}
+                    placeholder="Descrição do desafio"
+                    placeholderTextColor={colors.textSecondary}
+                    multiline
+                  />
+
+                  <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 12 }]}>Dificuldade</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {difficultyOptions.map((option) => (
+                      <TouchableOpacity
+                        key={option.value}
+                        style={[
+                          { flex: 1, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, borderWidth: 2, alignItems: 'center' },
+                          formData.difficulty === option.value && { backgroundColor: '#F0F8FF' },
+                          { borderColor: option.color },
+                        ]}
+                        onPress={() => setFormData({ ...formData, difficulty: option.value })}
+                      >
+                        <Text style={[{ fontSize: 14, fontWeight: '600' }, formData.difficulty === option.value && { color: option.color }]}>
+                          {option.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+
+                  <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 12 }]}>XP Base</Text>
+                  <TextInput
+                    style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                    value={String(formData.xp)}
+                    onChangeText={(t) => setFormData({ ...formData, xp: parseInt(t) || 0 })}
+                    keyboardType="numeric"
+                  />
+
+                  <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 12 }]}>Template de Código</Text>
+                  <TextInput
+                    style={[styles.input, { borderColor: colors.border, color: colors.text, height: 120 }]}
+                    value={formData.codeTemplate}
+                    onChangeText={(t) => setFormData({ ...formData, codeTemplate: t })}
+                    multiline
+                  />
+
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 10 }}> 
+                    <TouchableOpacity
+                      style={[styles.checkbox, formData.isPublic && { backgroundColor: colors.primary, borderColor: colors.primary }]}
+                      onPress={() => setFormData({ ...formData, isPublic: !formData.isPublic })}
+                    >
+                      {formData.isPublic && <Text style={{ color: '#fff', fontWeight: '700' }}>✓</Text>}
+                    </TouchableOpacity>
+                    <Text style={{ color: colors.text }}>Desafio público (visível para todos)</Text>
+                  </View>
+                  <View style={{ height: 8 }} />
+                </View>
+              </ScrollView>
+            </SafeAreaView>
+          </Modal>
         </ScrollView>
       )}
     </SafeAreaView>
@@ -222,6 +384,14 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+  },
   back: { marginRight: 8 },
   title: { fontSize: 20, fontWeight: "600" },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
@@ -240,6 +410,21 @@ const styles = StyleSheet.create({
   primaryButtonText: { color: "#fff", fontWeight: "700" },
   secondaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
   secondaryButtonText: { fontWeight: "700" },
+  input: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    borderWidth: 1,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   section: { marginTop: 20 },
   sectionTitle: { fontSize: 16, fontWeight: "700" },
   emptyBox: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 10 },

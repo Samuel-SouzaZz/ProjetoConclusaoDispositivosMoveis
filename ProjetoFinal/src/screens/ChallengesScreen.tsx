@@ -17,6 +17,7 @@ import { useAuth } from "../contexts/AuthContext";
 import ApiService from "../services/ApiService";
 import ChallengeService from "../services/ChallengeService";
 import { useFocusEffect } from '@react-navigation/native';
+import DetailedChallengeCard from "../components/DetailedChallengeCard";
 
 
 const difficultyOptions = [
@@ -41,65 +42,7 @@ const ScreenHeader = ({ title, onAddPress }: { title: string; onAddPress: () => 
   );
 };
 
-const DetailedChallengeCard = ({ 
-  title, 
-  description, 
-  difficulty, 
-  progress, 
-  isPublic,
-  xp,
-  onPress,
-  onEdit,
-  onDelete
-}: any) => {
-  const { colors, commonStyles } = useTheme();
-
-  const getDifficultyStyle = () => {
-    switch (difficulty) {
-      case 'Fácil': return [styles.difficultyBadge, { backgroundColor: colors.easy }];
-      case 'Médio': return [styles.difficultyBadge, { backgroundColor: colors.medium }];
-      case 'Difícil': return [styles.difficultyBadge, { backgroundColor: colors.hard }];
-      default: return [styles.difficultyBadge, { backgroundColor: colors.easy }];
-    }
-  };
-
-  return (
-    <View style={[commonStyles.card, styles.challengeCard]}>
-      <TouchableOpacity onPress={onPress} style={styles.challengeContent}>
-        <View style={styles.challengeHeader}>
-          <Text style={[commonStyles.text, styles.challengeTitle]}>{title}</Text>
-          <View style={getDifficultyStyle()}>
-            <Text style={[styles.difficultyText, { color: colors.text }]}>{difficulty}</Text>
-          </View>
-        </View>
-        <Text style={[commonStyles.text, styles.challengeDescription]}>{description}</Text>
-        <View style={styles.challengeFooter}>
-          <View style={styles.progressContainer}>
-            <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-              <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.primary }]} />
-            </View>
-            <Text style={[styles.progressText, { color: colors.primary }]}>{progress}%</Text>
-          </View>
-          <View style={styles.challengeInfo}>
-            <Text style={[styles.xpText, { color: colors.xp }]}>{xp} XP</Text>
-            <Text style={[styles.visibilityText, { color: isPublic ? colors.primary : colors.textSecondary }]}>
-              {isPublic ? "Público" : "Privado"}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-      
-      <View style={[styles.challengeActions, { backgroundColor: colors.cardSecondary }]}>
-        <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
-          <Text style={[styles.actionButtonText, { color: colors.primary }]}>Editar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
-          <Text style={[styles.actionButtonText, { color: "#F44336" }]}>Excluir</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
+// DetailedChallengeCard moved to shared component ../components/DetailedChallengeCard
 
 export default function ChallengesScreen() {
   const { commonStyles, colors } = useTheme();
@@ -265,20 +208,25 @@ export default function ChallengesScreen() {
             </Text>
           </View>
         ) : (
-          challenges.map((challenge) => (
-          <DetailedChallengeCard
-            key={challenge.id}
-            title={challenge.title}
-            description={challenge.description}
-            difficulty={challenge.difficulty}
-            progress={challenge.progress}
-            isPublic={challenge.isPublic}
-            xp={challenge.xp}
-            onPress={() => handleChallengePress(challenge)}
-            onEdit={() => handleEditPress(challenge)}
-            onDelete={() => handleDeletePress(challenge)}
-          />
-          ))
+          challenges.map((challenge) => {
+            const diffNum = Number(challenge.difficulty ?? 1);
+            const diffLabel = diffNum <= 1 ? 'Fácil' : diffNum === 2 ? 'Médio' : 'Difícil';
+            const xp = challenge.xp ?? challenge.baseXp ?? 0;
+            return (
+              <DetailedChallengeCard
+                key={challenge.id}
+                title={challenge.title}
+                description={challenge.description}
+                difficulty={diffLabel}
+                progress={challenge.progress}
+                isPublic={challenge.isPublic}
+                xp={xp}
+                onPress={() => handleChallengePress(challenge)}
+                onEdit={() => handleEditPress(challenge)}
+                onDelete={() => handleDeletePress(challenge)}
+              />
+            );
+          })
         )}
       </ScrollView>
       
