@@ -1,10 +1,12 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from "react-native";
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, RefreshControl, Alert } from "react-native";
+
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
+import CreateGroupModal from "../components/CreateGroupModal";
 
 export default function GroupsScreen() {
   const { commonStyles, colors, isDarkMode } = useTheme();
@@ -13,6 +15,8 @@ export default function GroupsScreen() {
   const [error, setError] = useState<string | null>(null);
   const [groups, setGroups] = useState<any[]>([]);
   const [activeTab, setActiveTab] = useState<'public' | 'my'>('public');
+  const [refreshing, setRefreshing] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -34,11 +38,27 @@ export default function GroupsScreen() {
     return () => { mounted = false; };
   }, [activeTab]);
 
+  async function onRefresh() {
+    try {
+      setRefreshing(true);
+      const data = activeTab === 'public' ? await ApiService.getGroups() : await ApiService.getMyGroups();
+      const items = Array.isArray(data) ? data : data?.items || [];
+      setGroups(items);
+      setError(null);
+    } catch (err: any) {
+      setError(ApiService.handleError(err));
+    } finally {
+      setRefreshing(false);
+    }
+  }
+
+  async function handleCreated() { await onRefresh(); }
+
   return (
     <SafeAreaView style={commonStyles.container}>
       <View style={[styles.header, { borderBottomColor: colors.border }]}> 
         <Text style={[styles.title, { color: colors.text }]}>Grupos de Estudo</Text>
-        <TouchableOpacity style={[styles.createBtn, { borderColor: colors.primary }]} onPress={() => {}}>
+        <TouchableOpacity style={[styles.createBtn, { borderColor: colors.primary }]} onPress={() => setShowCreate(true)}>
           <Text style={[styles.createBtnText, { color: colors.primary }]}>Criar Novo Grupo</Text>
         </TouchableOpacity>
       </View>
@@ -69,9 +89,10 @@ export default function GroupsScreen() {
       ) : (
         <FlatList
           data={groups}
-          keyExtractor={(item, index) => String(item.id || index)}
+          keyExtractor={(item: any, index: number) => String(item.id ?? index)}
           contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          renderItem={({ item }: { item: any }) => (
             <View style={[styles.card, { backgroundColor: colors.card }]}> 
               <View style={styles.cardHeader}> 
                 <Text style={[styles.name, { color: colors.text }]}>{item.name || item.title || "Grupo"}</Text>
@@ -110,6 +131,7 @@ export default function GroupsScreen() {
           )}
         />
       )}
+      <CreateGroupModal visible={showCreate} onClose={() => setShowCreate(false)} onCreated={handleCreated} />
     </SafeAreaView>
   );
 }

@@ -6,6 +6,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
 import { RootStackParamList } from "../navigation/AppNavigator";
+import { useAuth } from "../contexts/AuthContext";
 
 type GroupDetailsRoute = RouteProp<RootStackParamList, "GroupDetails">;
 
@@ -14,6 +15,7 @@ export default function GroupDetailsScreen() {
   const route = useRoute<GroupDetailsRoute>();
   const navigation = useNavigation();
   const { groupId } = route.params;
+  const { user } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -21,41 +23,51 @@ export default function GroupDetailsScreen() {
   const [members, setMembers] = useState<any[]>([]);
   const [challenges, setChallenges] = useState<any[]>([]);
   const [leaving, setLeaving] = useState(false);
+  const [joining, setJoining] = useState(false);
 
   useEffect(() => {
     let mounted = true;
     (async () => {
-      try {
-        setLoading(true);
-        const data = await ApiService.getGroup(groupId);
-        if (!mounted) return;
-        setGroup(data);
-        // membros
-        try {
-          const mm = Array.isArray(data?.members) ? data.members : await ApiService.getGroupMembers(groupId);
-          const mItems = Array.isArray(mm) ? mm : mm?.items || [];
-          setMembers(mItems);
-        } catch {}
-        // desafios
-        try {
-          const cc = Array.isArray(data?.challenges) ? data.challenges : await ApiService.getGroupChallenges(groupId);
-          const cItems = Array.isArray(cc) ? cc : cc?.items || [];
-          setChallenges(cItems);
-        } catch {}
-        setError(null);
-      } catch (err: any) {
-        if (!mounted) return;
-        setError(ApiService.handleError(err));
-      } finally {
-        if (mounted) setLoading(false);
-      }
+      await loadData(mounted);
     })();
     return () => { mounted = false; };
   }, [groupId]);
 
+  async function loadData(mounted = true) {
+    try {
+      setLoading(true);
+      const data = await ApiService.getGroup(groupId);
+      if (!mounted) return;
+      setGroup(data);
+      // membros
+      try {
+        const mm = Array.isArray(data?.members) ? data.members : await ApiService.getGroupMembers(groupId);
+        const mItems = Array.isArray(mm) ? mm : mm?.items || [];
+        setMembers(mItems);
+      } catch {}
+      // desafios
+      try {
+        const cc = Array.isArray(data?.challenges) ? data.challenges : await ApiService.getGroupChallenges(groupId);
+        const cItems = Array.isArray(cc) ? cc : cc?.items || [];
+        setChallenges(cItems);
+      } catch {}
+      setError(null);
+    } catch (err: any) {
+      if (!mounted) return;
+      setError(ApiService.handleError(err));
+    } finally {
+      if (mounted) setLoading(false);
+    }
+  }
+
+  function isMember({ group, members, userId }: { group: any, members: any[], userId: string }) {
+    if (!group || !members) return false;
+    return members.some((member: any) => String(member.id) === userId);
+  }
+
   return (
     <SafeAreaView style={commonStyles.container}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}> 
+      <View style={[styles.header, { borderBottomColor: colors.border }]} > 
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
@@ -75,11 +87,11 @@ export default function GroupDetailsScreen() {
           <Text style={{ color: colors.textSecondary }}>Grupo não encontrado</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}> 
-          <View style={[styles.card, { backgroundColor: colors.card }]}> 
+        <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]} > 
+          <View style={[styles.card, { backgroundColor: colors.card }]} > 
             <View style={styles.rowSpace}> 
               <Text style={[styles.name, { color: colors.text }]}>{group.name || group.title}</Text>
-              <View style={[styles.badge, { backgroundColor: isDarkMode ? "#2D3748" : "#EDF2F7" }]}> 
+              <View style={[styles.badge, { backgroundColor: isDarkMode ? "#2D3748" : "#EDF2F7" }]} > 
                 <Ionicons name={group.isPublic ? "earth" : "lock-closed"} size={14} color={colors.textSecondary} />
                 <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{group.isPublic ? "Público" : "Privado"}</Text>
               </View>
@@ -108,26 +120,46 @@ export default function GroupDetailsScreen() {
               <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => {}}>
                 <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Meu Progresso</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-                onPress={async () => { try { setLeaving(true); await ApiService.leaveGroup(String(group.id)); } catch {} finally { setLeaving(false); } }}
-                disabled={leaving}
-              >
-                <Text style={styles.primaryButtonText}>{leaving ? 'Saindo...' : 'Sair do Grupo'}</Text>
-              </TouchableOpacity>
+              {isMember({ group, members, userId: String(user?.id || '') }) ? (
+                <TouchableOpacity
+                  style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: leaving ? 0.7 : 1 }]}
+                  onPress={async () => { 
+                    try { 
+                      setLeaving(true); 
+                      await ApiService.leaveGroup(String(group.id)); 
+                      await loadData();
+                    } catch {} finally { setLeaving(false); } }}
+                  disabled={leaving}
+                >
+                  <Text style={styles.primaryButtonText}>{leaving ? 'Saindo...' : 'Sair do Grupo'}</Text>
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: joining ? 0.7 : 1 }]}
+                  onPress={async () => { 
+                    try { 
+                      setJoining(true); 
+                      await ApiService.joinGroup(String(group.id)); 
+                      await loadData();
+                    } catch {} finally { setJoining(false); } }}
+                  disabled={joining}
+                >
+                  <Text style={styles.primaryButtonText}>{joining ? 'Entrando...' : 'Entrar no Grupo'}</Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
           {/* Membros do Grupo */}
-          <View style={[styles.section, { backgroundColor: colors.background }]}> 
+          <View style={[styles.section, { backgroundColor: colors.background }]} > 
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Membros do Grupo</Text>
             {members.length === 0 ? (
               <View style={[styles.emptyBox, { borderColor: colors.border }]}><Text style={{ color: colors.textSecondary }}>Nenhum membro encontrado</Text></View>
             ) : (
               <FlatList
                 data={members}
-                keyExtractor={(item, index) => String(item.id || index)}
-                renderItem={({ item }) => (
+                keyExtractor={(item: any, index: number) => String(item.id ?? index)}
+                renderItem={({ item }: { item: any }) => (
                   <View style={[styles.memberItem, { borderBottomColor: colors.border }]}> 
                     <View style={[styles.avatar, { backgroundColor: isDarkMode ? '#2D3748' : '#EDF2F7' }]}> 
                       <Text style={[styles.avatarText, { color: colors.text }]}>{String(item.name || item.handle || 'U').charAt(0).toUpperCase()}</Text>
@@ -157,7 +189,7 @@ export default function GroupDetailsScreen() {
               </View>
             ) : (
               <View style={{ gap: 8 }}> 
-                {challenges.map((ch, idx) => (
+                {challenges.map((ch: any, idx: number) => (
                   <View key={idx} style={[styles.challengeItem, { backgroundColor: colors.card }]}> 
                     <Text style={[styles.challengeTitle, { color: colors.text }]}>{ch.title || 'Desafio'}</Text>
                     <Text style={[styles.challengeMeta, { color: colors.textSecondary }]}>Dificuldade: {ch.difficulty ?? '-'} • XP: {ch.xp ?? '-'}</Text>

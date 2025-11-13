@@ -311,6 +311,18 @@ async getToken(): Promise<string | null> {
   }
 
   /**
+   * GROUPS - Criar grupo
+   */
+  async createGroup(data: {
+    name: string;
+    description?: string;
+    isPublic?: boolean;
+  }) {
+    const response = await this.api.post('/groups', data);
+    return response.data;
+  }
+
+  /**
    * GROUPS - Detalhes de um grupo
    */
   async getGroup(groupId: string) {
