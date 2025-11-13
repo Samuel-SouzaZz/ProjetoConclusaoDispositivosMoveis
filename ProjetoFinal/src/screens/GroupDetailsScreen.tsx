@@ -176,7 +176,14 @@ export default function GroupDetailsScreen() {
               <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => {}}>
                 <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Ver Desafios</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => {}}>
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: colors.primary }]}
+                onPress={() => {
+                  // navegar para tela de progresso no grupo
+                  // @ts-ignore
+                  navigation.navigate('GroupProgress', { groupId: String(group.id), groupName: group.name || group.title });
+                }}
+              >
                 <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Meu Progresso</Text>
               </TouchableOpacity>
               {isMember({ group, members, userId: String(user?.id || '') }) ? (

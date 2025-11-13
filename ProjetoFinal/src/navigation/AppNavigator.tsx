@@ -12,6 +12,7 @@ import SettingsScreen from "../screens/SettingsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import GroupsScreen from "../screens/GroupsScreen";
 import { useAuth } from "../contexts/AuthContext";
+import GroupProgressScreen from "../screens/GroupProgressScreen";
 import { useTheme } from "../contexts/ThemeContext";
 
 // Tipagem para o Stack Navigator
@@ -20,6 +21,7 @@ export type RootStackParamList = {
   Signup: undefined;
   Dashboard: undefined;
   GroupDetails: { groupId: string };
+  GroupProgress: { groupId: string; groupName?: string };
 };
 
 // Tipagem para o Tab Navigator
@@ -150,8 +152,9 @@ export default function AppNavigator() {
           </Tab.Navigator>
         )}
       </Stack.Screen>
-      {/* Tela de detalhes de grupo */}
+      {/* Telas de grupos */}
       <Stack.Screen name="GroupDetails" component={require('../screens/GroupDetailsScreen').default} />
+      <Stack.Screen name="GroupProgress" component={GroupProgressScreen} />
     </Stack.Navigator>
   );
 }

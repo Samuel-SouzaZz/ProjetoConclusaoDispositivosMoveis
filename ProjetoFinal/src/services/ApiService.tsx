@@ -139,6 +139,14 @@ async getToken(): Promise<string | null> {
   }
 
   /**
+   * LEADERBOARDS - Ranking por grupo
+   */
+  async getLeaderboardByGroup(groupId: string, params?: { page?: number; limit?: number }) {
+    const response = await this.api.get('/leaderboards/by-group', { params: { groupId, ...(params || {}) } });
+    return response.data;
+  }
+
+  /**
    * USERS - Perfil público
    */
   async getPublicProfile(userId: string) {
