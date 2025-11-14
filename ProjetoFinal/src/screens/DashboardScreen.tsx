@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useMemo } from "react";
 import {
   View,
   Text,
@@ -8,6 +8,7 @@ import {
   TextInput,
   Dimensions,
   ActivityIndicator,
+  useWindowDimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
@@ -19,16 +20,18 @@ import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
 import BottomNavigation from "../components/BottomNavigation";
 import type { RootStackParamList } from "../navigation/AppNavigator";
 
-const { width } = Dimensions.get("window");
+const { width: initialWidth } = Dimensions.get("window");
 
 // Tipo para navegação entre tabs
-type TabNavigationProp = BottomTabNavigationProp<{
+type TabParamList = {
   DashboardTab: undefined;
-  ChallengesTab: undefined;
+  ChallengesTab: { openCreate?: boolean } | undefined;
   DiscussionsTab: undefined;
   RankingTab: undefined;
   SettingsTab: undefined;
-}>;
+};
+
+type TabNavigationProp = BottomTabNavigationProp<TabParamList>;
 
 type StackNavigationProp = NativeStackNavigationProp<RootStackParamList>;
 type AppNavigationProp = CompositeNavigationProp<TabNavigationProp, StackNavigationProp>;
@@ -37,6 +40,24 @@ export default function DashboardScreen() {
   const { user, loading } = useAuth();
   const { colors, isDarkMode } = useTheme();
   const navigation = useNavigation<AppNavigationProp>();
+  const { width } = useWindowDimensions();
+
+  // Responsive layout metrics
+  const layout = useMemo(() => {
+    // Keep 2 columns (UI already structured em linhas de 2 cards)
+    const gutter = 15;
+    const horizontalPadding = 20 * 2;
+
+    // Quick Actions: metade da largura útil, com limites
+    const qaRaw = (width - horizontalPadding - gutter) / 2;
+    const qaCardWidth = Math.max(220, qaRaw);
+
+    // Featured cards: metade da largura útil, com limites um pouco maiores
+    const fcRaw = (width - horizontalPadding - gutter) / 2;
+    const featuredCardWidth = Math.max(260, fcRaw);
+
+    return { qaCardWidth, featuredCardWidth };
+  }, [width]);
 
   if (loading) {
     return (
@@ -110,7 +131,7 @@ export default function DashboardScreen() {
         {/* Cards de ação rápida */}
         <View style={styles.quickActionsContainer}>
           <View style={styles.quickActionsRow}>
-            <TouchableOpacity style={[styles.quickActionCard, styles.discussionsCard]}>
+            <TouchableOpacity style={[styles.quickActionCard, styles.discussionsCard, { width: layout.qaCardWidth }]} onPress={() => navigation.navigate('DiscussionsTab')}>
               <View style={styles.quickActionIcon}>
                 <Ionicons name="chatbubbles" size={28} color="#4A90E2" />
               </View>
@@ -120,7 +141,7 @@ export default function DashboardScreen() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.quickActionCard, styles.challengeCard]}>
+            <TouchableOpacity style={[styles.quickActionCard, styles.challengeCard, { width: layout.qaCardWidth }]} onPress={() => navigation.navigate('ChallengesTab')}>
               <View style={styles.quickActionIcon}>
                 <Ionicons name="school" size={28} color="#F5A623" />
               </View>
@@ -133,8 +154,8 @@ export default function DashboardScreen() {
 
           <View style={styles.quickActionsRow}>
             <TouchableOpacity 
-              style={[styles.quickActionCard, styles.createCard]}
-              onPress={() => navigation.navigate('ChallengesTab')}
+              style={[styles.quickActionCard, styles.createCard, { width: layout.qaCardWidth }]}
+              onPress={() => navigation.navigate('ChallengesTab', { openCreate: true })}
             >
               <View style={styles.quickActionIcon}>
                 <Ionicons name="add-circle" size={28} color="#4A90E2" />
@@ -142,7 +163,7 @@ export default function DashboardScreen() {
               <Text style={styles.quickActionText}>Criar{'\n'}desafio</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.quickActionCard, styles.examplesCard]}>
+            <TouchableOpacity style={[styles.quickActionCard, styles.examplesCard, { width: layout.qaCardWidth }]}>
               <View style={styles.quickActionIcon}>
                 <Ionicons name="book" size={28} color="#F5A623" />
               </View>
@@ -159,7 +180,7 @@ export default function DashboardScreen() {
           <Text style={[styles.sectionTitle, {color: colors.text}]}>{'{'}<Text style={styles.sectionTitleHighlight}>Em Destaque</Text>{'}'}</Text>
           
           <View style={styles.cardsRow}>
-            <TouchableOpacity style={[styles.featuredCard, styles.darkCard, {backgroundColor: isDarkMode ? colors.cardSecondary : "#1A1A1A"}]}>
+            <TouchableOpacity style={[styles.featuredCard, styles.darkCard, { width: layout.featuredCardWidth, backgroundColor: isDarkMode ? colors.cardSecondary : "#1A1A1A" }]}>
               <View style={styles.cardIcon}>
                 <FontAwesome5 name="football-ball" size={24} color="#fff" />
               </View>
@@ -170,7 +191,7 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.featuredCard, styles.darkCard]}>
+            <TouchableOpacity style={[styles.featuredCard, styles.darkCard, { width: layout.featuredCardWidth }]}>
               <View style={styles.cardIcon}>
                 <FontAwesome5 name="football-ball" size={24} color="#fff" />
               </View>
@@ -183,7 +204,7 @@ export default function DashboardScreen() {
           </View>
 
           <View style={styles.cardsRow}>
-            <TouchableOpacity style={[styles.featuredCard, styles.darkCard]}>
+            <TouchableOpacity style={[styles.featuredCard, styles.darkCard, { width: layout.featuredCardWidth }]}>
               <View style={styles.cardIcon}>
                 <FontAwesome5 name="football-ball" size={24} color="#fff" />
               </View>
@@ -194,7 +215,7 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.featuredCard, styles.darkCard]}>
+            <TouchableOpacity style={[styles.featuredCard, styles.darkCard, { width: layout.featuredCardWidth }]}>
               <View style={styles.cardIcon}>
                 <FontAwesome5 name="football-ball" size={24} color="#fff" />
               </View>
@@ -212,7 +233,7 @@ export default function DashboardScreen() {
           <Text style={styles.sectionTitle}>{'{'}<Text style={styles.sectionTitleHighlight}>Recomendações</Text>{'}'}</Text>
           
           <View style={styles.cardsRow}>
-            <TouchableOpacity style={[styles.featuredCard, styles.yellowCard]}>
+            <TouchableOpacity style={[styles.featuredCard, styles.yellowCard, { width: layout.featuredCardWidth }]}>
               <View style={styles.cardIcon}>
                 <FontAwesome5 name="football-ball" size={24} color="#000" />
               </View>
@@ -223,7 +244,7 @@ export default function DashboardScreen() {
               </TouchableOpacity>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.featuredCard, styles.lightCard]}>
+            <TouchableOpacity style={[styles.featuredCard, styles.lightCard, { width: layout.featuredCardWidth }]}>
               <View style={styles.cardIcon}>
                 <FontAwesome5 name="football-ball" size={24} color="#000" />
               </View>
@@ -336,11 +357,11 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   quickActionCard: {
-    width: (width - 55) / 2,
     backgroundColor: "#fff",
     borderRadius: 20,
     padding: 20,
     position: "relative",
+    minHeight: 110,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -406,7 +427,6 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   featuredCard: {
-    width: (width - 55) / 2,
     borderRadius: 20,
     padding: 20,
     shadowColor: "#000",
