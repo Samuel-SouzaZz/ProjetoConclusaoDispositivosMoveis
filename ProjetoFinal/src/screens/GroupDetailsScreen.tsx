@@ -114,6 +114,23 @@ export default function GroupDetailsScreen() {
     { value: 3, label: 'Difícil', color: '#F44336' },
   ];
 
+  const [inviteLink, setInviteLink] = useState<string | null>(null);
+
+  function copyInviteLink(text: string) {
+    if (!text) return;
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+      navigator.clipboard.writeText(text)
+        .then(() => {
+          Alert.alert('Copiado', 'Link de convite copiado para a área de transferência');
+        })
+        .catch(() => {
+          Alert.alert('Erro', 'Não foi possível copiar o link');
+        });
+      return;
+    }
+    Alert.alert('Link de Convite', text);
+  }
+
   useEffect(() => {
     let mounted = true;
     (async () => {
@@ -123,6 +140,7 @@ export default function GroupDetailsScreen() {
   }, [groupId]);
 
   async function loadData(mounted = true) {
+
     try {
       setLoading(true);
       const data = await ApiService.getGroup(groupId);
@@ -132,7 +150,10 @@ export default function GroupDetailsScreen() {
         const name = String(data?.name || data?.title || '');
         setEditName(name);
         setEditDescription(String(data?.description || ''));
-        setEditIsPublic(Boolean(data?.isPublic ?? true));
+        const visibility = String(data?.visibility || '').toUpperCase();
+        const isPublic = visibility ? visibility === 'PUBLIC' : Boolean(data?.isPublic ?? true);
+        setEditIsPublic(isPublic);
+
       } catch {}
       // membros
       try {
@@ -223,6 +244,26 @@ export default function GroupDetailsScreen() {
     }
   }
 
+  async function handleGenerateInviteLink() {
+    if (!group?.id) {
+      Alert.alert('Erro', 'Grupo inválido');
+      return;
+    }
+    try {
+      const result = await ApiService.generateGroupInviteLink(String(group.id));
+      const token = result?.token || result?.inviteToken || '';
+      const url = result?.url || result?.link || '';
+      const finalLink = url || token;
+      if (!finalLink) {
+        Alert.alert('Convite gerado', 'Convite criado com sucesso.');
+        return;
+      }
+      setInviteLink(finalLink);
+    } catch (err: any) {
+      Alert.alert('Erro', ApiService.handleError(err));
+    }
+  }
+
   return (
     <SafeAreaView style={commonStyles.container}>
       <View style={[styles.header, { borderBottomColor: colors.border }]} > 
@@ -250,16 +291,36 @@ export default function GroupDetailsScreen() {
             <View style={styles.rowSpace}> 
               <View style={{ flex: 1 }}> 
                 <Text style={[styles.name, { color: colors.text }]}>{group.name || group.title}</Text>
-                <View style={[styles.badge, { backgroundColor: isDarkMode ? "#2D3748" : "#EDF2F7" }]} > 
-                  <Ionicons name={group.isPublic ? "earth" : "lock-closed"} size={14} color={colors.textSecondary} />
-                  <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{group.isPublic ? "Público" : "Privado"}</Text>
-                </View>
+                {(() => {
+                  const visibility = String(group.visibility || '').toUpperCase();
+                  const isPublicGroup = visibility ? visibility === 'PUBLIC' : Boolean(group.isPublic);
+                  return (
+                    <View style={[styles.badge, { backgroundColor: isDarkMode ? "#2D3748" : "#EDF2F7" }]} > 
+                      <Ionicons name={isPublicGroup ? "earth" : "lock-closed"} size={14} color={colors.textSecondary} />
+                      <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{isPublicGroup ? "Público" : "Privado"}</Text>
+                    </View>
+                  );
+                })()}
               </View>
-              {isOwner({ group, members, userId: String(user?.id || '') }) && (
-                <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => setShowEdit(true)}>
-                  <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Editar Grupo</Text>
-                </TouchableOpacity>
-              )}
+
+              {(() => {
+                const visibility = String(group.visibility || '').toUpperCase();
+                const isPrivateGroup = visibility ? visibility === 'PRIVATE' : !Boolean(group.isPublic);
+                const owner = isOwner({ group, members, userId: String(user?.id || '') });
+                if (!owner) return null;
+                return (
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => setShowEdit(true)}>
+                      <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Editar Grupo</Text>
+                    </TouchableOpacity>
+                    {isPrivateGroup && (
+                      <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={handleGenerateInviteLink}>
+                        <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Gerar Convite</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                );
+              })()}
             </View>
 
             {group.description ? (
@@ -302,6 +363,15 @@ export default function GroupDetailsScreen() {
               >
                 <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Meu Progresso</Text>
               </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: colors.primary }]}
+                onPress={() => {
+                  // @ts-ignore
+                  navigation.navigate('GroupRanking', { groupId: String(group.id), groupName: group.name || group.title });
+                }}
+              >
+                <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Ranking do Grupo</Text>
+              </TouchableOpacity>
               {isMember({ group, members, userId: String(user?.id || '') }) ? (
                 <TouchableOpacity
                   style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: leaving ? 0.7 : 1 }]}
@@ -331,6 +401,40 @@ export default function GroupDetailsScreen() {
               )}
             </View>
           </View>
+
+          {(() => {
+            const visibility = String(group.visibility || '').toUpperCase();
+            const isPrivateGroup = visibility ? visibility === 'PRIVATE' : !Boolean(group.isPublic);
+            if (!inviteLink || !isPrivateGroup) return null;
+            return (
+              <View style={[styles.section, { backgroundColor: colors.background }]}> 
+                <View style={[styles.card, { backgroundColor: colors.card }]}> 
+                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Link de Convite do Grupo</Text>
+                  <View style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10 }}> 
+                    <Text style={{ color: colors.textSecondary }} numberOfLines={2}>{inviteLink}</Text>
+                  </View>
+                  <View style={[styles.actions, { marginTop: 12 }]}> 
+                    <TouchableOpacity
+                      style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                      onPress={() => {
+                        if (inviteLink) {
+                          copyInviteLink(inviteLink);
+                        }
+                      }}
+                    >
+                      <Text style={styles.primaryButtonText}>Copiar Link</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.secondaryButton, { borderColor: colors.primary }]}
+                      onPress={() => setInviteLink(null)}
+                    >
+                      <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Fechar</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            );
+          })()}
 
           {/* Membros do Grupo */}
           <View style={[styles.section, { backgroundColor: colors.background }]} > 

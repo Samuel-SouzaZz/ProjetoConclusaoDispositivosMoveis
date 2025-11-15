@@ -326,7 +326,14 @@ async getToken(): Promise<string | null> {
     description?: string;
     isPublic?: boolean;
   }) {
-    const response = await this.api.post('/groups', data);
+    const payload: any = {
+      name: data.name,
+      description: data.description,
+    };
+    if (typeof data.isPublic === 'boolean') {
+      payload.visibility = data.isPublic ? 'PUBLIC' : 'PRIVATE';
+    }
+    const response = await this.api.post('/groups', payload);
     return response.data;
   }
 
@@ -338,7 +345,14 @@ async getToken(): Promise<string | null> {
     description?: string;
     isPublic?: boolean;
   }) {
-    const response = await this.api.patch(`/groups/${groupId}`, data);
+    const payload: any = {
+      name: data.name,
+      description: data.description,
+    };
+    if (typeof data.isPublic === 'boolean') {
+      payload.visibility = data.isPublic ? 'PUBLIC' : 'PRIVATE';
+    }
+    const response = await this.api.patch(`/groups/${groupId}`, payload);
     return response.data;
   }
 
@@ -402,6 +416,16 @@ async getToken(): Promise<string | null> {
 
   async leaveGroup(groupId: string) {
     const response = await this.api.post(`/groups/${groupId}/leave`);
+    return response.data;
+  }
+
+  async generateGroupInviteLink(groupId: string) {
+    const response = await this.api.post(`/groups/${groupId}/invite-link`);
+    return response.data;
+  }
+
+  async joinGroupByToken(groupId: string, token: string) {
+    const response = await this.api.post(`/groups/${groupId}/join-by-token`, { token });
     return response.data;
   }
 

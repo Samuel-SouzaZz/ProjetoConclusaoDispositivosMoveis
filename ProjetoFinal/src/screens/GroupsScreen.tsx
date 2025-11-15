@@ -97,10 +97,19 @@ export default function GroupsScreen() {
               <View style={styles.cardHeader}> 
                 <Text style={[styles.name, { color: colors.text }]}>{item.name || item.title || "Grupo"}</Text>
                 <View style={[styles.badge, { backgroundColor: isDarkMode ? '#2D3748' : '#EDF2F7' }]}> 
-                  <Ionicons name={item.isPublic ? 'earth' : 'lock-closed'} size={14} color={colors.textSecondary} />
-                  <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{item.isPublic ? 'Público' : 'Privado'}</Text>
+                  {(() => {
+                    const visibility = String(item.visibility || '').toUpperCase();
+                    const isPublic = visibility ? visibility === 'PUBLIC' : Boolean(item.isPublic);
+                    return (
+                      <>
+                        <Ionicons name={isPublic ? 'earth' : 'lock-closed'} size={14} color={colors.textSecondary} />
+                        <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{isPublic ? 'Público' : 'Privado'}</Text>
+                      </>
+                    );
+                  })()}
                 </View>
               </View>
+
               {item.description ? (
                 <Text style={[styles.description, { color: colors.textSecondary }]}>{item.description}</Text>
               ) : null}
