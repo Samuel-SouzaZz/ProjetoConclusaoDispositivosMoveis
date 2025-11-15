@@ -8,6 +8,7 @@ import DashboardScreen from "../screens/DashboardScreen";
 import DiscussionsScreen from "../screens/DiscussionsScreen";
 import RankingScreen from "../screens/RankingScreen";
 import ChallengesScreen from "../screens/ChallengesScreen";
+import GroupChallengesScreen from "../screens/GroupChallengesScreen";
 import SettingsScreen from "../screens/SettingsScreen";
 import ProfileScreen from "../screens/ProfileScreen";
 import GroupsScreen from "../screens/GroupsScreen";
@@ -22,6 +23,7 @@ export type RootStackParamList = {
   Dashboard: undefined;
   GroupDetails: { groupId: string };
   GroupProgress: { groupId: string; groupName?: string };
+  GroupChallenges: { groupId: string; groupName?: string; groupDescription?: string };
 };
 
 // Tipagem para o Tab Navigator
@@ -155,6 +157,7 @@ export default function AppNavigator() {
       {/* Telas de grupos */}
       <Stack.Screen name="GroupDetails" component={require('../screens/GroupDetailsScreen').default} />
       <Stack.Screen name="GroupProgress" component={GroupProgressScreen} />
+      <Stack.Screen name="GroupChallenges" component={GroupChallengesScreen} />
     </Stack.Navigator>
   );
 }

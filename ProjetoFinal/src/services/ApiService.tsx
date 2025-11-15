@@ -13,7 +13,7 @@ import { Platform } from 'react-native';
 const BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL ||
   (Platform.OS === 'android'
-    ? 'http://10.0.2.2:3000/api'
+    ? 'http://10.0.0.183:3000/api'
     : 'http://localhost:3000/api');
 
 // Chaves de armazenamento
@@ -327,6 +327,18 @@ async getToken(): Promise<string | null> {
     isPublic?: boolean;
   }) {
     const response = await this.api.post('/groups', data);
+    return response.data;
+  }
+
+  /**
+   * GROUPS - Atualizar grupo
+   */
+  async updateGroup(groupId: string, data: {
+    name?: string;
+    description?: string;
+    isPublic?: boolean;
+  }) {
+    const response = await this.api.patch(`/groups/${groupId}`, data);
     return response.data;
   }
 

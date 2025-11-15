@@ -10,6 +10,71 @@ import { RootStackParamList } from "../navigation/AppNavigator";
 import { useAuth } from "../contexts/AuthContext";
 import DetailedChallengeCard from "../components/DetailedChallengeCard";
 
+const styles = StyleSheet.create({
+  header: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 15,
+    borderBottomWidth: 1,
+  },
+  back: { marginRight: 8 },
+  title: { fontSize: 20, fontWeight: "600" },
+  center: { flex: 1, alignItems: "center", justifyContent: "center" },
+  content: { padding: 16 },
+  card: { borderRadius: 14, padding: 16 },
+  rowSpace: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  name: { fontSize: 18, fontWeight: "700" },
+  description: { marginTop: 8, fontSize: 14 },
+  metaRow: { flexDirection: "row", marginTop: 12, gap: 16 },
+  metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
+  metaText: { fontSize: 13 },
+  badge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
+  badgeText: { fontSize: 12 },
+  actions: { flexDirection: "row", gap: 12, marginTop: 16 },
+  primaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
+  primaryButtonText: { color: "#fff", fontWeight: "700" },
+  secondaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
+  secondaryButtonText: { fontWeight: "700" },
+  input: {
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 12,
+    fontSize: 16,
+    borderWidth: 1,
+  },
+  checkbox: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  section: { marginTop: 20 },
+  sectionTitle: { fontSize: 16, fontWeight: "700" },
+  emptyBox: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 10 },
+  memberItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1 },
+  avatar: { width: 34, height: 34, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  avatarText: { fontWeight: '700' },
+  memberName: { fontSize: 14, fontWeight: '600' },
+  memberRole: { fontSize: 12 },
+  joinedAt: { fontSize: 12 },
+  challengeItem: { borderRadius: 12, padding: 12 },
+  challengeTitle: { fontSize: 14, fontWeight: '700' },
+  challengeMeta: { fontSize: 12 },
+  editModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  editModalCard: { width: '100%', maxWidth: 560, borderRadius: 16, padding: 16 },
+});
+
 type GroupDetailsRoute = RouteProp<RootStackParamList, "GroupDetails">;
 
 export default function GroupDetailsScreen() {
@@ -28,6 +93,12 @@ export default function GroupDetailsScreen() {
   const [joining, setJoining] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [creating, setCreating] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [updating, setUpdating] = useState(false);
+  const [editName, setEditName] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editIsPublic, setEditIsPublic] = useState(true);
+
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -57,6 +128,12 @@ export default function GroupDetailsScreen() {
       const data = await ApiService.getGroup(groupId);
       if (!mounted) return;
       setGroup(data);
+      try {
+        const name = String(data?.name || data?.title || '');
+        setEditName(name);
+        setEditDescription(String(data?.description || ''));
+        setEditIsPublic(Boolean(data?.isPublic ?? true));
+      } catch {}
       // membros
       try {
         const mm = Array.isArray(data?.members) ? data.members : await ApiService.getGroupMembers(groupId);
@@ -124,6 +201,28 @@ export default function GroupDetailsScreen() {
     }
   }
 
+  async function handleUpdateGroup() {
+    if (!editName.trim()) {
+      Alert.alert('Erro', 'Informe o nome do grupo');
+      return;
+    }
+    try {
+      setUpdating(true);
+      await ApiService.updateGroup(String(groupId), {
+        name: editName.trim(),
+        description: editDescription.trim() || undefined,
+        isPublic: editIsPublic,
+      });
+      await loadData();
+      Alert.alert('Sucesso', 'Grupo atualizado com sucesso');
+      setShowEdit(false);
+    } catch (err: any) {
+      Alert.alert('Erro', ApiService.handleError(err));
+    } finally {
+      setUpdating(false);
+    }
+  }
+
   return (
     <SafeAreaView style={commonStyles.container}>
       <View style={[styles.header, { borderBottomColor: colors.border }]} > 
@@ -149,12 +248,20 @@ export default function GroupDetailsScreen() {
         <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]} > 
           <View style={[styles.card, { backgroundColor: colors.card }]} > 
             <View style={styles.rowSpace}> 
-              <Text style={[styles.name, { color: colors.text }]}>{group.name || group.title}</Text>
-              <View style={[styles.badge, { backgroundColor: isDarkMode ? "#2D3748" : "#EDF2F7" }]} > 
-                <Ionicons name={group.isPublic ? "earth" : "lock-closed"} size={14} color={colors.textSecondary} />
-                <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{group.isPublic ? "Público" : "Privado"}</Text>
+              <View style={{ flex: 1 }}> 
+                <Text style={[styles.name, { color: colors.text }]}>{group.name || group.title}</Text>
+                <View style={[styles.badge, { backgroundColor: isDarkMode ? "#2D3748" : "#EDF2F7" }]} > 
+                  <Ionicons name={group.isPublic ? "earth" : "lock-closed"} size={14} color={colors.textSecondary} />
+                  <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{group.isPublic ? "Público" : "Privado"}</Text>
+                </View>
               </View>
+              {isOwner({ group, members, userId: String(user?.id || '') }) && (
+                <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => setShowEdit(true)}>
+                  <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Editar Grupo</Text>
+                </TouchableOpacity>
+              )}
             </View>
+
             {group.description ? (
               <Text style={[styles.description, { color: colors.textSecondary }]}>{group.description}</Text>
             ) : null}
@@ -167,19 +274,28 @@ export default function GroupDetailsScreen() {
               </View>
               <View style={styles.metaItem}> 
                 <Ionicons name="calendar" size={18} color={colors.primary} />
-                <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                <Text style={[styles.metaText, { color: colors.textSecondary }]}> 
                   Criado em: {formatDate(group.createdAt)}
                 </Text>
               </View>
             </View>
             <View style={styles.actions}> 
-              <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => {}}>
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: colors.primary }]}
+                onPress={() => {
+                  // @ts-ignore
+                  navigation.navigate('GroupChallenges', {
+                    groupId: String(group.id),
+                    groupName: group.name || group.title,
+                    groupDescription: group.description || '',
+                  });
+                }}
+              >
                 <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Ver Desafios</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.secondaryButton, { borderColor: colors.primary }]}
                 onPress={() => {
-                  // navegar para tela de progresso no grupo
                   // @ts-ignore
                   navigation.navigate('GroupProgress', { groupId: String(group.id), groupName: group.name || group.title });
                 }}
@@ -367,81 +483,71 @@ export default function GroupDetailsScreen() {
               </ScrollView>
             </SafeAreaView>
           </Modal>
+
+          {/* Modal Editar Grupo */}
+          <Modal visible={showEdit} transparent animationType="slide" onRequestClose={() => setShowEdit(false)}>
+            <View style={styles.editModalOverlay}>
+              <View style={[styles.editModalCard, { backgroundColor: colors.card }]}> 
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Editar Grupo</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: colors.border, color: colors.text, marginTop: 12 }]}
+                  value={editName}
+                  onChangeText={setEditName}
+                  placeholder="Nome do Grupo"
+                  placeholderTextColor={colors.textSecondary}
+                />
+                <TextInput
+                  style={[styles.input, { borderColor: colors.border, color: colors.text, height: 90, marginTop: 10 }]}
+                  value={editDescription}
+                  onChangeText={setEditDescription}
+                  placeholder="Descrição"
+                  placeholderTextColor={colors.textSecondary}
+                  multiline
+                />
+                <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 12 }]}>Visibilidade</Text>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 8 }}>
+                  <TouchableOpacity
+                    style={[styles.secondaryButton, { flex: 1, borderColor: editIsPublic ? colors.primary : colors.border }]}
+                    onPress={() => setEditIsPublic(true)}
+                  >
+                    <Text style={[styles.secondaryButtonText, { color: editIsPublic ? colors.primary : colors.textSecondary }]}>Público - Qualquer um pode entrar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.secondaryButton, { flex: 1, borderColor: !editIsPublic ? colors.primary : colors.border }]}
+                    onPress={() => setEditIsPublic(false)}
+                  >
+                    <Text style={[styles.secondaryButtonText, { color: !editIsPublic ? colors.primary : colors.textSecondary }]}>Privado - Apenas com convite</Text>
+                  </TouchableOpacity>
+                </View>
+                <View style={[styles.actions, { marginTop: 20 }]}> 
+                  <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => setShowEdit(false)} disabled={updating}>
+                    <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: updating ? 0.7 : 1 }]}
+                    onPress={handleUpdateGroup}
+                    disabled={updating}
+                  >
+                    <Text style={styles.primaryButtonText}>{updating ? 'Salvando...' : 'Salvar Alterações'}</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
         </ScrollView>
       )}
     </SafeAreaView>
   );
+
 }
 
 function formatDate(date?: string) {
   if (!date) return "--/--/----";
   try {
     const d = new Date(date);
+
     return d.toLocaleDateString();
-  } catch {
+  } catch (error) {
     return String(date);
   }
 }
-
-const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-    borderBottomWidth: 1,
-  },
-  back: { marginRight: 8 },
-  title: { fontSize: 20, fontWeight: "600" },
-  center: { flex: 1, alignItems: "center", justifyContent: "center" },
-  content: { padding: 16 },
-  card: { borderRadius: 14, padding: 16 },
-  rowSpace: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  name: { fontSize: 18, fontWeight: "700" },
-  description: { marginTop: 8, fontSize: 14 },
-  metaRow: { flexDirection: "row", marginTop: 12, gap: 16 },
-  metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  metaText: { fontSize: 13 },
-  badge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
-  badgeText: { fontSize: 12 },
-  actions: { flexDirection: "row", gap: 12, marginTop: 16 },
-  primaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
-  primaryButtonText: { color: "#fff", fontWeight: "700" },
-  secondaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
-  secondaryButtonText: { fontWeight: "700" },
-  input: {
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-    fontSize: 16,
-    borderWidth: 1,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 2,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  section: { marginTop: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: "700" },
-  emptyBox: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 10 },
-  memberItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1 },
-  avatar: { width: 34, height: 34, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
-  avatarText: { fontWeight: '700' },
-  memberName: { fontSize: 14, fontWeight: '600' },
-  memberRole: { fontSize: 12 },
-  joinedAt: { fontSize: 12 },
-  challengeItem: { borderRadius: 12, padding: 12 },
-  challengeTitle: { fontSize: 14, fontWeight: '700' },
-  challengeMeta: { fontSize: 12 },
-});

@@ -80,8 +80,8 @@ export default function CreateGroupModal({ visible, onClose, onCreated }: Create
 }
 
 const styles = StyleSheet.create({
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
-  modalCard: { borderTopLeftRadius: 16, borderTopRightRadius: 16, padding: 16 },
+  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 16 },
+  modalCard: { width: '100%', maxWidth: 560, borderRadius: 16, padding: 16 },
   modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
   input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 },
   modalRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
