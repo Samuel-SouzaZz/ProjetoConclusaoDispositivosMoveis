@@ -303,6 +303,41 @@ async getToken(): Promise<string | null> {
   }
 
   /**
+   * FORUMS - Fóruns públicos e fóruns do usuário
+   */
+  async getPublicForums(params?: { page?: number; limit?: number }) {
+    const response = await this.api.get('/forum/foruns', { params });
+    return response.data;
+  }
+
+  async getMyForums(params?: { page?: number; limit?: number }) {
+    const response = await this.api.get('/forum/meus', { params });
+    return response.data;
+  }
+
+  async createForum(data: {
+    exerciseCode: string;
+    nome: string;
+    assunto: string;
+    descricao?: string;
+    isPublic?: boolean;
+  }) {
+    const payload: any = {
+      exerciseCode: data.exerciseCode,
+      nome: data.nome,
+      assunto: data.assunto,
+      descricao: data.descricao,
+    };
+
+    if (typeof data.isPublic === 'boolean') {
+      payload.statusPrivacidade = data.isPublic ? 'PUBLICO' : 'PRIVADO';
+    }
+
+    const response = await this.api.post('/forum', payload);
+    return response.data;
+  }
+
+  /**
    * GROUPS - Grupos
    */
   async getGroups() {

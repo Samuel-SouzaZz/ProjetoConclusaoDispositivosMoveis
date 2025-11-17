@@ -9,9 +9,11 @@ export interface DetailedChallengeCardProps {
   progress?: number;
   isPublic?: boolean;
   xp?: number;
+  code?: string;
   onPress?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
+  onCopyCode?: () => void;
 }
 
 export default function DetailedChallengeCard({
@@ -21,9 +23,11 @@ export default function DetailedChallengeCard({
   progress = 0,
   isPublic = true,
   xp = 0,
+  code,
   onPress,
   onEdit,
   onDelete,
+  onCopyCode,
 }: DetailedChallengeCardProps) {
   const { colors, commonStyles } = useTheme();
 
@@ -47,6 +51,17 @@ export default function DetailedChallengeCard({
         </View>
         {!!description && (
           <Text style={[commonStyles.text, styles.challengeDescription]}>{description}</Text>
+        )}
+        {!!code && (
+          <View style={styles.codeRow}>
+            <Text style={[styles.codeLabel, { color: colors.textSecondary }]}>Código:</Text>
+            <Text style={[styles.codeValue, { color: colors.primary }]}>{code}</Text>
+            {onCopyCode && (
+              <TouchableOpacity style={styles.copyButton} onPress={onCopyCode}>
+                <Text style={[styles.copyButtonText, { color: colors.text }]}>Copiar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         )}
         <View style={styles.challengeFooter}>
           <View style={styles.progressContainer}>
@@ -118,6 +133,30 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginBottom: 12,
     lineHeight: 20,
+  },
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  codeLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  codeValue: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  copyButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    backgroundColor: '#2a2f3b',
+  },
+  copyButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
   },
   challengeFooter: {
     flexDirection: "row",

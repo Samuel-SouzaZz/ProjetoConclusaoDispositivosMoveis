@@ -16,7 +16,9 @@ export default function DiscussionsScreen() {
   const [forums, setForums] = useState<any[]>([]);
   const [query, setQuery] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
-  const [formData, setFormData] = useState({ title: "", subject: "", description: "", isPublic: true });
+  const [showPrivacyPicker, setShowPrivacyPicker] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [formData, setFormData] = useState({ exerciseCode: "", title: "", subject: "", description: "", isPublic: true });
   const numColumns = width >= 900 ? 3 : width >= 650 ? 2 : 1;
 
   useEffect(() => {
@@ -24,17 +26,17 @@ export default function DiscussionsScreen() {
     (async () => {
       try {
         setLoading(true);
-        const data = await ApiService.getGroups();
+        const data = await ApiService.getPublicForums();
         if (!mounted) return;
         const items = Array.isArray(data) ? data : data?.items || [];
-        const mapped = items.map((g: any) => ({
-          id: g.id,
-          title: g.name || g.title || "Fórum",
-          subject: g.owner?.name || g.handle || "",
-          description: g.description || "",
-          isPublic: g.visibility ? g.visibility === "public" : (g.isPublic ?? true),
-          topicsCount: g.topicsCount ?? g.membersCount ?? 0,
-          isActive: g.isActive ?? true,
+        const mapped = items.map((f: any) => ({
+          id: f._id || f.id,
+          title: f.nome || f.title || "Fórum",
+          subject: f.assunto || "",
+          description: f.descricao || "",
+          isPublic: f.statusPrivacidade ? f.statusPrivacidade === "PUBLICO" : (f.isPublic ?? true),
+          topicsCount: f.qtdTopicos ?? 0,
+          isActive: f.status ? f.status === "ATIVO" : (f.isActive ?? true),
         }));
         setForums(mapped);
         setError(null);
@@ -59,28 +61,54 @@ export default function DiscussionsScreen() {
   }, [forums, query]);
 
   const handleCardPress = (forum: any) => {
-    navigation.navigate("GroupDetails", { groupId: String(forum.id) });
+    return;
   };
 
-  const handleCreatePublication = () => {
-    if (!formData.title.trim()) return;
-    const newForum = {
-      id: Math.random().toString(36).slice(2),
-      title: formData.title.trim(),
-      subject: formData.subject.trim(),
-      description: formData.description.trim(),
-      isPublic: formData.isPublic,
-      topicsCount: 0,
-      isActive: true,
-    };
-    setForums(prev => [newForum, ...prev]);
-    setFormData({ title: "", subject: "", description: "", isPublic: true });
-    setShowCreateModal(false);
+  const handleCreatePublication = async () => {
+    if (submitting) return;
+    const exerciseCode = formData.exerciseCode.trim();
+    const nome = formData.title.trim();
+    const assunto = formData.subject.trim();
+
+    if (!exerciseCode || !nome || !assunto) {
+      setError('Código do desafio, nome do fórum e assunto são obrigatórios.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const created = await ApiService.createForum({
+        exerciseCode,
+        nome,
+        assunto,
+        descricao: formData.description.trim() || undefined,
+        isPublic: formData.isPublic,
+      });
+
+      const newForum = {
+        id: created._id || created.id,
+        title: created.nome || nome,
+        subject: created.assunto || assunto,
+        description: created.descricao || formData.description.trim(),
+        isPublic: created.statusPrivacidade ? created.statusPrivacidade === 'PUBLICO' : formData.isPublic,
+        topicsCount: created.qtdTopicos ?? 0,
+        isActive: created.status ? created.status === 'ATIVO' : true,
+      };
+
+      setForums(prev => [newForum, ...prev]);
+      setFormData({ exerciseCode: '', title: '', subject: '', description: '', isPublic: true });
+      setError(null);
+      setShowCreateModal(false);
+    } catch (err: any) {
+      setError(ApiService.handleError(err));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
     <SafeAreaView style={commonStyles.container}>
-      <View style={[styles.header]}> 
+      <View style={[styles.header]}>
         <Text style={[styles.title, { color: colors.text }]}>Fóruns Públicos</Text>
         <TouchableOpacity
           onPress={() => setShowCreateModal(true)}
@@ -91,8 +119,8 @@ export default function DiscussionsScreen() {
         </TouchableOpacity>
       </View>
 
-      <View style={[styles.searchRow]}> 
-        <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+      <View style={[styles.searchRow]}>
+        <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="search" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
           <TextInput
             style={[styles.searchInput, { color: colors.text }]}
@@ -109,12 +137,12 @@ export default function DiscussionsScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.center}> 
+        <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : error ? (
-        <View style={styles.center}> 
-          <Text style={{ color: colors.text }}>{error}</Text>
+        <View style={styles.center}>
+          <Text style={{ color: colors.text }}>{String(error)}</Text>
         </View>
       ) : (
         <FlatList
@@ -130,16 +158,16 @@ export default function DiscussionsScreen() {
               style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}
             >
               {!item.isActive && (
-                <View style={[styles.inactiveOverlay, { backgroundColor: "rgba(0,0,0,0.35)" }]}> 
-                  <View style={[styles.inactiveBadge, { backgroundColor: colors.card }]}> 
+                <View style={[styles.inactiveOverlay, { backgroundColor: "rgba(0,0,0,0.35)" }]}>
+                  <View style={[styles.inactiveBadge, { backgroundColor: colors.card }]}>
                     <Text style={[styles.inactiveText, { color: colors.text }]}>INATIVO</Text>
                   </View>
                 </View>
               )}
 
-              <View style={styles.cardHeader}> 
+              <View style={styles.cardHeader}>
                 <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text>
-                <View style={[styles.visibilityBadge, { backgroundColor: (colors as any).tagBackground || '#EEF6FF', borderColor: colors.border }]}> 
+                <View style={[styles.visibilityBadge, { backgroundColor: (colors as any).tagBackground || '#EEF6FF', borderColor: colors.border }]}>
                   <Ionicons name="planet" size={12} color={colors.primary} />
                   <Text style={[styles.visibilityText, { color: colors.primary }]}>Público</Text>
                 </View>
@@ -147,8 +175,8 @@ export default function DiscussionsScreen() {
               {!!item.description && (
                 <Text style={[styles.cardDesc, { color: colors.textSecondary }]} numberOfLines={2}>{item.description}</Text>
               )}
-              <View style={styles.cardFooter}> 
-                <View style={styles.footerLeft}> 
+              <View style={styles.cardFooter}>
+                <View style={styles.footerLeft}>
                   <Ionicons name="leaf" size={14} color={(colors as any).success || "#2ecc71"} />
                   <Text style={[styles.footerText, { color: colors.textSecondary }]}>Tópicos: {item.topicsCount || 0}</Text>
                 </View>
@@ -161,7 +189,7 @@ export default function DiscussionsScreen() {
             </TouchableOpacity>
           )}
           ListEmptyComponent={(
-            <View style={styles.center}> 
+            <View style={styles.center}>
               <Text style={{ color: colors.textSecondary }}>Nenhum fórum encontrado</Text>
             </View>
           )}
@@ -169,40 +197,51 @@ export default function DiscussionsScreen() {
       )}
 
       <Modal visible={showCreateModal} animationType="slide" transparent onRequestClose={() => setShowCreateModal(false)}>
-        <View style={styles.modalOverlay}> 
-          <View style={[styles.modalContent, { backgroundColor: colors.card }]}> 
-            <View style={styles.modalHeader}> 
-              <Text style={[styles.modalTitle, { color: colors.text }]}>Nova Publicação</Text>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { backgroundColor: colors.card }]}>
+            <View style={styles.modalHeader}>
+              <Text style={[styles.modalTitle, { color: colors.text }]}>Criar Novo Fórum</Text>
               <TouchableOpacity onPress={() => setShowCreateModal(false)}>
                 <Ionicons name="close" size={22} color={colors.textSecondary} />
               </TouchableOpacity>
             </View>
             <ScrollView>
-              <View style={styles.formGroup}> 
-                <Text style={[styles.label, { color: colors.text }]}>Título</Text>
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Código do Desafio *</Text>
                 <TextInput
                   style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                  placeholder="Digite o título"
+                  placeholder="Digite o código do desafio (ex: #ASFS0001)"
+                  placeholderTextColor={colors.textSecondary}
+                  value={formData.exerciseCode}
+                  onChangeText={(v) => setFormData({ ...formData, exerciseCode: v })}
+                  autoCapitalize="none"
+                />
+              </View>
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Nome do Fórum *</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                  placeholder="Digite o nome do fórum"
                   placeholderTextColor={colors.textSecondary}
                   value={formData.title}
                   onChangeText={(v) => setFormData({ ...formData, title: v })}
                 />
               </View>
-              <View style={styles.formGroup}> 
-                <Text style={[styles.label, { color: colors.text }]}>Assunto</Text>
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Assunto *</Text>
                 <TextInput
                   style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                  placeholder="Assunto (ex.: Estruturas de Dados)"
+                  placeholder="Ex: Desenvolvimento Web, Backend, Frontend..."
                   placeholderTextColor={colors.textSecondary}
                   value={formData.subject}
                   onChangeText={(v) => setFormData({ ...formData, subject: v })}
                 />
               </View>
-              <View style={styles.formGroup}> 
+              <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Descrição</Text>
                 <TextInput
                   style={[styles.textarea, { borderColor: colors.border, color: colors.text }]}
-                  placeholder="Descrição breve"
+                  placeholder="Descreva o propósito e tema deste fórum..."
                   placeholderTextColor={colors.textSecondary}
                   value={formData.description}
                   onChangeText={(v) => setFormData({ ...formData, description: v })}
@@ -211,27 +250,76 @@ export default function DiscussionsScreen() {
                   textAlignVertical="top"
                 />
               </View>
-              <View style={styles.checkboxRow}> 
+              <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Privacidade</Text>
                 <TouchableOpacity
-                  style={[styles.checkbox, formData.isPublic && styles.checkboxSelected, { borderColor: colors.primary }]}
-                  onPress={() => setFormData(prev => ({ ...prev, isPublic: !prev.isPublic }))}
+                  style={[styles.input, { borderColor: colors.border, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', paddingRight: 10 }]}
+                  onPress={() => setShowPrivacyPicker(true)}
                 >
-                  {formData.isPublic && <Text style={styles.checkmark}>✓</Text>}
+                  <Text style={{ color: colors.text, flex: 1 }}>
+                    {formData.isPublic
+                      ? 'Público - Qualquer um pode ver e participar'
+                      : 'Privado - Apenas membros podem ver e participar'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={16} color={colors.textSecondary} />
                 </TouchableOpacity>
-                <Text style={[styles.checkboxLabel, { color: colors.text }]}>Fórum público</Text>
               </View>
-              <View style={styles.modalActions}> 
-                <TouchableOpacity style={[styles.cancelBtn, { borderColor: colors.border }]} onPress={() => setShowCreateModal(false)}>
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.actionBtnGhost, { borderColor: colors.border }]}
+                  onPress={() => setFormData({ exerciseCode: '', title: '', subject: '', description: '', isPublic: true })}
+                >
+                  <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Limpar</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.actionBtn, styles.actionBtnGhost, { borderColor: colors.border }]}
+                  onPress={() => setShowCreateModal(false)}
+                >
                   <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancelar</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={[styles.saveBtn, { backgroundColor: colors.primary }]} onPress={handleCreatePublication}>
-                  <Text style={styles.saveText}>Salvar</Text>
+                <TouchableOpacity style={[styles.actionBtn, styles.saveBtn, { backgroundColor: colors.primary }]} onPress={handleCreatePublication} disabled={submitting}>
+                  <Text style={styles.saveText}>{submitting ? 'Criando...' : 'Criar Fórum'}</Text>
                 </TouchableOpacity>
               </View>
             </ScrollView>
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={showPrivacyPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPrivacyPicker(false)}
+      >
+        <TouchableOpacity
+          style={styles.privacyOverlay}
+          activeOpacity={1}
+          onPressOut={() => setShowPrivacyPicker(false)}
+        >
+          <View style={[styles.privacyDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <TouchableOpacity
+              style={styles.privacyOption}
+              onPress={() => {
+                setFormData(prev => ({ ...prev, isPublic: true }));
+                setShowPrivacyPicker(false);
+              }}
+            >
+              <Text style={{ color: colors.text }}>Público - Qualquer um pode ver e participar</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.privacyOption}
+              onPress={() => {
+                setFormData(prev => ({ ...prev, isPublic: false }));
+                setShowPrivacyPicker(false);
+              }}
+            >
+              <Text style={{ color: colors.text }}>Privado - Apenas membros podem ver e participar</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -273,9 +361,14 @@ const styles = StyleSheet.create({
   checkboxSelected: { backgroundColor: '#4A90E2' },
   checkmark: { color: '#fff', fontWeight: '800' },
   checkboxLabel: { fontSize: 13 },
-  modalActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 10, marginTop: 16 },
+  modalActions: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginTop: 16 },
+  actionBtn: { flex: 1, alignItems: 'center', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
+  actionBtnGhost: { borderWidth: 1 },
   cancelBtn: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 10 },
   cancelText: { fontWeight: '700' },
   saveBtn: { borderRadius: 10, paddingHorizontal: 16, paddingVertical: 10 },
   saveText: { color: '#fff', fontWeight: '800' },
+  privacyOverlay: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.2)' },
+  privacyDropdown: { width: '80%', maxWidth: 420, borderWidth: 1, borderRadius: 10, paddingVertical: 4 },
+  privacyOption: { paddingHorizontal: 12, paddingVertical: 10 },
 });
