@@ -105,11 +105,12 @@ export default function ChallengesScreen() {
   };
 
   const handleEditPress = (challenge: any) => {
+    const xp = challenge.xp ?? challenge.baseXp ?? 0;
     setFormData({
       title: challenge.title,
       description: challenge.description,
       difficulty: difficultyOptions.find(d => d.label === challenge.difficulty)?.value || 1,
-      xp: challenge.xp,
+      xp: typeof xp === 'number' ? xp : Number(xp) || 0,
       isPublic: challenge.isPublic,
       codeTemplate: '// Seu código aqui\n'
     });
@@ -160,7 +161,7 @@ export default function ChallengesScreen() {
     }
     setLoading(true);
     try {
-      await ApiService.createChallenge({
+      const created = await ApiService.createChallenge({
         title: formData.title,
         description: formData.description,
         difficulty: formData.difficulty,
@@ -168,8 +169,14 @@ export default function ChallengesScreen() {
         isPublic: formData.isPublic,
         codeTemplate: formData.codeTemplate,
       });
-  
-      Alert.alert("Sucesso", "Desafio criado!");
+
+      const ex = created?.exercise || created; // suporta { exercise: {...} } ou objeto direto
+      const code = ex?.publicCode || ex?.public_code || ex?.code;
+      const message = code
+        ? `Desafio criado!\n\nCódigo do desafio: ${code}`
+        : 'Desafio criado!';
+
+      Alert.alert("Sucesso", message);
       await loadChallenges();
       setShowCreateModal(false);
   
@@ -212,6 +219,7 @@ export default function ChallengesScreen() {
             const diffNum = Number(challenge.difficulty ?? 1);
             const diffLabel = diffNum <= 1 ? 'Fácil' : diffNum === 2 ? 'Médio' : 'Difícil';
             const xp = challenge.xp ?? challenge.baseXp ?? 0;
+            const code = challenge.publicCode || challenge.public_code || challenge.code;
             return (
               <DetailedChallengeCard
                 key={challenge.id}
@@ -221,6 +229,7 @@ export default function ChallengesScreen() {
                 progress={challenge.progress}
                 isPublic={challenge.isPublic}
                 xp={xp}
+                code={code}
                 onPress={() => handleChallengePress(challenge)}
                 onEdit={() => handleEditPress(challenge)}
                 onDelete={() => handleDeletePress(challenge)}
@@ -307,7 +316,7 @@ export default function ChallengesScreen() {
               <Text style={[commonStyles.text, styles.label]}>XP Base</Text>
               <TextInput
                 style={[styles.input, { backgroundColor: colors.card, color: colors.text, borderColor: colors.border }]}
-                value={formData.xp.toString()}
+                value={String(formData.xp ?? 0)}
                 onChangeText={(text) => setFormData({...formData, xp: parseInt(text) || 0})}
                 placeholder="100"
                 placeholderTextColor={colors.textSecondary}
