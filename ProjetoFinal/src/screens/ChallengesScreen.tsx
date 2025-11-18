@@ -17,6 +17,7 @@ import { useAuth } from "../contexts/AuthContext";
 import ApiService from "../services/ApiService";
 import ChallengeService from "../services/ChallengeService";
 import { useFocusEffect } from '@react-navigation/native';
+import DetailedChallengeCard from "../components/DetailedChallengeCard";
 
 
 const difficultyOptions = [

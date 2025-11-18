@@ -17,7 +17,6 @@ export default function HomeScreen() {
   return (
     <SafeAreaView 
       style={[styles.container, { backgroundColor: colors.background }]}
-      accessibilityRole="main"
       accessibilityLabel="Tela inicial"
     >
       <View style={styles.content}>

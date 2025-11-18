@@ -166,6 +166,14 @@ async getToken(): Promise<string | null> {
   }
 
   /**
+   * LEADERBOARDS - Ranking por grupo
+   */
+  async getLeaderboardByGroup(groupId: string, params?: { page?: number; limit?: number }) {
+    const response = await this.api.get('/leaderboards/by-group', { params: { groupId, ...(params || {}) } });
+    return response.data;
+  }
+
+  /**
    * USERS - Perfil público
    */
   async getPublicProfile(userId: string) {
@@ -434,6 +442,41 @@ async getToken(): Promise<string | null> {
   }
 
   /**
+   * FORUMS - Fóruns públicos e fóruns do usuário
+   */
+  async getPublicForums(params?: { page?: number; limit?: number }) {
+    const response = await this.api.get('/forum/foruns', { params });
+    return response.data;
+  }
+
+  async getMyForums(params?: { page?: number; limit?: number }) {
+    const response = await this.api.get('/forum/meus', { params });
+    return response.data;
+  }
+
+  async createForum(data: {
+    exerciseCode: string;
+    nome: string;
+    assunto: string;
+    descricao?: string;
+    isPublic?: boolean;
+  }) {
+    const payload: any = {
+      exerciseCode: data.exerciseCode,
+      nome: data.nome,
+      assunto: data.assunto,
+      descricao: data.descricao,
+    };
+
+    if (typeof data.isPublic === 'boolean') {
+      payload.statusPrivacidade = data.isPublic ? 'PUBLICO' : 'PRIVADO';
+    }
+
+    const response = await this.api.post('/forum', payload);
+    return response.data;
+  }
+
+  /**
    * GROUPS - Grupos
    */
   async getGroups() {
@@ -446,6 +489,44 @@ async getToken(): Promise<string | null> {
    */
   async getMyGroups() {
     const response = await this.api.get('/groups/my');
+    return response.data;
+  }
+
+  /**
+   * GROUPS - Criar grupo
+   */
+  async createGroup(data: {
+    name: string;
+    description?: string;
+    isPublic?: boolean;
+  }) {
+    const payload: any = {
+      name: data.name,
+      description: data.description,
+    };
+    if (typeof data.isPublic === 'boolean') {
+      payload.visibility = data.isPublic ? 'PUBLIC' : 'PRIVATE';
+    }
+    const response = await this.api.post('/groups', payload);
+    return response.data;
+  }
+
+  /**
+   * GROUPS - Atualizar grupo
+   */
+  async updateGroup(groupId: string, data: {
+    name?: string;
+    description?: string;
+    isPublic?: boolean;
+  }) {
+    const payload: any = {
+      name: data.name,
+      description: data.description,
+    };
+    if (typeof data.isPublic === 'boolean') {
+      payload.visibility = data.isPublic ? 'PUBLIC' : 'PRIVATE';
+    }
+    const response = await this.api.patch(`/groups/${groupId}`, payload);
     return response.data;
   }
 
@@ -484,6 +565,16 @@ async getToken(): Promise<string | null> {
 
   async leaveGroup(groupId: string) {
     const response = await this.api.post(`/groups/${groupId}/leave`);
+    return response.data;
+  }
+
+  async generateGroupInviteLink(groupId: string) {
+    const response = await this.api.post(`/groups/${groupId}/invite-link`);
+    return response.data;
+  }
+
+  async joinGroupByToken(groupId: string, token: string) {
+    const response = await this.api.post(`/groups/${groupId}/join-by-token`, { token });
     return response.data;
   }
 

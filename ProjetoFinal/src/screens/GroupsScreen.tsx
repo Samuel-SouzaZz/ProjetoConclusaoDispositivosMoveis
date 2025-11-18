@@ -1,167 +1,360 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
-import { useTheme } from "../contexts/ThemeContext";
-import ApiService from "../services/ApiService";
-import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import React, { useEffect, useState } from 'react';
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  FlatList,
+  TextInput,
+  Modal,
+  ActivityIndicator,
+  RefreshControl,
+} from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts/ThemeContext';
+import ApiService from '../services/ApiService';
+import { useNavigation } from '@react-navigation/native';
+
+type Group = {
+  id: string;
+  name: string;
+  description?: string;
+  isPublic?: boolean;
+  members?: any[];
+  membersCount?: number;
+  createdAt?: string;
+  ownerId?: string;
+};
 
 export default function GroupsScreen() {
-  const { commonStyles, colors, isDarkMode } = useTheme();
+  const { colors, isDarkMode, commonStyles } = useTheme();
   const navigation = useNavigation<any>();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [groups, setGroups] = useState<any[]>([]);
-  const [activeTab, setActiveTab] = useState<'public' | 'my'>('public');
+  const [tab, setTab] = useState<'public' | 'mine'>('public');
+  const [publicGroups, setPublicGroups] = useState<Group[]>([]);
+  const [myGroups, setMyGroups] = useState<Group[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [createOpen, setCreateOpen] = useState(false);
+  const [newGroupName, setNewGroupName] = useState('');
+  const [newGroupDesc, setNewGroupDesc] = useState('');
+  const [newGroupPublic, setNewGroupPublic] = useState(true);
+
+  async function loadData(initial = false) {
+    try {
+      if (initial) setLoading(true);
+      const [allRes, mineRes] = await Promise.all([
+        ApiService.getGroups(),
+        ApiService.getMyGroups(),
+      ]);
+      setPublicGroups(Array.isArray(allRes?.items) ? allRes.items : (Array.isArray(allRes) ? allRes : []));
+      setMyGroups(Array.isArray(mineRes?.items) ? mineRes.items : (Array.isArray(mineRes) ? mineRes : []));
+    } catch (err) {
+      console.log('Erro ao carregar grupos:', err);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  }
 
   useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const data = activeTab === 'public' ? await ApiService.getGroups() : await ApiService.getMyGroups();
-        if (!mounted) return;
-        const items = Array.isArray(data) ? data : data?.items || [];
-        // Backend retorna 'visibility: PUBLIC | PRIVATE', mas frontend usa 'isPublic: boolean'
-        const mappedItems = items.map((item: any) => ({
-          ...item,
-          isPublic: item.visibility === 'PUBLIC' || (item.isPublic !== undefined ? item.isPublic : true)
-        }));
-        setGroups(mappedItems);
-        setError(null);
-      } catch (err: any) {
-        if (!mounted) return;
-        setError(ApiService.handleError(err));
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [activeTab]);
+    loadData(true);
+  }, []);
+
+  async function onRefresh() {
+    setRefreshing(true);
+    await loadData();
+  }
+
+  async function handleCreateGroup() {
+    if (!newGroupName.trim()) return;
+    try {
+      setLoading(true);
+      await ApiService.createGroup({
+        name: newGroupName.trim(),
+        description: newGroupDesc.trim() || undefined,
+        isPublic: newGroupPublic,
+      });
+      setCreateOpen(false);
+      setNewGroupName('');
+      setNewGroupDesc('');
+      setNewGroupPublic(true);
+      await loadData();
+      setTab('mine');
+    } catch (err) {
+      console.log('Erro ao criar grupo:', err);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  function renderGroupItem({ item }: { item: Group }) {
+    const memberCount = (item as any).memberCount ?? item.membersCount ?? (Array.isArray(item.members) ? item.members.length : 0);
+    const createdLabel = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
+
+    return (
+      <View
+        style={{
+          backgroundColor: colors.card,
+          borderRadius: 12,
+          padding: 16,
+          marginBottom: 16,
+          boxShadow: '0px 2px 8px rgba(0,0,0,0.08)',
+          elevation: 2,
+        }}
+      >
+        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Text style={{ color: colors.text, fontSize: 18, fontWeight: '600' }}>{item.name}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+            {item.isPublic ? (
+              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Público</Text>
+            ) : (
+              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Privado</Text>
+            )}
+          </View>
+        </View>
+
+        {item.description ? (
+          <Text style={{ color: colors.textSecondary, marginTop: 8 }}>{item.description}</Text>
+        ) : null}
+
+        <View style={{ flexDirection: 'row', gap: 16, marginTop: 12 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Ionicons name="people" size={16} color={colors.textSecondary} />
+            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
+              {memberCount} {memberCount === 1 ? 'membro' : 'membros'}
+            </Text>
+          </View>
+          {createdLabel ? (
+            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Criado em: {createdLabel}</Text>
+          ) : null}
+        </View>
+
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+          <TouchableOpacity
+            onPress={() => {
+              // @ts-ignore
+              navigation.navigate('GroupDetails', { groupId: String(item.id) });
+            }}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 8,
+              backgroundColor: isDarkMode ? '#2A2A2A' : '#EFEFEF',
+            }}
+          >
+            <Text style={{ color: colors.text }}>Ver Detalhes</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            onPress={async () => {
+              try {
+                await ApiService.joinGroup(item.id);
+                await loadData();
+                // @ts-ignore
+                navigation.navigate('GroupDetails', { groupId: String(item.id) });
+              } catch (err) {
+                console.log('Erro ao acessar grupo:', err);
+              }
+            }}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 8,
+              backgroundColor: colors.primary,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 6,
+            }}
+          >
+            <Text style={{ color: isDarkMode ? '#1A1A1A' : '#fff', fontWeight: '600' }}>Acessar</Text>
+            <Ionicons name="arrow-forward" size={16} color={isDarkMode ? '#1A1A1A' : '#fff'} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  }
+
+  const data = tab === 'public' ? publicGroups : myGroups;
 
   return (
     <SafeAreaView style={commonStyles.container}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}> 
-        <Text style={[styles.title, { color: colors.text }]}>Grupos de Estudo</Text>
-        <TouchableOpacity style={[styles.createBtn, { borderColor: colors.primary }]} onPress={() => {}}>
-          <Text style={[styles.createBtnText, { color: colors.primary }]}>Criar Novo Grupo</Text>
-        </TouchableOpacity>
+      <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
+        <Text style={{ color: colors.text, fontSize: 22, fontWeight: '700' }}>{'{'} Grupos de Estudo {'}'}</Text>
+
+        <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+          <TouchableOpacity
+            onPress={() => setTab('public')}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              backgroundColor: tab === 'public' ? colors.primary : (isDarkMode ? '#2A2A2A' : '#EFEFEF'),
+            }}
+          >
+            <Text style={{ color: tab === 'public' ? (isDarkMode ? '#1A1A1A' : '#fff') : colors.text }}>Grupos Públicos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={() => setTab('mine')}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 999,
+              backgroundColor: tab === 'mine' ? colors.primary : (isDarkMode ? '#2A2A2A' : '#EFEFEF'),
+            }}
+          >
+            <Text style={{ color: tab === 'mine' ? (isDarkMode ? '#1A1A1A' : '#fff') : colors.text }}>Meus Grupos</Text>
+          </TouchableOpacity>
+
+          <View style={{ flex: 1 }} />
+
+          <TouchableOpacity
+            onPress={() => setCreateOpen(true)}
+            style={{
+              paddingVertical: 10,
+              paddingHorizontal: 14,
+              borderRadius: 10,
+              backgroundColor: colors.primary,
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+            }}
+          >
+            <Ionicons name="add" size={20} color={isDarkMode ? '#1A1A1A' : '#fff'} />
+            <Text style={{ color: isDarkMode ? '#1A1A1A' : '#fff', fontWeight: '600' }}>Criar Novo Grupo</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <View style={[styles.tabsContainer, { backgroundColor: colors.background }]}> 
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'public' && [styles.tabActive, { borderBottomColor: colors.primary }]]}
-          onPress={() => setActiveTab('public')}
-        >
-          <Text style={[styles.tabText, activeTab === 'public' && [styles.tabTextActive, { color: colors.primary }], { color: colors.textSecondary }]}>Grupos Públicos</Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'my' && [styles.tabActive, { borderBottomColor: colors.primary }]]}
-          onPress={() => setActiveTab('my')}
-        >
-          <Text style={[styles.tabText, activeTab === 'my' && [styles.tabTextActive, { color: colors.primary }], { color: colors.textSecondary }]}>Meus Grupos</Text>
-        </TouchableOpacity>
-      </View>
-
-      {loading ? (
-        <View style={styles.center}> 
-          <ActivityIndicator size="large" color={colors.primary} />
+      {loading && (
+        <View style={{ padding: 16 }}>
+          <ActivityIndicator color={colors.primary} />
         </View>
-      ) : error ? (
-        <View style={styles.center}> 
-          <Text style={{ color: colors.text }}>{error}</Text>
-        </View>
-      ) : (
-        <FlatList
-          data={groups}
-          keyExtractor={(item, index) => String(item.id || index)}
-          contentContainerStyle={styles.listContent}
-          renderItem={({ item }) => (
-            <View style={[styles.card, { backgroundColor: colors.card }]}> 
-              <View style={styles.cardHeader}> 
-                <Text style={[styles.name, { color: colors.text }]}>{item.name || item.title || "Grupo"}</Text>
-                <View style={[styles.badge, { backgroundColor: isDarkMode ? '#2D3748' : '#EDF2F7' }]}> 
-                  <Ionicons name={item.isPublic ? 'earth' : 'lock-closed'} size={14} color={colors.textSecondary} />
-                  <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{item.isPublic ? 'Público' : 'Privado'}</Text>
-                </View>
-              </View>
-              {item.description ? (
-                <Text style={[styles.description, { color: colors.textSecondary }]}>{item.description}</Text>
-              ) : null}
-              <View style={styles.metaRow}> 
-                <View style={styles.metaItem}> 
-                  <Ionicons name="people" size={16} color={colors.primary} />
-                  <Text style={[styles.metaText, { color: colors.textSecondary }]}>{item.membersCount ?? 0} membros</Text>
-                </View>
-                <View style={styles.metaItem}> 
-                  <Ionicons name="calendar" size={16} color={colors.primary} />
-                  <Text style={[styles.metaText, { color: colors.textSecondary }]}>Criado em: {formatDate(item.createdAt)}</Text>
-                </View>
-              </View>
-              <View style={styles.actions}> 
-                <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => item.id && navigation.navigate('GroupDetails', { groupId: String(item.id) })}>
-                  <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Ver Detalhes</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={() => item.id && navigation.navigate('GroupDetails', { groupId: String(item.id) })}>
-                  <Text style={styles.primaryButtonText}>Acessar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          )}
-          ListEmptyComponent={(
-            <View style={styles.center}> 
-              <Text style={{ color: colors.textSecondary }}>Nenhum grupo encontrado</Text>
-            </View>
-          )}
-        />
       )}
+
+      <FlatList
+        data={data}
+        keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        renderItem={renderGroupItem}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        ListEmptyComponent={
+          !loading ? (
+            <View style={{ padding: 16 }}>
+              <Text style={{ color: colors.textSecondary }}>
+                {tab === 'public' ? 'Nenhum grupo público encontrado.' : 'Você ainda não participa de nenhum grupo.'}
+              </Text>
+            </View>
+          ) : null
+        }
+      />
+
+      <Modal visible={createOpen} animationType="slide" transparent>
+        <View
+          style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.4)',
+            justifyContent: 'center',
+            padding: 16,
+          }}
+        >
+          <View
+            style={{
+              backgroundColor: colors.card,
+              borderRadius: 12,
+              padding: 16,
+            }}
+          >
+            <Text style={{ color: colors.text, fontSize: 18, fontWeight: '600', marginBottom: 12 }}>Criar novo grupo</Text>
+
+            <Text style={{ color: colors.text, marginBottom: 6 }}>Nome</Text>
+            <TextInput
+              value={newGroupName}
+              onChangeText={setNewGroupName}
+              placeholder="Nome do grupo"
+              placeholderTextColor={colors.textSecondary}
+              style={{
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: colors.border,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                color: colors.text,
+                backgroundColor: isDarkMode ? '#1E1E1E' : '#fff',
+                marginBottom: 10,
+              }}
+            />
+
+            <Text style={{ color: colors.text, marginBottom: 6 }}>Descrição (opcional)</Text>
+            <TextInput
+              value={newGroupDesc}
+              onChangeText={setNewGroupDesc}
+              placeholder="Breve descrição"
+              placeholderTextColor={colors.textSecondary}
+              style={{
+                borderRadius: 8,
+                borderWidth: 1,
+                borderColor: colors.border,
+                paddingHorizontal: 12,
+                paddingVertical: 10,
+                color: colors.text,
+                backgroundColor: isDarkMode ? '#1E1E1E' : '#fff',
+                marginBottom: 10,
+              }}
+            />
+
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 8 }}>
+              <TouchableOpacity
+                onPress={() => setNewGroupPublic(true)}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  borderRadius: 999,
+                  backgroundColor: newGroupPublic ? colors.primary : (isDarkMode ? '#2A2A2A' : '#EFEFEF'),
+                }}
+              >
+                <Text style={{ color: newGroupPublic ? (isDarkMode ? '#1A1A1A' : '#fff') : colors.text }}>Público</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => setNewGroupPublic(false)}
+                style={{
+                  paddingVertical: 8,
+                  paddingHorizontal: 12,
+                  borderRadius: 999,
+                  backgroundColor: !newGroupPublic ? colors.primary : (isDarkMode ? '#2A2A2A' : '#EFEFEF'),
+                }}
+              >
+                <Text style={{ color: !newGroupPublic ? (isDarkMode ? '#1A1A1A' : '#fff') : colors.text }}>Privado</Text>
+              </TouchableOpacity>
+            </View>
+
+            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+              <TouchableOpacity
+                onPress={() => setCreateOpen(false)}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 8,
+                  backgroundColor: isDarkMode ? '#2A2A2A' : '#EFEFEF',
+                }}
+              >
+                <Text style={{ color: colors.text }}>Cancelar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={handleCreateGroup}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 14,
+                  borderRadius: 8,
+                  backgroundColor: colors.primary,
+                }}
+              >
+                <Text style={{ color: isDarkMode ? '#1A1A1A' : '#fff', fontWeight: '600' }}>Criar</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
-
-function formatDate(date?: string) {
-  if (!date) return "--/--/----";
-  try { const d = new Date(date); return d.toLocaleDateString(); } catch { return String(date); }
-}
-
-const styles = StyleSheet.create({
-  header: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  title: { fontSize: 22, fontWeight: "700" },
-  createBtn: { borderWidth: 1, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 },
-  createBtnText: { fontWeight: "700" },
-  tabsContainer: { flexDirection: "row", paddingHorizontal: 20, gap: 16 },
-  tab: { paddingVertical: 12 },
-  tabActive: { borderBottomWidth: 2 },
-  tabText: { fontSize: 14 },
-  tabTextActive: { fontWeight: "700" },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  listContent: {
-    padding: 16,
-    paddingBottom: 40,
-  },
-  card: { borderRadius: 14, padding: 14, marginBottom: 16, elevation: 2, shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
-  cardHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
-  name: { fontSize: 18, fontWeight: "700" },
-  badge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 999 },
-  badgeText: { fontSize: 12 },
-  description: { marginTop: 8, fontSize: 14 },
-  metaRow: { flexDirection: "row", gap: 16, marginTop: 10 },
-  metaItem: { flexDirection: "row", alignItems: "center", gap: 6 },
-  metaText: { fontSize: 13 },
-  actions: { flexDirection: "row", gap: 12, marginTop: 14 },
-  primaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
-  primaryButtonText: { color: "#fff", fontWeight: "700" },
-  secondaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
-  secondaryButtonText: { fontWeight: "700" },
-});
