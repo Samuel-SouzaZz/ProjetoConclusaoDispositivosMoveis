@@ -29,7 +29,12 @@ export default function GroupDetailsScreen() {
         setLoading(true);
         const data = await ApiService.getGroup(groupId);
         if (!mounted) return;
-        setGroup(data);
+        // Backend retorna 'visibility: PUBLIC | PRIVATE', mas frontend usa 'isPublic: boolean'
+        const mappedGroup = {
+          ...data,
+          isPublic: data?.visibility === 'PUBLIC' || (data?.isPublic !== undefined ? data.isPublic : true)
+        };
+        setGroup(mappedGroup);
         // membros
         try {
           const mm = Array.isArray(data?.members) ? data.members : await ApiService.getGroupMembers(groupId);
@@ -160,7 +165,11 @@ export default function GroupDetailsScreen() {
                 {challenges.map((ch, idx) => (
                   <View key={idx} style={[styles.challengeItem, { backgroundColor: colors.card }]}> 
                     <Text style={[styles.challengeTitle, { color: colors.text }]}>{ch.title || 'Desafio'}</Text>
-                    <Text style={[styles.challengeMeta, { color: colors.textSecondary }]}>Dificuldade: {ch.difficulty ?? '-'} • XP: {ch.xp ?? '-'}</Text>
+                    <Text style={[styles.challengeMeta, { color: colors.textSecondary }]}>
+                      Dificuldade: {typeof ch.difficulty === 'number' 
+                        ? (ch.difficulty === 1 ? 'Fácil' : ch.difficulty === 2 ? 'Médio' : ch.difficulty === 3 ? 'Difícil' : ch.difficulty)
+                        : (ch.difficulty ?? '-')} • XP: {ch.baseXp || ch.xp || '-'}
+                    </Text>
                   </View>
                 ))}
               </View>

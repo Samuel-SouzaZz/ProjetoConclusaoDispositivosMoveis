@@ -33,14 +33,14 @@ interface Challenge {
   id: string;
   title: string;
   description: string;
-  difficulty: string;
-  status: "Draft" | "Published";
+  difficulty: number | string; // Backend retorna número (1-5), mas pode vir como string
+  status: "Draft" | "Published" | "DRAFT" | "PUBLISHED" | "ARCHIVED"; // Backend retorna uppercase
   createdAt: string;
 }
 
 interface Submission {
   id: string;
-  exerciseId: string;
+  challengeId: string;
   exerciseTitle: string;
   score: number;
   status: "Accepted" | "Rejected" | "Pending";
@@ -60,38 +60,190 @@ export default function ProfileScreen() {
   const [challenges, setChallenges] = useState<Challenge[]>([]);
   const [submissions, setSubmissions] = useState<Submission[]>([]);
 
+  const loadProfile = useCallback(async () => {
+    try {
+      setLoading(true);
+      
+      // Verificar se o usuário está autenticado usando o AuthContext
+      // Se não houver usuário no contexto, usar dados locais
+      if (!user || !user.id) {
+        console.warn('[ProfileScreen] Usuário não autenticado, usando dados locais');
+        setProfile(user || {});
+        setLoading(false);
+        return;
+      }
+      
+      let userData: any = null;
+      let statsData: any = { exercisesCreated: 0, exercisesSolved: 0, successRate: 0 };
+      
+      // Buscar dados básicos do usuário
+      try {
+        userData = await ApiService.getMe();
+        console.log('[ProfileScreen] Dados do usuário obtidos:', userData?.id);
+        
+        // Tentar buscar estatísticas do usuário via getUserStats
+        // Backend retorna exercisesCreatedCount e exercisesSolvedCount
+        try {
+          const userStats = await ApiService.getUserStats(userData.id);
+          if (userStats) {
+            statsData.exercisesCreated = userStats.exercisesCreatedCount || userStats.exercisesCreated || 0;
+            statsData.exercisesSolved = userStats.exercisesSolvedCount || userStats.exercisesSolved || 0;
+          }
+        } catch (statsError) {
+          console.warn('[ProfileScreen] Erro ao buscar estatísticas do usuário:', statsError);
+        }
+        
+        // Tentar calcular estatísticas básicas se disponíveis no userData
+        if (userData?.stats) {
+          statsData = { ...statsData, ...userData.stats };
+        }
+      } catch (meError: any) {
+        console.warn("Erro ao buscar dados do usuário:", meError?.response?.status, meError?.message);
+        // Se for erro 401, pode ser que o token não esteja válido
+        if (meError?.response?.status === 401) {
+          console.warn('[ProfileScreen] Token inválido ou expirado');
+        }
+        userData = user || {};
+      }
+      
+      setProfile(userData);
+      
+      // Buscar desafios do usuário
+      try {
+        console.log('[ProfileScreen] Buscando desafios do usuário...');
+        // Primeiro tenta sem parâmetros, o ApiService tentará com parâmetros se necessário
+        let challengesData;
+        try {
+          challengesData = await ApiService.getMyChallenges();
+        } catch (firstError: any) {
+          // Se falhar, tenta com parâmetros explícitos
+          if (firstError?.response?.status === 400) {
+            console.log('[ProfileScreen] Tentando buscar desafios com parâmetros padrão...');
+            challengesData = await ApiService.getMyChallenges({ page: 1, limit: 100 });
+          } else {
+            throw firstError;
+          }
+        }
+        
+        console.log("Dados de desafios recebidos:", challengesData);
+        
+        // Tenta diferentes formatos de resposta da API
+        let challengesList = [];
+        if (Array.isArray(challengesData)) {
+          challengesList = challengesData;
+        } else if (challengesData?.items && Array.isArray(challengesData.items)) {
+          challengesList = challengesData.items;
+        } else if (challengesData?.data && Array.isArray(challengesData.data)) {
+          challengesList = challengesData.data;
+        } else if (challengesData?.exercises && Array.isArray(challengesData.exercises)) {
+          challengesList = challengesData.exercises;
+        } else if (challengesData?.challenges && Array.isArray(challengesData.challenges)) {
+          challengesList = challengesData.challenges;
+        }
+        
+        console.log("Lista de desafios processada:", challengesList);
+        setChallenges(challengesList);
+        
+        // Atualizar estatísticas com base nos desafios encontrados
+        if (challengesList.length > 0) {
+          statsData.exercisesCreated = challengesList.length;
+        }
+      } catch (challengesError: any) {
+        const status = challengesError?.response?.status;
+        const errorData = challengesError?.response?.data;
+        console.warn("Erro ao buscar desafios:", {
+          status,
+          message: errorData?.message || challengesError?.message,
+          data: errorData
+        });
+        
+        // Se for erro 401, o token pode estar inválido
+        if (status === 401) {
+          console.warn('[ProfileScreen] Token inválido ao buscar desafios');
+        }
+        
+        setChallenges([]);
+      }
+      
+      // Buscar submissões
+      try {
+        console.log('[ProfileScreen] Buscando submissões do usuário...');
+        const submissionsResponse = await ApiService.getMySubmissions({ limit: 100 });
+        console.log("Dados de submissões recebidos:", submissionsResponse);
+        
+        let submissionsList = [];
+        if (Array.isArray(submissionsResponse)) {
+          submissionsList = submissionsResponse;
+        } else if (submissionsResponse?.items && Array.isArray(submissionsResponse.items)) {
+          submissionsList = submissionsResponse.items;
+        } else if (submissionsResponse?.data && Array.isArray(submissionsResponse.data)) {
+          submissionsList = submissionsResponse.data;
+        } else if (submissionsResponse?.submissions && Array.isArray(submissionsResponse.submissions)) {
+          submissionsList = submissionsResponse.submissions;
+        }
+        
+        // Mapear exerciseId do backend para challengeId no frontend
+        // Backend retorna status em UPPERCASE: 'ACCEPTED' | 'REJECTED' | 'PENDING'
+        const mappedSubmissions = submissionsList.map((sub: any) => ({
+          ...sub,
+          challengeId: sub.exerciseId || sub.challengeId,
+          exerciseTitle: sub.exerciseTitle || sub.challengeTitle || sub.exercise?.title || sub.challenge?.title || 'Desafio',
+          // Normalizar status para o formato esperado pelo frontend (capitalized)
+          status: sub.status === 'ACCEPTED' ? 'Accepted' : sub.status === 'REJECTED' ? 'Rejected' : sub.status === 'PENDING' ? 'Pending' : sub.status,
+          // Backend retorna xpAwarded, não xp
+          xp: sub.xpAwarded || sub.xp || 0,
+          // Backend retorna createdAt, não submittedAt
+          submittedAt: sub.createdAt || sub.submittedAt,
+        }));
+        
+        console.log("Lista de submissões processada:", mappedSubmissions);
+        setSubmissions(mappedSubmissions);
+        
+        // Atualizar estatísticas com base nas submissões
+        // Backend retorna status em UPPERCASE, então comparar com 'ACCEPTED'
+        if (mappedSubmissions.length > 0) {
+          const accepted = mappedSubmissions.filter((s: any) => 
+            s.status === 'Accepted' || s.status === 'ACCEPTED'
+          ).length;
+          statsData.exercisesSolved = accepted;
+          statsData.successRate = Math.round((accepted / mappedSubmissions.length) * 100);
+        }
+      } catch (submissionsError: any) {
+        const status = submissionsError?.response?.status;
+        const errorData = submissionsError?.response?.data;
+        console.warn("Erro ao buscar submissões:", {
+          status,
+          message: errorData?.message || submissionsError?.message,
+          data: errorData
+        });
+        
+        // Se for erro 401, o token pode estar inválido
+        if (status === 401) {
+          console.warn('[ProfileScreen] Token inválido ao buscar submissões');
+        }
+        
+        setSubmissions([]);
+      }
+      
+      // Atualizar cards de estatísticas
+      setStatCards([
+        { id: "1", label: "Criados", value: statsData.exercisesCreated || statsData.challengesCreated || 0, icon: "create", color: colors.primary },
+        { id: "2", label: "Resolvidos", value: statsData.exercisesSolved || statsData.challengesSolved || 0, icon: "checkmark-circle", color: "#4CAF50" },
+        { id: "3", label: "XP Total", value: userData?.xpTotal || userData?.xp || 0, icon: "flash", color: colors.xp },
+        { id: "4", label: "Taxa Sucesso", value: `${statsData.successRate || 0}%`, icon: "stats-chart", color: "#FF9800" },
+      ]);
+    } catch (error: any) {
+      console.log("Erro ao carregar perfil:", error?.response?.data || error?.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [user]);
+
   useFocusEffect(
     useCallback(() => {
       loadProfile();
-    }, [])
+    }, [loadProfile])
   );
-
-  useEffect(() => {
-    loadProfile();
-  }, []);
-
-  const loadProfile = async () => {
-    try {
-      setLoading(true);
-      const data = await ApiService.getUserCompleteProfile();
-      
-      setProfile(data.user);
-      
-      setStatCards([
-        { id: "1", label: "Criados", value: data.stats.exercisesCreated || 0, icon: "create", color: colors.primary },
-        { id: "2", label: "Resolvidos", value: data.stats.exercisesSolved || 0, icon: "checkmark-circle", color: "#4CAF50" },
-        { id: "3", label: "XP Total", value: data.user.xpTotal || 0, icon: "flash", color: colors.xp },
-        { id: "4", label: "Taxa Sucesso", value: `${data.stats.successRate || 0}%`, icon: "stats-chart", color: "#FF9800" },
-      ]);
-      
-    setChallenges(data.exercises || []);
-    setSubmissions(data.submissions || []);
-  } catch (error) {
-    console.log(error);
-  } finally {
-    setLoading(false);
-  }
-  };
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -114,8 +266,9 @@ export default function ProfileScreen() {
   }
 
   const filteredChallenges = challenges.filter(ch => {
-    if (filter === "drafts") return ch.status === "Draft";
-    if (filter === "published") return ch.status === "Published";
+    // Backend retorna status em UPPERCASE: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
+    if (filter === "drafts") return ch.status === "Draft" || ch.status === "DRAFT";
+    if (filter === "published") return ch.status === "Published" || ch.status === "PUBLISHED";
     return true;
   });
 
@@ -134,14 +287,18 @@ export default function ProfileScreen() {
     >
       <View style={styles.challengeHeader}>
         <Text style={[styles.challengeTitle, { color: colors.text }]}>{item.title}</Text>
-        <View style={[styles.statusBadge, item.status === "Published" ? styles.badgePublished : styles.badgeDraft]}>
-          <Text style={[styles.badgeText, { color: colors.text }]}>{item.status === "Published" ? "Publicado" : "Rascunho"}</Text>
+        <View style={[styles.statusBadge, (item.status === "Published" || item.status === "PUBLISHED") ? styles.badgePublished : styles.badgeDraft]}>
+          <Text style={[styles.badgeText, { color: colors.text }]}>
+            {(item.status === "Published" || item.status === "PUBLISHED") ? "Publicado" : 
+             (item.status === "DRAFT" || item.status === "Draft") ? "Rascunho" : 
+             (item.status === "ARCHIVED") ? "Arquivado" : "Rascunho"}
+          </Text>
         </View>
       </View>
       <Text style={[styles.challengeDescription, { color: colors.text }]} numberOfLines={2}>{item.description}</Text>
       <View style={styles.challengeFooter}>
         <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(item.difficulty) }]}>
-          <Text style={[styles.difficultyText, { color: colors.text }]}>{item.difficulty}</Text>
+          <Text style={[styles.difficultyText, { color: colors.text }]}>{getDifficultyLabel(item.difficulty)}</Text>
         </View>
         <Text style={[styles.dateText, { color: colors.textSecondary }]}>{new Date(item.createdAt).toLocaleDateString()}</Text>
       </View>
@@ -151,7 +308,7 @@ export default function ProfileScreen() {
   const SubmissionItem = ({ item }: { item: Submission }) => (
     <TouchableOpacity
       style={[styles.submissionItem, { backgroundColor: colors.card }]}
-      onPress={() => navigateToChallenge(item.exerciseId, false)}
+      onPress={() => navigateToChallenge(item.challengeId, false)}
     >
       <View style={styles.submissionHeader}>
         <Text style={[styles.submissionTitle, { color: colors.text }]}>{item.exerciseTitle}</Text>
@@ -169,12 +326,33 @@ export default function ProfileScreen() {
     </TouchableOpacity>
   );
 
-  const getDifficultyColor = (difficulty: string) => {
-    switch (difficulty) {
-      case "Fácil": return colors.easy;
-      case "Médio": return colors.medium;
-      case "Difícil": return colors.hard;
+  const getDifficultyColor = (difficulty: number | string) => {
+    // Backend retorna difficulty como número (1-5)
+    const numDifficulty = typeof difficulty === 'number' ? difficulty : 
+      difficulty === 'Fácil' || difficulty === '1' ? 1 :
+      difficulty === 'Médio' || difficulty === '2' ? 2 :
+      difficulty === 'Difícil' || difficulty === '3' ? 3 : 1;
+    
+    switch (numDifficulty) {
+      case 1: return colors.easy;
+      case 2: return colors.medium;
+      case 3: return colors.hard;
       default: return colors.easy;
+    }
+  };
+  
+  const getDifficultyLabel = (difficulty: number | string) => {
+    // Backend retorna difficulty como número (1-5)
+    const numDifficulty = typeof difficulty === 'number' ? difficulty : 
+      difficulty === 'Fácil' || difficulty === '1' ? 1 :
+      difficulty === 'Médio' || difficulty === '2' ? 2 :
+      difficulty === 'Difícil' || difficulty === '3' ? 3 : 1;
+    
+    switch (numDifficulty) {
+      case 1: return 'Fácil';
+      case 2: return 'Médio';
+      case 3: return 'Difícil';
+      default: return 'Fácil';
     }
   };
 

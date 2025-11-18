@@ -1,5 +1,5 @@
 import React, { createContext, useState, ReactNode, useContext, useEffect } from "react";
-import { Alert } from "react-native";
+import { Alert, Platform } from "react-native";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as SecureStore from "expo-secure-store";
@@ -49,29 +49,37 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await DatabaseService.initDatabase();
 
-      const biometricToken = await SecureStore.getItemAsync(BIOMETRIC_TOKEN_KEY);
-      if (biometricToken) {
-        const hasHardware = await LocalAuthentication.hasHardwareAsync();
-        const enrolled = await LocalAuthentication.isEnrolledAsync();
+      // SecureStore não funciona na web, então verificamos a plataforma
+      if (Platform.OS !== 'web') {
+        try {
+          const biometricToken = await SecureStore.getItemAsync(BIOMETRIC_TOKEN_KEY);
+          if (biometricToken) {
+            const hasHardware = await LocalAuthentication.hasHardwareAsync();
+            const enrolled = await LocalAuthentication.isEnrolledAsync();
 
-        if (hasHardware && enrolled) {
-          const result = await LocalAuthentication.authenticateAsync({
-            promptMessage: "Autentique-se para continuar",
-          });
+            if (hasHardware && enrolled) {
+              const result = await LocalAuthentication.authenticateAsync({
+                promptMessage: "Autentique-se para continuar",
+              });
 
-          if (result.success) {
-            try {
-              const userData = await ApiService.getMe();
-              setUser(userData);
-              setLoading(false);
-              return;
-            } catch (getMeError) {
-              // Se getMe falhar, limpa tokens e continua normalmente
-              console.warn("Erro ao buscar dados do usuário:", getMeError);
-              await ApiService.clearTokens();
-              await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
+              if (result.success) {
+                try {
+                  const userData = await ApiService.getMe();
+                  setUser(userData);
+                  setLoading(false);
+                  return;
+                } catch (getMeError) {
+                  // Se getMe falhar, limpa tokens e continua normalmente
+                  console.warn("Erro ao buscar dados do usuário:", getMeError);
+                  await ApiService.clearTokens();
+                  await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
+                }
+              }
             }
           }
+        } catch (secureStoreError) {
+          // Se SecureStore falhar (pode acontecer em algumas plataformas), continua normalmente
+          console.warn("Erro ao acessar SecureStore:", secureStoreError);
         }
       }
 
@@ -113,6 +121,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const { user: userData, tokens } = await ApiService.login(email, password);
+      console.log('[AuthContext] Login bem-sucedido, tokens recebidos:', !!tokens?.accessToken);
 
       // Garante usuário consistente do backend
       let me;
@@ -121,6 +130,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!me || !me.id) {
           throw new Error("Dados do usuário inválidos");
         }
+        console.log('[AuthContext] Dados do usuário obtidos via getMe:', me.id);
       } catch (getMeError) {
         // Se getMe falhar, usa os dados do login
         console.warn("Erro ao buscar dados completos, usando dados do login:", getMeError);
@@ -143,24 +153,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(me);
       Alert.alert("Sucesso", `Bem-vindo(a), ${me.name || 'Usuário'}!`);
 
-      // Pergunta ao usuário se quer salvar para biometria
-      Alert.alert(
-        "Acesso Biométrico",
-        "Deseja permitir login por biometria nas próximas vezes?",
-        [
-          { text: "Não", style: "cancel" },
-          {
-            text: "Sim",
-            onPress: async () => {
-              try {
-                await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, tokens.accessToken);
-              } catch (biometricError) {
-                console.warn("Erro ao salvar token biométrico:", biometricError);
-              }
+      // Pergunta ao usuário se quer salvar para biometria (apenas em plataformas móveis)
+      if (Platform.OS !== 'web') {
+        Alert.alert(
+          "Acesso Biométrico",
+          "Deseja permitir login por biometria nas próximas vezes?",
+          [
+            { text: "Não", style: "cancel" },
+            {
+              text: "Sim",
+              onPress: async () => {
+                try {
+                  await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, tokens.accessToken);
+                } catch (biometricError) {
+                  console.warn("Erro ao salvar token biométrico:", biometricError);
+                }
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
     } catch (error: any) {
       const message = ApiService.handleError(error);
       Alert.alert("Erro no Login", message);
@@ -192,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const { user: userData, tokens } = await ApiService.signup({ name, email, password, handle, collegeId });
+      console.log('[AuthContext] Signup bem-sucedido, tokens recebidos:', !!tokens?.accessToken);
       
       // Garante usuário consistente do backend
       let me;
@@ -200,6 +213,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!me || !me.id) {
           throw new Error("Dados do usuário inválidos");
         }
+        console.log('[AuthContext] Dados do usuário obtidos via getMe:', me.id);
       } catch (getMeError) {
         // Se getMe falhar, usa os dados do signup
         console.warn("Erro ao buscar dados completos, usando dados do cadastro:", getMeError);
@@ -222,24 +236,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(me);
       Alert.alert("Sucesso", "Cadastro realizado com sucesso!");
 
-      // Pergunta biometria após cadastro
-      Alert.alert(
-        "Acesso Biométrico",
-        "Deseja permitir login por biometria nas próximas vezes?",
-        [
-          { text: "Não", style: "cancel" },
-          {
-            text: "Sim",
-            onPress: async () => {
-              try {
-                await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, tokens.accessToken);
-              } catch (biometricError) {
-                console.warn("Erro ao salvar token biométrico:", biometricError);
-              }
+      // Pergunta biometria após cadastro (apenas em plataformas móveis)
+      if (Platform.OS !== 'web') {
+        Alert.alert(
+          "Acesso Biométrico",
+          "Deseja permitir login por biometria nas próximas vezes?",
+          [
+            { text: "Não", style: "cancel" },
+            {
+              text: "Sim",
+              onPress: async () => {
+                try {
+                  await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, tokens.accessToken);
+                } catch (biometricError) {
+                  console.warn("Erro ao salvar token biométrico:", biometricError);
+                }
+              },
             },
-          },
-        ]
-      );
+          ]
+        );
+      }
     } catch (error: any) {
       const message = ApiService.handleError(error);
       Alert.alert("Erro no Cadastro", message);
@@ -251,7 +267,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await ApiService.clearTokens();
       await AsyncStorage.removeItem(USER_ID_KEY);
-      await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
+      
+      // SecureStore só funciona em plataformas móveis
+      if (Platform.OS !== 'web') {
+        try {
+          await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
+        } catch (secureStoreError) {
+          console.warn("Erro ao deletar token biométrico:", secureStoreError);
+        }
+      }
 
       if (user?.id) await UserService.clearUserCache(user.id);
 

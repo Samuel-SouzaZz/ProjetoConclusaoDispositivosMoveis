@@ -26,6 +26,7 @@ type TabNavigationProp = BottomTabNavigationProp<{
   DiscussionsTab: undefined;
   RankingTab: undefined;
   SettingsTab: undefined;
+  ProfileTab: undefined;
 }>;
 
 export default function DashboardScreen() {
@@ -79,15 +80,19 @@ export default function DashboardScreen() {
             placeholderTextColor={colors.textSecondary}
           />
         </View>
-        <View style={styles.profileContainer}>
+        <TouchableOpacity 
+          style={styles.profileContainer}
+          onPress={() => navigation.navigate('ProfileTab')}
+          activeOpacity={0.7}
+        >
           <View style={styles.avatar}>
             <Ionicons name="person" size={20} color="#fff" />
           </View>
           <View style={styles.levelBadge}>
-            <Text style={styles.levelText}>1</Text>
+            <Text style={styles.levelText}>{user?.level || 1}</Text>
           </View>
-          <Text style={styles.levelLabel}>Level</Text>
-        </View>
+          <Text style={[styles.levelLabel, {color: colors.textSecondary}]}>Level</Text>
+        </TouchableOpacity>
       </View>
 
       <ScrollView
@@ -105,7 +110,10 @@ export default function DashboardScreen() {
         {/* Cards de ação rápida */}
         <View style={styles.quickActionsContainer}>
           <View style={styles.quickActionsRow}>
-            <TouchableOpacity style={[styles.quickActionCard, styles.discussionsCard]}>
+            <TouchableOpacity 
+              style={[styles.quickActionCard, styles.discussionsCard]}
+              onPress={() => navigation.navigate('DiscussionsTab')}
+            >
               <View style={styles.quickActionIcon}>
                 <Ionicons name="chatbubbles" size={28} color="#4A90E2" />
               </View>
@@ -115,7 +123,10 @@ export default function DashboardScreen() {
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={[styles.quickActionCard, styles.challengeCard]}>
+            <TouchableOpacity 
+              style={[styles.quickActionCard, styles.challengeCard]}
+              onPress={() => navigation.navigate('ChallengesTab')}
+            >
               <View style={styles.quickActionIcon}>
                 <Ionicons name="school" size={28} color="#F5A623" />
               </View>
@@ -128,23 +139,13 @@ export default function DashboardScreen() {
 
           <View style={styles.quickActionsRow}>
             <TouchableOpacity 
-              style={[styles.quickActionCard, styles.createCard]}
-              onPress={() => navigation.navigate('ChallengesTab')}
+              style={[styles.quickActionCard, styles.createCard, styles.createCardFull]}
+              onPress={() => navigation.navigate('ChallengesTab', { openCreate: true })}
             >
               <View style={styles.quickActionIcon}>
                 <Ionicons name="add-circle" size={28} color="#4A90E2" />
               </View>
-              <Text style={styles.quickActionText}>Criar{'\n'}desafio</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={[styles.quickActionCard, styles.examplesCard]}>
-              <View style={styles.quickActionIcon}>
-                <Ionicons name="book" size={28} color="#F5A623" />
-              </View>
-              <Text style={styles.quickActionText}>Exemplos</Text>
-              <View style={styles.notificationBadge}>
-                <Text style={styles.notificationText}>2</Text>
-              </View>
+              <Text style={styles.quickActionText}>Criar desafio</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -271,6 +272,7 @@ const styles = StyleSheet.create({
   profileContainer: {
     alignItems: "center",
     position: "relative",
+    padding: 5,
   },
   avatar: {
     width: 40,
@@ -351,8 +353,9 @@ const styles = StyleSheet.create({
   createCard: {
     backgroundColor: "#E3F2FD",
   },
-  examplesCard: {
-    backgroundColor: "#FFF3E0",
+  createCardFull: {
+    width: '100%',
+    alignItems: 'center',
   },
   quickActionIcon: {
     marginBottom: 10,

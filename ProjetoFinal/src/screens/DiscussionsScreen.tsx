@@ -32,7 +32,8 @@ export default function DiscussionsScreen() {
           title: g.name || g.title || "Fórum",
           subject: g.owner?.name || g.handle || "",
           description: g.description || "",
-          isPublic: g.visibility ? g.visibility === "public" : (g.isPublic ?? true),
+          // Backend retorna 'visibility: PUBLIC | PRIVATE' (uppercase), mas frontend usa 'isPublic: boolean'
+          isPublic: g.visibility === 'PUBLIC' || (g.visibility ? g.visibility.toLowerCase() === "public" : (g.isPublic ?? true)),
           topicsCount: g.topicsCount ?? g.membersCount ?? 0,
           isActive: g.isActive ?? true,
         }));

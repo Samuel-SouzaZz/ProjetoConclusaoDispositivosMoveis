@@ -22,7 +22,12 @@ export default function GroupsScreen() {
         const data = activeTab === 'public' ? await ApiService.getGroups() : await ApiService.getMyGroups();
         if (!mounted) return;
         const items = Array.isArray(data) ? data : data?.items || [];
-        setGroups(items);
+        // Backend retorna 'visibility: PUBLIC | PRIVATE', mas frontend usa 'isPublic: boolean'
+        const mappedItems = items.map((item: any) => ({
+          ...item,
+          isPublic: item.visibility === 'PUBLIC' || (item.isPublic !== undefined ? item.isPublic : true)
+        }));
+        setGroups(mappedItems);
         setError(null);
       } catch (err: any) {
         if (!mounted) return;

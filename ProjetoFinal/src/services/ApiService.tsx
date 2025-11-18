@@ -10,10 +10,10 @@ import { Platform } from 'react-native';
  * - Android (emulador): http://10.0.2.2:3000/api
  * - iOS (simulador) / Web: http://localhost:3000/api
  */
-const BASE_URL =
+const BASE_URL = 'http://10.0.0.40:3000/api'
   process.env.EXPO_PUBLIC_API_BASE_URL ||
   (Platform.OS === 'android'
-    ? 'http://10.0.2.2:3000/api'
+    ? 'http://10.0.0.40:3000/api'
     : 'http://localhost:3000/api');
 
 // Chaves de armazenamento
@@ -38,9 +38,21 @@ class ApiService {
     // Interceptor para adicionar token automaticamente
     this.api.interceptors.request.use(
       async (config) => {
+        // Endpoints públicos que não precisam de token
+        const publicEndpoints = ['/auth/login', '/auth/signup', '/auth/refresh'];
+        const isPublicEndpoint = publicEndpoints.some(endpoint => config.url?.includes(endpoint));
+        
+        // Se for endpoint público, não adicionar token e não gerar warning
+        if (isPublicEndpoint) {
+          return config;
+        }
+        
         const token = await AsyncStorage.getItem(TOKEN_KEY);
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
+          console.log(`[ApiService] Token adicionado para ${config.method?.toUpperCase()} ${config.url}`);
+        } else {
+          console.warn(`[ApiService] Nenhum token encontrado para ${config.method?.toUpperCase()} ${config.url}`);
         }
         return config;
       },
@@ -52,21 +64,30 @@ class ApiService {
       (response) => response,
       async (error: AxiosError) => {
         if (error.response?.status === 401) {
+          console.warn(`[ApiService] 401 Unauthorized para ${error.config?.method?.toUpperCase()} ${error.config?.url}`);
+          
           // Token expirado - tentar renovar
           const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
           if (refreshToken) {
             try {
+              console.log('[ApiService] Tentando renovar token...');
               const newTokens = await this.refreshTokens(refreshToken);
               await this.saveTokens(newTokens.accessToken, newTokens.refreshToken);
+              console.log('[ApiService] Token renovado com sucesso');
+              
               // Retentar a requisição original
               if (error.config) {
                 error.config.headers.Authorization = `Bearer ${newTokens.accessToken}`;
                 return this.api.request(error.config);
               }
-            } catch {
+            } catch (refreshError) {
               // Falha ao renovar - fazer logout
+              console.warn('[ApiService] Falha ao renovar token, limpando tokens:', refreshError);
               await this.clearTokens();
             }
+          } else {
+            console.warn('[ApiService] Nenhum refresh token encontrado, limpando tokens');
+            await this.clearTokens();
           }
         }
         return Promise.reject(error);
@@ -121,6 +142,12 @@ async getToken(): Promise<string | null> {
    * USERS - Perfil atual
    */
   async getMe() {
+    // Verificar se há token antes de fazer a requisição
+    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      throw new Error('Não autenticado. Faça login novamente.');
+    }
+    
     const response = await this.api.get('/users/me');
     return response.data;
   }
@@ -148,6 +175,8 @@ async getToken(): Promise<string | null> {
 
   /**
    * USERS - Perfil completo com estatísticas, desafios e submissões
+   * NOTA: Este endpoint não está disponível no backend atual (retorna 404)
+   * Use getMe() + getMyChallenges() + getMySubmissions() como alternativa
    */
   async getUserCompleteProfile() {
     const response = await this.api.get('/users/me/profile/complete');
@@ -156,6 +185,8 @@ async getToken(): Promise<string | null> {
 
   /**
    * CHALLENGES - Criar desafio
+   * Nota: O backend usa /exercises, mas na UI chamamos de "desafio"
+   * IMPORTANTE: O backend espera 'baseXp', não 'xp'
    */
   async createChallenge(data: {
     title: string;
@@ -164,26 +195,46 @@ async getToken(): Promise<string | null> {
     codeTemplate?: string;
     isPublic?: boolean;
     languageId?: string;
-    xp?: number;
+    baseXp?: number; // ⚠️ Backend espera 'baseXp', não 'xp'
+    subject?: string;
+    groupId?: string;
   }) {
-    const response = await this.api.post('/exercises', data);
+    // Converter 'xp' para 'baseXp' se fornecido (compatibilidade)
+    const payload: any = { ...data };
+    if (payload.xp !== undefined && payload.baseXp === undefined) {
+      payload.baseXp = payload.xp;
+      delete payload.xp;
+    }
+    
+    const response = await this.api.post('/exercises', payload);
     return response.data;
   }
 
   /**
    * CHALLENGES - Listar meus desafios
+   * Nota: O backend usa /exercises/mine, mas na UI chamamos de "desafio"
+   * Retorna: { items: Exercise[], total: number }
    */
   async getMyChallenges(params?: {
-    status?: 'Draft' | 'Published' | 'all';
     page?: number;
     limit?: number;
   }) {
-    const response = await this.api.get('/exercises/my', { params });
-    return response.data;
+    // Verificar se há token antes de fazer a requisição
+    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      throw new Error('Não autenticado. Faça login novamente.');
+    }
+    
+    // O backend espera page e limit como query params
+    const config = params && Object.keys(params).length > 0 ? { params } : {};
+    const response = await this.api.get('/exercises/mine', config);
+    return response.data; // { items: [], total: number }
   }
 
   /**
    * CHALLENGES - Atualizar desafio
+   * Nota: O backend usa /exercises/:id, mas na UI chamamos de "desafio"
+   * IMPORTANTE: O backend espera 'baseXp', não 'xp'
    */
   async updateChallenge(challengeId: string, data: {
     title?: string;
@@ -192,14 +243,30 @@ async getToken(): Promise<string | null> {
     codeTemplate?: string;
     isPublic?: boolean;
     languageId?: string;
-    xp?: number;
+    baseXp?: number; // ⚠️ Backend espera 'baseXp', não 'xp'
+    subject?: string;
+    groupId?: string;
+    status?: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'; // ⚠️ Uppercase
   }) {
-    const response = await this.api.patch(`/exercises/${challengeId}`, data);
+    // Converter 'xp' para 'baseXp' se fornecido (compatibilidade)
+    const payload: any = { ...data };
+    if (payload.xp !== undefined && payload.baseXp === undefined) {
+      payload.baseXp = payload.xp;
+      delete payload.xp;
+    }
+    
+    // Converter status para uppercase se fornecido
+    if (payload.status && typeof payload.status === 'string') {
+      payload.status = payload.status.toUpperCase();
+    }
+    
+    const response = await this.api.patch(`/exercises/${challengeId}`, payload);
     return response.data;
   }
 
   /**
    * CHALLENGES - Excluir desafio
+   * Nota: O backend usa /exercises/:id, mas na UI chamamos de "desafio"
    */
   async deleteChallenge(challengeId: string) {
     const response = await this.api.delete(`/exercises/${challengeId}`);
@@ -208,14 +275,23 @@ async getToken(): Promise<string | null> {
 
   /**
    * SUBMISSIONS - Listar minhas submissões
+   * Nota: O backend usa /submissions/me
+   * Retorna: { items: Submission[], total: number }
    */
   async getMySubmissions(params?: {
     page?: number;
     limit?: number;
-    status?: 'Accepted' | 'Rejected' | 'Pending' | 'all';
   }) {
-    const response = await this.api.get('/submissions/my', { params });
-    return response.data;
+    // Verificar se há token antes de fazer a requisição
+    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      throw new Error('Não autenticado. Faça login novamente.');
+    }
+    
+    // O backend espera page e limit como query params
+    const config = params && Object.keys(params).length > 0 ? { params } : {};
+    const response = await this.api.get('/submissions/me', config);
+    return response.data; // { items: [], total: number }
   }
 
   /**
@@ -228,6 +304,7 @@ async getToken(): Promise<string | null> {
 
   /**
    * CHALLENGES - Listar desafios
+   * Nota: O backend usa /exercises, mas na UI chamamos de "desafio"
    */
   async getChallenges(params?: {
     page?: number;
@@ -241,27 +318,53 @@ async getToken(): Promise<string | null> {
 
   /**
    * SUBMISSIONS - Submeter solução
+   * Nota: O frontend usa "challengeId", mas o backend espera "exerciseId"
    */
   async submitChallenge(data: {
-    exerciseId: string;
+    challengeId: string;
     code: string;
     languageId: string;
   }) {
-    const response = await this.api.post('/submissions', data);
+    // Converter challengeId para exerciseId para o backend
+    const payload = {
+      exerciseId: data.challengeId,
+      code: data.code,
+      languageId: data.languageId,
+    };
+    const response = await this.api.post('/submissions', payload);
     return response.data;
   }
 
   /**
-   * LEADERBOARDS - Rankings
+   * LEADERBOARDS - Ranking geral
+   * Nota: O backend não tem rota genérica /leaderboards
+   * Use getGeneralLeaderboard(), getLeaderboardByLanguage(), getLeaderboardBySeason(), ou getLeaderboardByCollege()
    */
   async getLeaderboards(params?: {
     seasonId?: string;
     collegeId?: string;
+    languageId?: string;
     limit?: number;
+    page?: number;
   }) {
     try {
-      const response = await this.api.get('/leaderboards', { params });
-      return response.data;
+      // Se tiver seasonId, usar ranking por temporada
+      if (params?.seasonId) {
+        return await this.getLeaderboardBySeason(params.seasonId, { limit: params.limit, page: params.page });
+      }
+      
+      // Se tiver collegeId, usar ranking por faculdade
+      if (params?.collegeId) {
+        return await this.getLeaderboardByCollege(params.collegeId, { limit: params.limit, page: params.page });
+      }
+      
+      // Se tiver languageId, usar ranking por linguagem
+      if (params?.languageId) {
+        return await this.getLeaderboardByLanguage(params.languageId, { limit: params.limit, page: params.page });
+      }
+      
+      // Caso contrário, usar ranking geral
+      return await this.getGeneralLeaderboard({ limit: params?.limit, page: params?.page });
     } catch (error: any) {
       const status = error?.response?.status;
       const isNetworkIssue = !error?.response;
@@ -284,6 +387,42 @@ async getToken(): Promise<string | null> {
       }
       throw error;
     }
+  }
+
+  /**
+   * LEADERBOARDS - Ranking geral
+   */
+  async getGeneralLeaderboard(params?: { page?: number; limit?: number }) {
+    const config = params && Object.keys(params).length > 0 ? { params } : {};
+    const response = await this.api.get('/leaderboards/general', config);
+    return response.data;
+  }
+
+  /**
+   * LEADERBOARDS - Ranking por linguagem
+   */
+  async getLeaderboardByLanguage(languageId: string, params?: { page?: number; limit?: number }) {
+    const config = { params: { languageId, ...params } };
+    const response = await this.api.get('/leaderboards/by-language', config);
+    return response.data;
+  }
+
+  /**
+   * LEADERBOARDS - Ranking por temporada
+   */
+  async getLeaderboardBySeason(seasonId: string, params?: { page?: number; limit?: number }) {
+    const config = { params: { seasonId, ...params } };
+    const response = await this.api.get('/leaderboards/by-season', config);
+    return response.data;
+  }
+
+  /**
+   * LEADERBOARDS - Ranking por faculdade
+   */
+  async getLeaderboardByCollege(collegeId: string, params?: { page?: number; limit?: number }) {
+    const config = { params: { collegeId, ...params } };
+    const response = await this.api.get('/leaderboards/by-college', config);
+    return response.data;
   }
 
   /**
@@ -328,9 +467,10 @@ async getToken(): Promise<string | null> {
 
   /**
    * GROUPS - Desafios do grupo
+   * Nota: O backend usa /groups/:id/exercises (não /challenges)
    */
   async getGroupChallenges(groupId: string) {
-    const response = await this.api.get(`/groups/${groupId}/challenges`);
+    const response = await this.api.get(`/groups/${groupId}/exercises`);
     return response.data;
   }
 
@@ -348,10 +488,30 @@ async getToken(): Promise<string | null> {
   }
 
   /**
-   * STATS - Estatísticas
+   * STATS - Estatísticas de exercícios
+   * Nota: O backend não tem rota genérica /stats
+   * Use getStatsExercises() ou getUserStats(userId)
    */
   async getStats() {
-    const response = await this.api.get('/stats');
+    // Manter compatibilidade - redireciona para estatísticas de exercícios
+    const response = await this.api.get('/stats/exercises');
+    return response.data;
+  }
+
+  /**
+   * STATS - Estatísticas de exercícios
+   */
+  async getStatsExercises(exerciseId?: string) {
+    const params = exerciseId ? { exerciseId } : {};
+    const response = await this.api.get('/stats/exercises', { params });
+    return response.data;
+  }
+
+  /**
+   * STATS - Estatísticas do usuário (scoreboard)
+   */
+  async getUserStats(userId: string) {
+    const response = await this.api.get(`/stats/users/${userId}`);
     return response.data;
   }
 
@@ -361,6 +521,7 @@ async getToken(): Promise<string | null> {
   private async saveTokens(accessToken: string, refreshToken: string) {
     await AsyncStorage.setItem(TOKEN_KEY, accessToken);
     await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    console.log('[ApiService] Tokens salvos com sucesso');
   }
 
   /**
@@ -381,12 +542,14 @@ async getToken(): Promise<string | null> {
 
   /**
    * Utilitários - Tratamento de erros
+   * Backend retorna erros no formato: { error: { message, statusCode, details } }
    */
   handleError(error: any): string {
     if (axios.isAxiosError(error)) {
       if (error.response) {
-        // Erro da API
-        const message = error.response.data?.message || error.response.data?.error;
+        // Erro da API - Backend usa formato { error: { message, statusCode, details } }
+        const errorData = error.response.data;
+        const message = errorData?.error?.message || errorData?.message || errorData?.error;
         return message || 'Erro ao comunicar com o servidor';
       } else if (error.request) {
         // Sem resposta do servidor
