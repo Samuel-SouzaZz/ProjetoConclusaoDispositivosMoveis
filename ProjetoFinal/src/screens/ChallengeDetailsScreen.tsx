@@ -1,162 +1,212 @@
-import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, TextInput, TouchableOpacity, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
-import { useTheme } from '../contexts/ThemeContext';
-import ApiService from '../services/ApiService';
-import { Ionicons } from '@expo/vector-icons';
-import { RootStackParamList } from '../navigation/AppNavigator';
+import React from "react";
+import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
+import { useTheme } from "../contexts/ThemeContext";
 
-type ChallengeRoute = RouteProp<RootStackParamList, 'ChallengeDetails'>;
+export interface DetailedChallengeCardProps {
+  title: string;
+  description?: string;
+  difficulty?: any;
+  progress?: number;
+  isPublic?: boolean;
+  xp?: number;
+  code?: string;
+  onPress?: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onCopyCode?: () => void;
+}
 
-export default function ChallengeDetailsScreen() {
+export default function DetailedChallengeCard({
+  title,
+  description,
+  difficulty,
+  progress = 0,
+  isPublic = true,
+  xp = 0,
+  code,
+  onPress,
+  onEdit,
+  onDelete,
+  onCopyCode,
+}: DetailedChallengeCardProps) {
   const { colors, commonStyles } = useTheme();
-  const navigation = useNavigation<any>();
-  const route = useRoute<ChallengeRoute>();
-  const { exerciseId } = route.params;
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [exercise, setExercise] = useState<any | null>(null);
-  const [code, setCode] = useState('');
-  const [submitting, setSubmitting] = useState(false);
-  const [leaders, setLeaders] = useState<any[]>([]);
-
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const ex = await ApiService.getExerciseById(exerciseId);
-        const lb = await ApiService.getLeaderboardByExercise(exerciseId, { limit: 10 });
-        if (!mounted) return;
-        setExercise(ex);
-        setCode(ex?.codeTemplate || ex?.code || '// Seu código aqui\n');
-        const items = Array.isArray(lb) ? lb : lb?.items || [];
-        setLeaders(items);
-        setError(null);
-      } catch (err: any) {
-        if (!mounted) return;
-        setError(ApiService.handleError(err));
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [exerciseId]);
-
-  async function handleSubmit() {
-    if (!exercise?.id && !exercise?._id) {
-      Alert.alert('Erro', 'Desafio não encontrado');
-      return;
+  const getDifficultyStyle = () => {
+    switch (difficulty) {
+      case 'Fácil': return [styles.difficultyBadge, { backgroundColor: colors.easy }];
+      case 'Médio': return [styles.difficultyBadge, { backgroundColor: colors.medium }];
+      case 'Difícil': return [styles.difficultyBadge, { backgroundColor: colors.hard }];
+      default: return [styles.difficultyBadge, { backgroundColor: colors.easy }];
     }
-    const id = String(exercise.id || exercise._id);
-    const lang = exercise?.languageId?.id || exercise?.languageId?._id || exercise?.languageId;
-    setSubmitting(true);
-    try {
-      const resp = await ApiService.submitChallenge({ exerciseId: id, code, languageId: String(lang || '') });
-      Alert.alert('Submissão', 'Solução enviada com sucesso!');
-      const lb = await ApiService.getLeaderboardByExercise(id, { limit: 10 });
-      const items = Array.isArray(lb) ? lb : lb?.items || [];
-      setLeaders(items);
-    } catch (err: any) {
-      Alert.alert('Erro', ApiService.handleError(err));
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  if (loading) {
-    return (
-      <SafeAreaView style={commonStyles.container}>
-        <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>
-      </SafeAreaView>
-    );
-  }
+  };
 
   return (
-    <SafeAreaView style={commonStyles.container}>
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 24 }}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={{ width: 36, height: 36, alignItems: 'center', justifyContent: 'center' }}>
-          <Ionicons name="arrow-back" size={20} color={colors.text} />
-        </TouchableOpacity>
-        <View style={[styles.headerBox]}> 
-          <Text style={[styles.title, { color: colors.text }]}>{exercise?.title}</Text>
-          {!!exercise?.description && (
-            <Text style={[styles.desc, { color: colors.textSecondary }]}>{exercise.description}</Text>
-          )}
-          <View style={styles.metaRow}> 
-            <View style={styles.metaItem}> 
-              <Ionicons name="barbell" size={14} color={colors.primary} />
-              <Text style={[styles.metaText, { color: colors.textSecondary }]}>{typeof exercise?.difficulty === 'number' ? (exercise.difficulty <= 1 ? 'Fácil' : exercise.difficulty === 2 ? 'Médio' : 'Difícil') : String(exercise?.difficulty || '')}</Text>
-            </View>
-            <View style={styles.metaItem}> 
-              <Ionicons name="sparkles" size={14} color={colors.primary} />
-              <Text style={[styles.metaText, { color: colors.textSecondary }]}>XP: {exercise?.baseXp ?? exercise?.xp ?? 0}</Text>
-            </View>
+    <View style={[commonStyles.card, styles.challengeCard]}>
+      <TouchableOpacity onPress={onPress} style={styles.challengeContent}>
+        <View style={styles.challengeHeader}>
+          <Text style={[commonStyles.text, styles.challengeTitle]}>{title}</Text>
+          <View style={getDifficultyStyle()}>
+            <Text style={[styles.difficultyText, { color: colors.text }]}>{String(difficulty)}</Text>
           </View>
         </View>
-
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Seu Código</Text>
-          <TextInput
-            style={[styles.codeInput, { borderColor: colors.border, color: colors.text, backgroundColor: colors.card }]}
-            value={code}
-            onChangeText={setCode}
-            multiline
-            numberOfLines={10}
-            textAlignVertical="top"
-            placeholder="// Seu código aqui"
-            placeholderTextColor={colors.textSecondary}
-          />
-          <TouchableOpacity
-            style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: submitting ? 0.8 : 1 }]}
-            onPress={handleSubmit}
-            disabled={submitting}
-          >
-            <Text style={styles.primaryButtonText}>{submitting ? 'Enviando...' : 'Enviar Solução'}</Text>
-          </TouchableOpacity>
-        </View>
-
-        <View style={[styles.card, { borderColor: colors.border, backgroundColor: colors.card }]}> 
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Ranking do Exercício</Text>
-          {leaders.length === 0 ? (
-            <View style={styles.empty}><Text style={{ color: colors.textSecondary }}>Sem dados ainda</Text></View>
-          ) : (
-            leaders.map((u: any, idx: number) => (
-              <View key={String(u.userId || idx)} style={[styles.row, { borderColor: colors.border }]}> 
-                <Text style={[styles.rowPos, { color: colors.textSecondary }]}>{(u.position ?? idx + 1)}º</Text>
-                <Text style={[styles.rowName, { color: colors.text }]} numberOfLines={1}>{u.name || u.handle || 'Usuário'}</Text>
-                <Text style={[styles.rowPoints, { color: colors.textSecondary }]}>{u.points ?? u.xpTotal ?? 0} pts</Text>
-              </View>
-            ))
-          )}
-        </View>
-
-        {!!error && (
-          <View style={{ marginTop: 12 }}><Text style={{ color: colors.text }}>{String(error)}</Text></View>
+        {!!description && (
+          <Text style={[commonStyles.text, styles.challengeDescription]}>{description}</Text>
         )}
-      </ScrollView>
-    </SafeAreaView>
+        {!!code && (
+          <View style={styles.codeRow}>
+            <Text style={[styles.codeLabel, { color: colors.textSecondary }]}>Código:</Text>
+            <Text style={[styles.codeValue, { color: colors.primary }]}>{code}</Text>
+            {onCopyCode && (
+              <TouchableOpacity style={[styles.copyButton, { backgroundColor: colors.primary }]} onPress={onCopyCode}>
+                <Text style={[styles.copyButtonText, { color: '#fff' }]}>Copiar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+        <View style={styles.challengeFooter}>
+          <View style={styles.progressContainer}>
+            <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+              <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.primary }]} />
+            </View>
+            <Text style={[styles.progressText, { color: colors.primary }]}>{progress}%</Text>
+          </View>
+          <View style={styles.challengeInfo}>
+            <Text style={[styles.xpText, { color: colors.xp }]}>{xp} XP</Text>
+            <Text style={[styles.visibilityText, { color: isPublic ? colors.primary : colors.textSecondary }]}>
+              {isPublic ? "Público" : "Privado"}
+            </Text>
+          </View>
+        </View>
+      </TouchableOpacity>
+
+      <View style={[styles.challengeActions, { backgroundColor: colors.cardSecondary }]}>
+        {onEdit && (
+          <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
+            <Text style={[styles.actionButtonText, { color: colors.primary }]}>Editar</Text>
+          </TouchableOpacity>
+        )}
+        {onDelete && (
+          <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
+            <Text style={[styles.actionButtonText, { color: "#F44336" }]}>Excluir</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  headerBox: { marginTop: 8 },
-  title: { fontSize: 22, fontWeight: '800' },
-  desc: { marginTop: 6, fontSize: 13 },
-  metaRow: { flexDirection: 'row', gap: 12, marginTop: 8 },
-  metaItem: { flexDirection: 'row', alignItems: 'center', gap: 6 },
-  metaText: { fontSize: 12 },
-  card: { borderWidth: 1, borderRadius: 16, padding: 14, marginTop: 16 },
-  sectionTitle: { fontSize: 16, fontWeight: '800', marginBottom: 8 },
-  codeInput: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, minHeight: 180 },
-  primaryButton: { marginTop: 12, paddingVertical: 10, paddingHorizontal: 14, borderRadius: 10 },
-  primaryButtonText: { color: '#fff', fontWeight: '700', textAlign: 'center' },
-  empty: { borderWidth: 1, borderStyle: 'dashed', borderRadius: 12, padding: 16, alignItems: 'center', marginTop: 8 },
-  row: { flexDirection: 'row', alignItems: 'center', borderBottomWidth: 1, paddingVertical: 10 },
-  rowPos: { width: 36, textAlign: 'center' },
-  rowName: { flex: 1 },
-  rowPoints: { width: 80, textAlign: 'right' },
+  challengeCard: {
+    borderRadius: 12,
+    marginBottom: 16,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    overflow: "hidden",
+  },
+  challengeContent: {
+    padding: 16,
+  },
+  challengeHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  challengeTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    flex: 1,
+    marginRight: 8,
+  },
+  difficultyBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  difficultyText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  challengeDescription: {
+    fontSize: 14,
+    marginBottom: 12,
+    lineHeight: 20,
+  },
+  codeRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  codeLabel: {
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  codeValue: {
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  copyButton: {
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#3B82F6',
+  },
+  copyButtonText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  challengeFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  progressContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 12,
+  },
+  progressBar: {
+    flex: 1,
+    height: 6,
+    borderRadius: 3,
+    marginRight: 8,
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 3,
+  },
+  progressText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  challengeInfo: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  xpText: {
+    fontSize: 12,
+    fontWeight: "600",
+  },
+  visibilityText: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  challengeActions: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    gap: 16,
+  },
+  actionButton: {
+    padding: 8,
+  },
+  actionButtonText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
 });
