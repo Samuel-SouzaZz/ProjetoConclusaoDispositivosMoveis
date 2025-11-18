@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TextInput, TouchableOpacity, Dimensions, Modal, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../contexts/ThemeContext";
@@ -19,6 +19,8 @@ export default function DiscussionsScreen() {
   const [showPrivacyPicker, setShowPrivacyPicker] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState({ exerciseCode: "", title: "", subject: "", description: "", isPublic: true });
+  const [codeLookupLoading, setCodeLookupLoading] = useState(false);
+  const [codeLookupError, setCodeLookupError] = useState<string | null>(null);
   const numColumns = width >= 900 ? 3 : width >= 650 ? 2 : 1;
 
   useEffect(() => {
@@ -61,12 +63,15 @@ export default function DiscussionsScreen() {
   }, [forums, query]);
 
   const handleCardPress = (forum: any) => {
-    return;
+    const id = forum?.id || forum?._id;
+    if (!id) return;
+    // @ts-ignore
+    navigation.navigate('ForumDetails', { forumId: String(id) });
   };
 
   const handleCreatePublication = async () => {
     if (submitting) return;
-    const exerciseCode = formData.exerciseCode.trim();
+    const exerciseCode = normalizeForumCode(formData.exerciseCode);
     const nome = formData.title.trim();
     const assunto = formData.subject.trim();
 
@@ -103,6 +108,42 @@ export default function DiscussionsScreen() {
       setError(ApiService.handleError(err));
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const prefillFromExercise = (ex: any) => {
+    const title = ex?.title || ex?.nome || '';
+    const description = ex?.description || ex?.descricao || '';
+    const subject = ex?.languageId?.name || ex?.assunto || '';
+    setFormData(prev => ({
+      ...prev,
+      title: title || prev.title,
+      subject: subject || prev.subject,
+      description: description || prev.description,
+    }));
+  };
+
+  const tryPrefillFromCode = async (value?: string) => {
+    const raw = typeof value === 'string' ? value : formData.exerciseCode;
+    const normalized = normalizeForumCode(raw);
+    if (!normalized || normalized.length < 6) return;
+    setCodeLookupLoading(true);
+    setCodeLookupError(null);
+    try {
+      const ex = await ApiService.getExerciseByCode(normalized.replace('#', ''));
+      if (ex) prefillFromExercise(ex);
+    } catch (err: any) {
+      setCodeLookupError(ApiService.handleError(err));
+    } finally {
+      setCodeLookupLoading(false);
+    }
+  };
+
+  const handleExerciseCodeChange = (v: string) => {
+    setFormData(prev => ({ ...prev, exerciseCode: v }));
+    const trimmed = (v || '').trim();
+    if (trimmed.length >= 6) {
+      tryPrefillFromCode(trimmed);
     }
   };
 
@@ -213,9 +254,16 @@ export default function DiscussionsScreen() {
                   placeholder="Digite o código do desafio (ex: #ASFS0001)"
                   placeholderTextColor={colors.textSecondary}
                   value={formData.exerciseCode}
-                  onChangeText={(v) => setFormData({ ...formData, exerciseCode: v })}
+                  onChangeText={(v) => handleExerciseCodeChange(v)}
+                  onEndEditing={() => tryPrefillFromCode()}
                   autoCapitalize="none"
                 />
+                {codeLookupLoading && (
+                  <Text style={{ marginTop: 6, color: colors.textSecondary }}>Buscando desafio pelo código...</Text>
+                )}
+                {!!codeLookupError && (
+                  <Text style={{ marginTop: 6, color: (colors as any).error || '#F44336' }}>{String(codeLookupError)}</Text>
+                )}
               </View>
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Nome do Fórum *</Text>
@@ -267,7 +315,7 @@ export default function DiscussionsScreen() {
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={[styles.actionBtn, styles.actionBtnGhost, { borderColor: colors.border }]}
-                  onPress={() => setFormData({ exerciseCode: '', title: '', subject: '', description: '', isPublic: true })}
+                  onPress={() => { setFormData({ exerciseCode: '', title: '', subject: '', description: '', isPublic: true }); setCodeLookupError(null); }}
                 >
                   <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Limpar</Text>
                 </TouchableOpacity>
@@ -372,3 +420,10 @@ const styles = StyleSheet.create({
   privacyDropdown: { width: '80%', maxWidth: 420, borderWidth: 1, borderRadius: 10, paddingVertical: 4 },
   privacyOption: { paddingHorizontal: 12, paddingVertical: 10 },
 });
+
+function normalizeForumCode(input: string) {
+  const v = (input || '').trim();
+  if (!v) return '';
+  const withHash = v.startsWith('#') ? v : `#${v}`;
+  return withHash.toUpperCase();
+}

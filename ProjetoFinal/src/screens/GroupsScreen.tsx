@@ -8,6 +8,7 @@ import {
   Modal,
   ActivityIndicator,
   RefreshControl,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -29,6 +30,8 @@ type Group = {
 export default function GroupsScreen() {
   const { colors, isDarkMode, commonStyles } = useTheme();
   const navigation = useNavigation<any>();
+  const { width } = useWindowDimensions();
+  const isSmallScreen = width < 380;
   const [tab, setTab] = useState<'public' | 'mine'>('public');
   const [publicGroups, setPublicGroups] = useState<Group[]>([]);
   const [myGroups, setMyGroups] = useState<Group[]>([]);
@@ -129,17 +132,22 @@ export default function GroupsScreen() {
           ) : null}
         </View>
 
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+        <View style={{ flexDirection: isSmallScreen ? 'column' : 'row', marginTop: 16 }}>
           <TouchableOpacity
             onPress={() => {
               // @ts-ignore
               navigation.navigate('GroupDetails', { groupId: String(item.id) });
             }}
             style={{
+              minHeight: 44,
               paddingVertical: 10,
               paddingHorizontal: 14,
               borderRadius: 8,
               backgroundColor: isDarkMode ? '#2A2A2A' : '#EFEFEF',
+              flex: 1,
+              justifyContent: 'center',
+              alignItems: 'center',
+              ...(isSmallScreen ? { marginBottom: 8 } : { marginRight: 12 }),
             }}
           >
             <Text style={{ color: colors.text }}>Ver Detalhes</Text>
@@ -157,12 +165,16 @@ export default function GroupsScreen() {
               }
             }}
             style={{
+              minHeight: 44,
               paddingVertical: 10,
               paddingHorizontal: 14,
               borderRadius: 8,
               backgroundColor: colors.primary,
               flexDirection: 'row',
               alignItems: 'center',
+              justifyContent: 'center',
+              flex: 1,
+              ...(isSmallScreen ? {} : { }),
               gap: 6,
             }}
           >
@@ -327,14 +339,19 @@ export default function GroupsScreen() {
               </TouchableOpacity>
             </View>
 
-            <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+            <View style={{ flexDirection: isSmallScreen ? 'column' : 'row', marginTop: 16 }}>
               <TouchableOpacity
                 onPress={() => setCreateOpen(false)}
                 style={{
+                  minHeight: 44,
                   paddingVertical: 10,
                   paddingHorizontal: 14,
                   borderRadius: 8,
                   backgroundColor: isDarkMode ? '#2A2A2A' : '#EFEFEF',
+                  flex: 1,
+                  justifyContent: 'center',
+                  alignItems: 'center',
+                  ...(isSmallScreen ? { marginBottom: 8 } : { marginRight: 12 }),
                 }}
               >
                 <Text style={{ color: colors.text }}>Cancelar</Text>
@@ -343,10 +360,14 @@ export default function GroupsScreen() {
               <TouchableOpacity
                 onPress={handleCreateGroup}
                 style={{
+                  minHeight: 44,
                   paddingVertical: 10,
                   paddingHorizontal: 14,
                   borderRadius: 8,
                   backgroundColor: colors.primary,
+                  flex: 1,
+                  justifyContent: 'center',
+                  alignItems: 'center',
                 }}
               >
                 <Text style={{ color: isDarkMode ? '#1A1A1A' : '#fff', fontWeight: '600' }}>Criar</Text>

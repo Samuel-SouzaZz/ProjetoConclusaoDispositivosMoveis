@@ -13,7 +13,7 @@ import { Platform } from 'react-native';
 const BASE_URL = 'http://10.0.0.40:3000/api'
   process.env.EXPO_PUBLIC_API_BASE_URL ||
   (Platform.OS === 'android'
-    ? 'http://10.0.0.40:3000/api'
+    ? 'http://10.0.0.183:3000/api'
     : 'http://localhost:3000/api');
 
 // Chaves de armazenamento
@@ -227,6 +227,7 @@ async getToken(): Promise<string | null> {
     page?: number;
     limit?: number;
   }) {
+<<<<<<< Updated upstream
     // Verificar se há token antes de fazer a requisição
     const token = await AsyncStorage.getItem(TOKEN_KEY);
     if (!token) {
@@ -237,6 +238,10 @@ async getToken(): Promise<string | null> {
     const config = params && Object.keys(params).length > 0 ? { params } : {};
     const response = await this.api.get('/exercises/mine', config);
     return response.data; // { items: [], total: number }
+=======
+    const response = await this.api.get('/exercises/mine', { params });
+    return response.data;
+>>>>>>> Stashed changes
   }
 
   /**
@@ -321,6 +326,30 @@ async getToken(): Promise<string | null> {
     languageId?: string;
   }) {
     const response = await this.api.get('/exercises', { params });
+    return response.data;
+  }
+
+  
+
+  async getExerciseById(id: string) {
+    const response = await this.api.get(`/exercises/${id}`);
+    return response.data;
+  }
+
+  async getExerciseByCode(code: string) {
+    const ensured = code.startsWith('#') ? code : `#${code}`;
+    const safe = encodeURIComponent(ensured);
+    const response = await this.api.get(`/exercises/code/${safe}`);
+    return response.data;
+  }
+
+  async getSubmissionsByExercise(exerciseId: string, params?: { page?: number; limit?: number }) {
+    const response = await this.api.get(`/submissions/exercise/${exerciseId}`, { params });
+    return response.data;
+  }
+
+  async getLeaderboardByExercise(exerciseId: string, params?: { page?: number; limit?: number }) {
+    const response = await this.api.get('/leaderboards/by-exercise', { params: { exerciseId, ...(params || {}) } });
     return response.data;
   }
 
@@ -473,6 +502,36 @@ async getToken(): Promise<string | null> {
     }
 
     const response = await this.api.post('/forum', payload);
+    return response.data;
+  }
+
+  async getForumById(id: string) {
+    const response = await this.api.get(`/forum/${id}`);
+    return response.data;
+  }
+
+  async getForumParticipants(id: string) {
+    const response = await this.api.get(`/forum/${id}/participantes`);
+    return response.data;
+  }
+
+  async joinForum(id: string) {
+    const response = await this.api.post(`/forum/${id}/participar`);
+    return response.data;
+  }
+
+  async leaveForum(id: string) {
+    const response = await this.api.post(`/forum/${id}/sair`);
+    return response.data;
+  }
+
+  async getForumTopics(forumId: string) {
+    const response = await this.api.get(`/forum-topics/forum/${forumId}`);
+    return response.data;
+  }
+
+  async countForumTopics(forumId: string) {
+    const response = await this.api.get(`/forum-topics/forum/${forumId}/count`);
     return response.data;
   }
 

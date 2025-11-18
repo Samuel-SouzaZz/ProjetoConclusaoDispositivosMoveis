@@ -8,10 +8,11 @@ import {
   TextInput, 
   Modal, 
   Alert,
-  ActivityIndicator 
+  ActivityIndicator, 
+  Platform
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRoute, RouteProp } from "@react-navigation/native";
+import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import ApiService from "../services/ApiService";
@@ -239,11 +240,17 @@ const SolveChallengeModal = ({ challenge, onClose, colors, commonStyles }: any) 
 export default function ChallengesScreen() {
   const { commonStyles, colors } = useTheme();
   const { user } = useAuth();
+  const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<Record<string, { openCreate?: boolean }>, string>>();
   const [challenges, setChallenges] = useState<any[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+<<<<<<< Updated upstream
   const [showSolveModal, setShowSolveModal] = useState(false);
   const [selectedChallenge, setSelectedChallenge] = useState<any>(null);
+=======
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [deletingChallenge, setDeletingChallenge] = useState<any>(null);
+>>>>>>> Stashed changes
   const [editingChallenge, setEditingChallenge] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
@@ -291,12 +298,12 @@ export default function ChallengesScreen() {
 
   const loadChallenges = async () => {
     setInitialLoading(true);
-  
     try {
-      const response = await ApiService.getChallenges();
-      setChallenges(response.items || response.data || []);
+      const response = await ApiService.getMyChallenges();
+      const items = response?.items || response?.data || (Array.isArray(response) ? response : []);
+      setChallenges(items);
     } catch (err) {
-      Alert.alert("Erro", "Não foi possível carregar desafios");
+      Alert.alert("Erro", ApiService.handleError(err));
     } finally {
       setInitialLoading(false);
     }
@@ -332,37 +339,40 @@ export default function ChallengesScreen() {
   };
 
   const handleDeletePress = (challenge: any) => {
-    Alert.alert(
-      'Excluir Desafio',
-      `Tem certeza que deseja excluir "${challenge.title}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Excluir', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              const challengeId = challenge.id || challenge._id;
-          
-              await ApiService.deleteChallenge(challengeId);
-              if (ChallengeService.deleteChallenge) {
-                try { await ChallengeService.deleteChallenge(challengeId); } catch {}
-              }
-              await loadChallenges();
-              Alert.alert("Sucesso", "Desafio excluído com sucesso!");
-            } catch (error: any) {
-              Alert.alert("Erro", ApiService.handleError(error));
-            }
-          }
-        }
-      ]
-    );
+    setDeletingChallenge(challenge);
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    if (!deletingChallenge) return;
+    try {
+      const challengeId = deletingChallenge.id || deletingChallenge._id;
+      await ApiService.deleteChallenge(String(challengeId));
+      if (ChallengeService.deleteChallenge) {
+        try { await ChallengeService.deleteChallenge(String(challengeId)); } catch {}
+      }
+      setShowDeleteModal(false);
+      setDeletingChallenge(null);
+      await loadChallenges();
+      Alert.alert('Sucesso', 'Desafio excluído com sucesso!');
+    } catch (error: any) {
+      setShowDeleteModal(false);
+      setDeletingChallenge(null);
+      Alert.alert('Erro', ApiService.handleError(error));
+    }
   };
 
   const handleChallengePress = (challenge: any) => {
+<<<<<<< Updated upstream
     // Abrir modal para resolver o desafio
     setSelectedChallenge(challenge);
     setShowSolveModal(true);
+=======
+    const id = challenge?.id || challenge?._id;
+    if (!id) return;
+    // @ts-ignore
+    navigation.navigate('ChallengeDetails', { exerciseId: String(id) });
+>>>>>>> Stashed changes
   };
 
   const handleSaveChallenge = async () => {
@@ -437,6 +447,7 @@ export default function ChallengesScreen() {
             </Text>
           </View>
         ) : (
+<<<<<<< Updated upstream
           challenges.map((challenge) => (
           <DetailedChallengeCard
             key={challenge.id}
@@ -454,6 +465,30 @@ export default function ChallengesScreen() {
             onDelete={() => handleDeletePress(challenge)}
           />
           ))
+=======
+          challenges.map((challenge, idx) => {
+            const diffNum = Number(challenge.difficulty ?? 1);
+            const diffLabel = diffNum <= 1 ? 'Fácil' : diffNum === 2 ? 'Médio' : 'Difícil';
+            const xp = challenge.xp ?? challenge.baseXp ?? 0;
+            const code = challenge.publicCode || challenge.public_code || challenge.code;
+            return (
+              <DetailedChallengeCard
+                key={String(challenge.id || challenge._id || idx)}
+                title={challenge.title}
+                description={challenge.description}
+                difficulty={diffLabel}
+                progress={challenge.progress}
+                isPublic={challenge.isPublic}
+                xp={xp}
+                code={code}
+                onPress={() => handleChallengePress(challenge)}
+                onEdit={() => handleEditPress(challenge)}
+                onDelete={() => handleDeletePress(challenge)}
+                onCopyCode={() => handleCopyCode(code)}
+              />
+            );
+          })
+>>>>>>> Stashed changes
         )}
       </ScrollView>
       
@@ -612,6 +647,7 @@ export default function ChallengesScreen() {
         </SafeAreaView>
       </Modal>
 
+<<<<<<< Updated upstream
       {/* Modal para Resolver Desafio */}
       <Modal
         visible={showSolveModal}
@@ -627,6 +663,27 @@ export default function ChallengesScreen() {
           colors={colors}
           commonStyles={commonStyles}
         />
+=======
+      <Modal
+        visible={showDeleteModal}
+        animationType="fade"
+        transparent
+      >
+        <View style={styles.overlay}> 
+          <View style={[styles.confirmBox, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <Text style={[styles.confirmTitle, { color: colors.text }]}>Excluir Desafio</Text>
+            <Text style={[styles.confirmDesc, { color: colors.textSecondary }]}>Tem certeza que deseja excluir {deletingChallenge?.title ? `"${deletingChallenge.title}"` : 'este desafio'}?</Text>
+            <View style={styles.confirmActions}> 
+              <TouchableOpacity style={[styles.cancelBtn]} onPress={() => { setShowDeleteModal(false); setDeletingChallenge(null); }}>
+                <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.deleteBtn]} onPress={confirmDelete}>
+                <Text style={styles.deleteText}>Excluir</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+>>>>>>> Stashed changes
       </Modal>
     </SafeAreaView>
   );
@@ -655,6 +712,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: "600",
   },
+  overlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+    alignItems: 'center',
+    justifyContent: 'center'
+  },
+  confirmBox: {
+    width: '86%',
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 16,
+  },
+  confirmTitle: { fontSize: 18, fontWeight: '800' },
+  confirmDesc: { marginTop: 8, fontSize: 13 },
+  confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16, marginTop: 16 },
+  cancelBtn: { paddingHorizontal: 12, paddingVertical: 8 },
+  deleteBtn: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F44336', borderRadius: 8 },
+  cancelText: { fontWeight: '700' },
+  deleteText: { color: '#fff', fontWeight: '700' },
   scrollView: {
     paddingHorizontal: 20,
     paddingTop: 20,
@@ -941,4 +1017,18 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+  const handleCopyCode = async (code?: string) => {
+    if (!code) return;
+    try {
+      if (Platform.OS === 'web' && (navigator as any)?.clipboard) {
+        await (navigator as any).clipboard.writeText(String(code));
+        Alert.alert('Copiado', 'Código copiado para a área de transferência');
+        return;
+      }
+      Alert.alert('Código do desafio', String(code));
+    } catch {
+      Alert.alert('Código do desafio', String(code));
+    }
+  };
 

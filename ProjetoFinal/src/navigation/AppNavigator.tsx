@@ -8,6 +8,7 @@ import DashboardScreen from "../screens/DashboardScreen";
 import DiscussionsScreen from "../screens/DiscussionsScreen";
 import RankingScreen from "../screens/RankingScreen";
 import ChallengesScreen from "../screens/ChallengesScreen";
+import ChallengeDetailsScreen from "../screens/ChallengeDetailsScreen";
 import GroupChallengesScreen from "../screens/GroupChallengesScreen";
 import GroupRankingScreen from "../screens/GroupRankingScreen";
 import GroupInviteScreen from "../screens/GroupInviteScreen";
@@ -28,6 +29,8 @@ export type RootStackParamList = {
   GroupChallenges: { groupId: string; groupName?: string; groupDescription?: string };
   GroupRanking: { groupId: string; groupName?: string };
   GroupInvite: { groupId: string; token: string };
+  ForumDetails: { forumId: string };
+  ChallengeDetails: { exerciseId: string };
 };
 
 // Tipagem para o Tab Navigator
@@ -164,6 +167,8 @@ export default function AppNavigator() {
       <Stack.Screen name="GroupChallenges" component={GroupChallengesScreen} />
       <Stack.Screen name="GroupRanking" component={GroupRankingScreen} />
       <Stack.Screen name="GroupInvite" component={GroupInviteScreen} />
+      <Stack.Screen name="ForumDetails" component={require('../screens/ForumDetailsScreen').default} />
+      <Stack.Screen name="ChallengeDetails" component={ChallengeDetailsScreen} />
     </Stack.Navigator>
   );
 }

@@ -57,8 +57,8 @@ export default function DetailedChallengeCard({
             <Text style={[styles.codeLabel, { color: colors.textSecondary }]}>Código:</Text>
             <Text style={[styles.codeValue, { color: colors.primary }]}>{code}</Text>
             {onCopyCode && (
-              <TouchableOpacity style={styles.copyButton} onPress={onCopyCode}>
-                <Text style={[styles.copyButtonText, { color: colors.text }]}>Copiar</Text>
+              <TouchableOpacity style={[styles.copyButton, { backgroundColor: colors.primary }]} onPress={onCopyCode}>
+                <Text style={[styles.copyButtonText, { color: '#fff' }]}>Copiar</Text>
               </TouchableOpacity>
             )}
           </View>
@@ -149,10 +149,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   copyButton: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
-    backgroundColor: '#2a2f3b',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+    backgroundColor: '#3B82F6',
   },
   copyButtonText: {
     fontSize: 11,

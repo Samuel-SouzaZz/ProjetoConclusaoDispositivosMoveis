@@ -95,9 +95,13 @@ export default function RankingScreen() {
             ) : top10.map((item, idx) => {
               const pos = idx + 1;
               const badge = getPositionBadge(pos);
-              const points = item.xpTotal ?? item.xp ?? 0;
-              const name = item.user?.name || item.name || item.handle || "Usuário";
-              const initial = name?.[0]?.toUpperCase() || "?";
+              const rawPoints = item?.xpTotal ?? item?.xp ?? item?.points;
+              const points = typeof rawPoints === 'number' ? rawPoints : 0;
+              let name: any = item?.user?.name ?? item?.name ?? item?.handle;
+              if (typeof name !== 'string') {
+                name = typeof name?.message === 'string' ? name.message : 'Usuário';
+              }
+              const initial = typeof name === 'string' ? (name?.[0]?.toUpperCase() || "?") : "?";
               return (
                 <TouchableOpacity key={String(item.id || item.userId || idx)} activeOpacity={0.9} style={[styles.tableRow, { borderColor: colors.border }]}> 
                   {/* Posicao */}
@@ -112,13 +116,13 @@ export default function RankingScreen() {
                       <Text style={styles.avatarText}>{initial}</Text>
                     </View>
                     <View style={{ flex: 1 }}> 
-                      <Text style={[styles.nomeText, { color: colors.text }]} numberOfLines={1}>{name}</Text>
-                    </View>
-                  </View>
-                  {/* Pontos */}
-                  <View style={[styles.pontosCell]}> 
-                    <Text style={[styles.pontosText, { color: colors.text }]}>{points} pts</Text>
-                  </View>
+                      <Text style={[styles.nomeText, { color: colors.text }]} numberOfLines={1}>{String(name)}</Text>
+                </View>
+              </View>
+              {/* Pontos */}
+              <View style={[styles.pontosCell]}> 
+                <Text style={[styles.pontosText, { color: colors.text }]}>{Number(points)} pts</Text>
+              </View>
                   {/* Pontuação */}
                   <View style={[styles.pontuacaoCell]}> 
                     {pos <= 3 ? (
