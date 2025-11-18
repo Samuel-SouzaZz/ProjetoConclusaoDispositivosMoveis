@@ -236,66 +236,6 @@ const SolveChallengeModal = ({ challenge, onClose, colors, commonStyles }: any) 
   );
 };
 
-const DetailedChallengeCard = ({ 
-  title, 
-  description, 
-  difficulty, 
-  progress, 
-  isPublic,
-  xp,
-  onPress,
-  onEdit,
-  onDelete
-}: any) => {
-  const { colors, commonStyles } = useTheme();
-
-  const getDifficultyStyle = () => {
-    switch (difficulty) {
-      case 'Fácil': return [styles.difficultyBadge, { backgroundColor: colors.easy }];
-      case 'Médio': return [styles.difficultyBadge, { backgroundColor: colors.medium }];
-      case 'Difícil': return [styles.difficultyBadge, { backgroundColor: colors.hard }];
-      default: return [styles.difficultyBadge, { backgroundColor: colors.easy }];
-    }
-  };
-
-  return (
-    <View style={[commonStyles.card, styles.challengeCard]}>
-      <TouchableOpacity onPress={onPress} style={styles.challengeContent}>
-        <View style={styles.challengeHeader}>
-          <Text style={[commonStyles.text, styles.challengeTitle]}>{title}</Text>
-          <View style={getDifficultyStyle()}>
-            <Text style={[styles.difficultyText, { color: colors.text }]}>{difficulty}</Text>
-          </View>
-        </View>
-        <Text style={[commonStyles.text, styles.challengeDescription]}>{description}</Text>
-        <View style={styles.challengeFooter}>
-          <View style={styles.progressContainer}>
-            <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
-              <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: colors.primary }]} />
-            </View>
-            <Text style={[styles.progressText, { color: colors.primary }]}>{progress}%</Text>
-          </View>
-          <View style={styles.challengeInfo}>
-            <Text style={[styles.xpText, { color: colors.xp }]}>{xp} XP</Text>
-            <Text style={[styles.visibilityText, { color: isPublic ? colors.primary : colors.textSecondary }]}>
-              {isPublic ? "Público" : "Privado"}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-      
-      <View style={[styles.challengeActions, { backgroundColor: colors.cardSecondary }]}>
-        <TouchableOpacity style={styles.actionButton} onPress={onEdit}>
-          <Text style={[styles.actionButtonText, { color: colors.primary }]}>Editar</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.actionButton} onPress={onDelete}>
-          <Text style={[styles.actionButtonText, { color: "#F44336" }]}>Excluir</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
-  );
-};
-
 export default function ChallengesScreen() {
   const { commonStyles, colors } = useTheme();
   const { user } = useAuth();
