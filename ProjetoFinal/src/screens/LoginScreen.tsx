@@ -16,6 +16,7 @@ import * as SecureStore from "expo-secure-store";
 import { useAuth } from "../contexts/AuthContext";
 import ApiService from "../services/ApiService";
 import { styles } from "../styles/authStyles";
+import { isBiometricEnabled } from "../utils/biometricPreferences";
 
 export default function LoginScreen() {
   const { login } = useAuth();
@@ -26,28 +27,77 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(false);
+  const [biometricAvailable, setBiometricAvailable] = useState(false);
   const passwordRef = useRef<RNTextInput>(null);
 
   useEffect(() => {
-    checkBiometricLogin();
+    // Verificar disponibilidade de biometria
+    checkBiometricAvailability();
+    
+    // Solicitar Face ID imediatamente quando a tela carregar
+    // Não esperar delay para garantir que seja solicitado
+    const timer = setTimeout(() => {
+      checkBiometricLogin();
+    }, 300);
+    
+    return () => clearTimeout(timer);
   }, []);
+
+  async function checkBiometricAvailability() {
+    try {
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      setBiometricAvailable(hasHardware && enrolled);
+    } catch (error) {
+      setBiometricAvailable(false);
+    }
+  }
 
   async function checkBiometricLogin() {
     try {
+      // Verificar se biometria está habilitada nas preferências
+      const biometricEnabled = await isBiometricEnabled();
+      if (!biometricEnabled) {
+        return;
+      }
+
       const savedToken = await SecureStore.getItemAsync("app_biometric_token");
-      if (!savedToken) return;
+      if (!savedToken) {
+        return;
+      }
 
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
       const enrolled = await LocalAuthentication.isEnrolledAsync();
 
-      if (hasHardware && enrolled) {
-        const result = await LocalAuthentication.authenticateAsync({
-          promptMessage: "Autentique-se para continuar",
-          cancelLabel: "Cancelar",
-        });
-
+      if (!hasHardware || !enrolled) {
+        return;
       }
-    } catch (error) {
+
+      const biometricTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
+      const isFaceID = biometricTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
+      const promptMsg = isFaceID 
+        ? "Use o Face ID para entrar" 
+        : "Use sua biometria para entrar";
+      
+      // Solicitar biometria
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: promptMsg,
+        cancelLabel: "Cancelar",
+        disableDeviceFallback: false,
+      });
+
+      if (result.success) {
+        // Token já está salvo, usar para autenticar
+        try {
+          await ApiService.setToken(savedToken);
+          await login("", "");
+        } catch (error: any) {
+          await SecureStore.deleteItemAsync("app_biometric_token");
+          Alert.alert("Erro", "Não foi possível fazer login com biometria. Tente novamente.");
+        }
+      }
+    } catch (error: any) {
+      // Ignora erros silenciosamente
     }
   }
 
@@ -60,31 +110,7 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await login(email, password);
-
-      // Pergunta se o usuário quer ativar login biométrico
-      if (!rememberMe) {
-        Alert.alert(
-          "Acesso Biométrico",
-          "Deseja permitir login por biometria nas próximas vezes?",
-          [
-            { text: "Não", style: "cancel" },
-            {
-              text: "Sim",
-              onPress: async () => {
-                try {
-                  const token = await ApiService.getToken();
-                  if (token) {
-                    await SecureStore.setItemAsync("app_biometric_token", token);
-                  }
-                } catch (err) {
-                  console.warn("Erro ao salvar token biométrico:", err);
-                }
-              },
-            },
-          ]
-        );
-      }
-
+      // Removido pop-up automático - usuário pode habilitar nas Configurações
     } catch (err: any) {
       Alert.alert("Erro", err.message || "Não foi possível realizar o login.");
     } finally {
@@ -196,6 +222,20 @@ export default function LoginScreen() {
               <Text style={styles.buttonText}>Acessar</Text>
             )}
           </TouchableOpacity>
+
+          {biometricAvailable && (
+            <TouchableOpacity
+              style={styles.biometricButton}
+              onPress={checkBiometricLogin}
+              activeOpacity={0.8}
+              accessibilityRole="button"
+              accessibilityLabel="Entrar com Face ID"
+              accessibilityHint="Use sua biometria para fazer login"
+            >
+              <Ionicons name="finger-print" size={24} color="#3B5BDB" />
+              <Text style={styles.biometricButtonText}>Entrar com Face ID</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         <View style={styles.footer}>

@@ -218,6 +218,24 @@ export const styles = StyleSheet.create({
     fontWeight: "600",
   },
 
+  biometricButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    paddingVertical: 16,
+    marginTop: 12,
+    borderWidth: 2,
+    borderColor: "#3B5BDB",
+  },
+  biometricButtonText: {
+    color: "#3B5BDB",
+    fontSize: 16,
+    fontWeight: "600",
+    marginLeft: 8,
+  },
+
   footer: {
     flexDirection: "row",
     justifyContent: "center",

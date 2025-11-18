@@ -1,13 +1,21 @@
-import React, { useState } from "react";
-import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, Pressable } from "react-native";
+import React, { useState, useEffect } from "react";
+import { View, Text, StyleSheet, ScrollView, Switch, TouchableOpacity, Pressable, Alert } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import { Ionicons, MaterialIcons, FontAwesome5 } from "@expo/vector-icons";
 import { Picker } from '@react-native-picker/picker';
+import {
+  checkBiometricAvailability,
+  isBiometricEnabled,
+  setBiometricEnabled,
+  BiometricInfo,
+} from "../utils/biometricPreferences";
+import * as SecureStore from "expo-secure-store";
+import ApiService from "../services/ApiService";
 
 export default function SettingsScreen() {
-  const { logout } = useAuth();
+  const { logout, user } = useAuth();
   const { isDarkMode, toggleTheme, colors, commonStyles } = useTheme();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -20,6 +28,86 @@ export default function SettingsScreen() {
   const [selectedLanguage, setSelectedLanguage] = useState("Português");
   const [selectedDateFormat, setSelectedDateFormat] = useState("DD/MM/AAAA");
   const [selectedTimeZone, setSelectedTimeZone] = useState("São Paulo (GMT-3)");
+  const [biometricEnabled, setBiometricEnabledState] = useState(false);
+  const [biometricInfo, setBiometricInfo] = useState<BiometricInfo | null>(null);
+  const [loadingBiometric, setLoadingBiometric] = useState(true);
+
+  useEffect(() => {
+    loadBiometricSettings();
+  }, []);
+
+  async function loadBiometricSettings() {
+    try {
+      setLoadingBiometric(true);
+      const info = await checkBiometricAvailability();
+      setBiometricInfo(info);
+      const enabled = await isBiometricEnabled();
+      setBiometricEnabledState(enabled);
+    } catch (error) {
+      // Ignora erros
+    } finally {
+      setLoadingBiometric(false);
+    }
+  }
+
+  async function handleToggleBiometric(value: boolean) {
+    if (value) {
+      // Habilitar Face ID
+      if (!biometricInfo?.isAvailable) {
+        Alert.alert(
+          "Biometria Indisponível",
+          "Seu dispositivo não suporta autenticação biométrica ou não está configurada."
+        );
+        return;
+      }
+
+      // Verificar se já existe token salvo
+      try {
+        const token = await ApiService.getToken();
+        if (!token) {
+          Alert.alert(
+            "Erro",
+            "Você precisa estar autenticado para habilitar a biometria. Faça login novamente."
+          );
+          return;
+        }
+
+        // Salvar token no SecureStore
+        await SecureStore.setItemAsync("app_biometric_token", token);
+        await setBiometricEnabled(true);
+        setBiometricEnabledState(true);
+        Alert.alert(
+          "Sucesso",
+          `${biometricInfo.biometricType} habilitado com sucesso!`
+        );
+      } catch (error: any) {
+        Alert.alert("Erro", "Não foi possível habilitar a biometria. Tente novamente.");
+      }
+    } else {
+      // Desabilitar Face ID
+      Alert.alert(
+        "Desabilitar Biometria",
+        "Tem certeza que deseja desabilitar o acesso biométrico?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          {
+            text: "Desabilitar",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await SecureStore.deleteItemAsync("app_biometric_token");
+                await setBiometricEnabled(false);
+                setBiometricEnabledState(false);
+                Alert.alert("Sucesso", "Biometria desabilitada com sucesso!");
+              } catch (error) {
+                Alert.alert("Erro", "Não foi possível desabilitar a biometria.");
+              }
+            },
+          },
+        ]
+      );
+    }
+  }
 
   return (
     <SafeAreaView style={commonStyles.container}>
@@ -162,6 +250,57 @@ export default function SettingsScreen() {
             </View>
           </View>
           
+          {/* Seção de Segurança */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.iconContainer}>
+                <Ionicons name="shield-checkmark" size={20} color={colors.primary} />
+              </View>
+              <Text style={[commonStyles.text, styles.sectionTitle]}>Segurança</Text>
+            </View>
+            
+            <View style={styles.settingCard}>
+              {biometricInfo?.isAvailable ? (
+                <View style={styles.settingItem}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[commonStyles.text, styles.settingLabel]}>
+                      {biometricInfo.biometricType}
+                    </Text>
+                    <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>
+                      Use {biometricInfo.biometricType} para fazer login rapidamente
+                    </Text>
+                  </View>
+                  <Switch
+                    value={biometricEnabled}
+                    onValueChange={handleToggleBiometric}
+                    disabled={loadingBiometric}
+                    trackColor={{ false: '#767577', true: colors.primary }}
+                    thumbColor={biometricEnabled ? '#fff' : '#f4f3f4'}
+                    ios_backgroundColor="#3e3e3e"
+                  />
+                </View>
+              ) : (
+                <View style={styles.settingItem}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={[commonStyles.text, styles.settingLabel]}>
+                      Autenticação Biométrica
+                    </Text>
+                    <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>
+                      Seu dispositivo não suporta biometria ou não está configurada
+                    </Text>
+                  </View>
+                  <Switch
+                    value={false}
+                    disabled={true}
+                    trackColor={{ false: '#767577', true: colors.primary }}
+                    thumbColor={'#f4f3f4'}
+                    ios_backgroundColor="#3e3e3e"
+                  />
+                </View>
+              )}
+            </View>
+          </View>
+
           {/* Seção de Privacidade */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -310,7 +449,34 @@ export default function SettingsScreen() {
                 <Text style={[styles.accountButtonText, {color: colors.primary}]}>Exportar Dados</Text>
               </TouchableOpacity>
               
-              <TouchableOpacity style={styles.accountButton} onPress={logout}>
+              <TouchableOpacity 
+                style={[styles.accountButton, styles.logoutButton]} 
+                onPress={async () => {
+                  Alert.alert(
+                    "Sair da Conta",
+                    "Tem certeza que deseja sair da sua conta?",
+                    [
+                      { text: "Cancelar", style: "cancel" },
+                      {
+                        text: "Sair",
+                        style: "destructive",
+                        onPress: async () => {
+                          try {
+                            await logout();
+                          } catch (error) {
+                            Alert.alert("Erro", "Não foi possível sair da conta. Tente novamente.");
+                          }
+                        },
+                      },
+                    ]
+                  );
+                }}
+              >
+                <Ionicons name="log-out-outline" size={20} color={colors.primary} style={{ marginRight: 8 }} />
+                <Text style={[styles.logoutButtonText, {color: colors.primary}]}>Sair da Conta</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={styles.accountButton}>
                 <Text style={styles.deleteAccountText}>Excluir Conta</Text>
               </TouchableOpacity>
             </View>
@@ -437,6 +603,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
   },
   accountButtonText: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  logoutButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderBottomWidth: 0.5,
+    borderBottomColor: "rgba(0,0,0,0.05)",
+  },
+  logoutButtonText: {
     fontSize: 16,
     fontWeight: "500",
   },

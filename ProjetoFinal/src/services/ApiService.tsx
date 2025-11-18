@@ -10,10 +10,10 @@ import { Platform } from 'react-native';
  * - Android (emulador): http://10.0.2.2:3000/api
  * - iOS (simulador) / Web: http://localhost:3000/api
  */
-const BASE_URL = 'http://10.0.0.40:3000/api'
+const BASE_URL = 'http://172.20.10.2:3000/api'
   process.env.EXPO_PUBLIC_API_BASE_URL ||
   (Platform.OS === 'android'
-    ? 'http://10.0.0.40:3000/api'
+    ? 'http://172.20.10.2:3000/api'
     : 'http://localhost:3000/api');
 
 // Chaves de armazenamento
@@ -52,21 +52,36 @@ class ApiService {
       (response) => response,
       async (error: AxiosError) => {
         if (error.response?.status === 401) {
-          // Token expirado - tentar renovar
-          const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
-          if (refreshToken) {
-            try {
-              const newTokens = await this.refreshTokens(refreshToken);
-              await this.saveTokens(newTokens.accessToken, newTokens.refreshToken);
-              // Retentar a requisição original
-              if (error.config) {
-                error.config.headers.Authorization = `Bearer ${newTokens.accessToken}`;
-                return this.api.request(error.config);
+          // Token expirado - tentar renovar apenas se não for uma requisição de validação
+          // Não renovar em getMe() ou refresh para evitar loops e login automático
+          const url = error.config?.url || '';
+          const isValidationRequest = url.includes('/users/me') || 
+                                      url.includes('/auth/refresh') ||
+                                      url.includes('/auth/login') ||
+                                      url.includes('/auth/signup');
+          
+          if (!isValidationRequest) {
+            const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+            if (refreshToken) {
+              try {
+                const newTokens = await this.refreshTokens(refreshToken);
+                await this.saveTokens(newTokens.accessToken, newTokens.refreshToken);
+                // Retentar a requisição original
+                if (error.config) {
+                  error.config.headers.Authorization = `Bearer ${newTokens.accessToken}`;
+                  return this.api.request(error.config);
+                }
+              } catch {
+                // Falha ao renovar - limpar tokens mas não fazer logout automático
+                await this.clearTokens();
               }
-            } catch {
-              // Falha ao renovar - fazer logout
+            } else {
+              // Sem refresh token, limpar tokens
               await this.clearTokens();
             }
+          } else {
+            // Para requisições de validação, apenas limpar tokens se expirado
+            await this.clearTokens();
           }
         }
         return Promise.reject(error);
@@ -94,10 +109,19 @@ class ApiService {
   /**
  * Retornar o token JWT salvo (para uso no AuthContext/biometria)
  */
-async getToken(): Promise<string | null> {
-  const token = await AsyncStorage.getItem(TOKEN_KEY);
-  return token;
-} 
+  async getToken(): Promise<string | null> {
+    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    return token;
+  }
+
+  /**
+   * Utilitários - Definir token manualmente (usado para login biométrico)
+   */
+  async setToken(token: string): Promise<void> {
+    await AsyncStorage.setItem(TOKEN_KEY, token);
+    // Atualizar o interceptor do axios com o novo token
+    this.api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  }
 
   /**
    * AUTH - Login
@@ -562,11 +586,35 @@ async getToken(): Promise<string | null> {
   }
 
   /**
-   * Utilitários - Verificar se está autenticado
+   * Utilitários - Verificar se está autenticado (valida o token de fato)
+   * Não tenta renovar o token automaticamente
    */
   async isAuthenticated(): Promise<boolean> {
     const token = await AsyncStorage.getItem(TOKEN_KEY);
-    return !!token;
+    if (!token) {
+      return false;
+    }
+    
+    // Validar o token tentando buscar os dados do usuário
+    // Usar uma requisição direta sem interceptor para evitar refresh automático
+    try {
+      const response = await axios.get(`${BASE_URL}/users/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+        timeout: 5000,
+      });
+      
+      // Se chegou aqui, o token é válido
+      return !!response.data;
+    } catch (error: any) {
+      // Se o token for inválido ou expirado, limpar tokens
+      if (error.response?.status === 401 || error.response?.status === 403) {
+        await this.clearTokens();
+      }
+      return false;
+    }
   }
 
   /**
@@ -583,7 +631,24 @@ async getToken(): Promise<string | null> {
     if (axios.isAxiosError(error)) {
       if (error.response) {
         // Erro da API
-        const message = error.response.data?.message || error.response.data?.error;
+        const data = error.response.data;
+        let message: string;
+        
+        // Se data é uma string, usar diretamente
+        if (typeof data === 'string') {
+          message = data;
+        }
+        // Se data é um objeto, extrair message ou error
+        else if (data && typeof data === 'object') {
+          message = data.message || data.error || data.msg || JSON.stringify(data);
+          // Se message ainda é um objeto, converter para string
+          if (typeof message === 'object') {
+            message = JSON.stringify(message);
+          }
+        } else {
+          message = 'Erro ao comunicar com o servidor';
+        }
+        
         return message || 'Erro ao comunicar com o servidor';
       } else if (error.request) {
         // Sem resposta do servidor
@@ -595,11 +660,20 @@ async getToken(): Promise<string | null> {
     }
     
     // Erro de rede ou outros
-    if (error.message?.includes('Network Error') || error.message?.includes('network')) {
+    if (error?.message?.includes('Network Error') || error?.message?.includes('network')) {
       return 'Erro de rede. Verifique sua conexão com a internet.';
     }
     
-    return error.message || 'Erro desconhecido';
+    // Garantir que sempre retorna uma string
+    if (typeof error?.message === 'string') {
+      return error.message;
+    }
+    
+    if (typeof error === 'string') {
+      return error;
+    }
+    
+    return 'Erro desconhecido';
   }
 }
 
