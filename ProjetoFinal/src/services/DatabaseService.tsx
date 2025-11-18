@@ -39,7 +39,7 @@ class DatabaseService {
           title TEXT NOT NULL,
           description TEXT,
           difficulty INTEGER DEFAULT 1,
-          xp INTEGER DEFAULT 100,
+          baseXp INTEGER DEFAULT 100,
           isPublic INTEGER DEFAULT 1,
           codeTemplate TEXT,
           status TEXT DEFAULT 'Draft',

@@ -6,7 +6,7 @@ interface Challenge {
   title: string;
   description?: string;
   difficulty: number;
-  xp: number;
+  baseXp: number; // Padronizado para baseXp (backend usa baseXp)
   isPublic: boolean;
   codeTemplate?: string;
   status?: string;
@@ -29,13 +29,16 @@ class ChallengeService {
         [challengeData.id]
       );
 
+      // Usar baseXp do backend, com fallback para xp (compatibilidade)
+      const baseXp = challengeData.baseXp || challengeData.xp || 100;
+      
       if (existing) {
         await db.runAsync(
           `UPDATE challenges SET 
             title = ?, 
             description = ?,
             difficulty = ?,
-            xp = ?,
+            baseXp = ?,
             isPublic = ?,
             codeTemplate = ?,
             status = ?,
@@ -47,7 +50,7 @@ class ChallengeService {
             challengeData.title,
             challengeData.description || null,
             challengeData.difficulty || 1,
-            challengeData.xp || 100,
+            baseXp,
             challengeData.isPublic ? 1 : 0,
             challengeData.codeTemplate || null,
             challengeData.status || 'Draft',
@@ -58,14 +61,14 @@ class ChallengeService {
         );
       } else {
         await db.runAsync(
-          `INSERT INTO challenges (id, title, description, difficulty, xp, isPublic, codeTemplate, status, progress, userId) 
+          `INSERT INTO challenges (id, title, description, difficulty, baseXp, isPublic, codeTemplate, status, progress, userId) 
            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
           [
             challengeData.id,
             challengeData.title,
             challengeData.description || null,
             challengeData.difficulty || 1,
-            challengeData.xp || 100,
+            baseXp,
             challengeData.isPublic ? 1 : 0,
             challengeData.codeTemplate || null,
             challengeData.status || 'Draft',

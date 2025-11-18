@@ -14,6 +14,7 @@ import { Ionicons } from "@expo/vector-icons";
 import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 import { useAuth } from "../contexts/AuthContext";
+import ApiService from "../services/ApiService";
 import { styles } from "../styles/authStyles";
 
 export default function LoginScreen() {
@@ -71,9 +72,12 @@ export default function LoginScreen() {
               text: "Sim",
               onPress: async () => {
                 try {
-                  const token = null;
-                  if (token) {}
+                  const token = await ApiService.getToken();
+                  if (token) {
+                    await SecureStore.setItemAsync("app_biometric_token", token);
+                  }
                 } catch (err) {
+                  console.warn("Erro ao salvar token biométrico:", err);
                 }
               },
             },

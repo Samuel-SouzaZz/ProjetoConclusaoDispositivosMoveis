@@ -1,4 +1,4 @@
-import React, { useEffect, useState,useCallback } from "react";
+import React, { useEffect, useState, useCallback, useRef } from "react";
 import { 
   View, 
   Text, 
@@ -43,7 +43,296 @@ const ScreenHeader = ({ title, onAddPress }: { title: string; onAddPress: () => 
   );
 };
 
-// DetailedChallengeCard moved to shared component ../components/DetailedChallengeCard
+// Estilos para SolveChallengeModal
+const modalStyles = StyleSheet.create({
+  modalHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+  },
+  cancelButton: {
+    fontSize: 16,
+    fontWeight: "600",
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  timerContainer: {
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  timerHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 8,
+  },
+  timerLabel: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  timerText: {
+    fontSize: 18,
+    fontWeight: "bold",
+  },
+  timerBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  timerBarFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  descriptionContainer: {
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  descriptionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  descriptionText: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  codeEditorContainer: {
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  codeEditorLabel: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 8,
+  },
+  codeEditor: {
+    minHeight: 200,
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    fontSize: 14,
+  },
+  submitContainer: {
+    padding: 16,
+    borderTopWidth: 1,
+  },
+  submitButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  submitButtonText: {
+    color: "#fff",
+    fontSize: 16,
+    fontWeight: "600",
+  },
+});
+
+// Componente Modal para Resolver Desafio
+const SolveChallengeModal = ({ challenge, onClose, colors, commonStyles }: any) => {
+  const { user } = useAuth();
+  const [code, setCode] = useState('');
+  const [timeLeft, setTimeLeft] = useState(0); // em segundos
+  const [isRunning, setIsRunning] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number | null>(null);
+
+  useEffect(() => {
+    if (!challenge) return;
+    
+    // Inicializar código com template
+    setCode(challenge.codeTemplate || '// Seu código aqui\n');
+    
+    // Inicializar tempo (valor padrão fixo de 60 minutos, converter para segundos)
+    // Nota: timeLimit não é suportado pelo backend, usando valor padrão
+    const timeLimitMinutes = 60;
+    setTimeLeft(timeLimitMinutes * 60);
+    setIsRunning(true);
+    startTimeRef.current = Date.now();
+
+    // Timer countdown
+    intervalRef.current = setInterval(() => {
+      setTimeLeft((prev) => {
+        if (prev <= 1) {
+          setIsRunning(false);
+          if (intervalRef.current) {
+            clearInterval(intervalRef.current);
+          }
+          Alert.alert('Tempo Esgotado!', 'O tempo limite foi atingido.');
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+    };
+  }, [challenge]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
+
+  const handleSubmit = async () => {
+    if (!code.trim()) {
+      Alert.alert('Erro', 'Por favor, escreva seu código antes de submeter.');
+      return;
+    }
+
+    if (!user?.id) {
+      Alert.alert('Erro', 'Você precisa estar autenticado para submeter.');
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const timeSpent = startTimeRef.current ? Date.now() - startTimeRef.current : 0;
+      
+      const result = await ApiService.submitChallenge({
+        exerciseId: challenge.id || challenge._id || challenge.publicCode,
+        code: code,
+        languageId: challenge.languageId || '1', // Usar languageId do desafio ou padrão
+      });
+
+      // Parar o timer
+      setIsRunning(false);
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+
+      const status = result.status || result.data?.status;
+      const score = result.score || result.data?.score || 0;
+      const xpAwarded = result.xpAwarded || result.data?.xpAwarded || 0;
+
+      Alert.alert(
+        status === 'ACCEPTED' || status === 'Accepted' ? 'Parabéns! 🎉' : 'Tente Novamente',
+        status === 'ACCEPTED' || status === 'Accepted'
+          ? `Sua solução foi aceita!\nPontuação: ${score}%\nXP Ganho: ${xpAwarded}`
+          : `Sua solução não passou em todos os testes.\nPontuação: ${score}%`,
+        [{ text: 'OK', onPress: onClose }]
+      );
+    } catch (error: any) {
+      Alert.alert('Erro', ApiService.handleError(error));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  if (!challenge) return null;
+
+  // Usar valor padrão fixo de 60 minutos (timeLimit não é suportado pelo backend)
+  const timeLimitMinutes = 60;
+  const timePercentage = (timeLeft / (timeLimitMinutes * 60)) * 100;
+
+  return (
+    <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]}>
+      <View style={[modalStyles.modalHeader, { borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={onClose}>
+          <Text style={[modalStyles.cancelButton, { color: colors.textSecondary }]}>Fechar</Text>
+        </TouchableOpacity>
+        <View style={{ flex: 1, alignItems: 'center' }}>
+          <Text style={[modalStyles.modalTitle, { color: colors.text }]}>{challenge.title}</Text>
+        </View>
+        <View style={{ width: 60 }} />
+      </View>
+
+      <ScrollView style={[commonStyles.scrollView, { flex: 1 }]}>
+        {/* Timer */}
+        <View style={[modalStyles.timerContainer, { backgroundColor: colors.card }]}>
+          <View style={modalStyles.timerHeader}>
+            <Text style={[modalStyles.timerLabel, { color: colors.text }]}>Tempo Restante</Text>
+            <Text style={[
+              modalStyles.timerText, 
+              { color: timeLeft < 300 ? '#F44336' : colors.primary } // Vermelho se menos de 5 min
+            ]}>
+              {formatTime(timeLeft)}
+            </Text>
+          </View>
+          <View style={[modalStyles.timerBar, { backgroundColor: colors.border }]}>
+            <View 
+              style={[
+                modalStyles.timerBarFill, 
+                { 
+                  width: `${timePercentage}%`, 
+                  backgroundColor: timeLeft < 300 ? '#F44336' : colors.primary 
+                }
+              ]} 
+            />
+          </View>
+        </View>
+
+        {/* Descrição do Desafio */}
+        {challenge.description && (
+          <View style={[modalStyles.descriptionContainer, { backgroundColor: colors.card }]}>
+            <Text style={[modalStyles.descriptionTitle, { color: colors.text }]}>Descrição</Text>
+            <Text style={[modalStyles.descriptionText, { color: colors.textSecondary }]}>
+              {challenge.description}
+            </Text>
+          </View>
+        )}
+
+        {/* Editor de Código */}
+        <View style={[modalStyles.codeEditorContainer, { backgroundColor: colors.card }]}>
+          <Text style={[modalStyles.codeEditorLabel, { color: colors.text }]}>Seu Código</Text>
+          <TextInput
+            style={[modalStyles.codeEditor, { 
+              backgroundColor: colors.background, 
+              color: colors.text, 
+              borderColor: colors.border 
+            }]}
+            value={code}
+            onChangeText={setCode}
+            placeholder="// Escreva sua solução aqui"
+            placeholderTextColor={colors.textSecondary}
+            multiline
+            textAlignVertical="top"
+            editable={isRunning && timeLeft > 0}
+          />
+        </View>
+      </ScrollView>
+
+      {/* Botão de Submeter */}
+      <View style={[modalStyles.submitContainer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+        <TouchableOpacity
+          style={[
+            modalStyles.submitButton,
+            { 
+              backgroundColor: isRunning && timeLeft > 0 ? colors.primary : colors.textSecondary,
+              opacity: (isRunning && timeLeft > 0 && !submitting) ? 1 : 0.5
+            }
+          ]}
+          onPress={handleSubmit}
+          disabled={!isRunning || timeLeft === 0 || submitting}
+        >
+          {submitting ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={modalStyles.submitButtonText}>
+              {timeLeft === 0 ? 'Tempo Esgotado' : 'Submeter Solução'}
+            </Text>
+          )}
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+};
 
 export default function ChallengesScreen() {
   const { commonStyles, colors } = useTheme();
@@ -52,6 +341,8 @@ export default function ChallengesScreen() {
   const route = useRoute<RouteProp<Record<string, { openCreate?: boolean }>, string>>();
   const [challenges, setChallenges] = useState<any[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showSolveModal, setShowSolveModal] = useState(false);
+  const [selectedChallenge, setSelectedChallenge] = useState<any>(null);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingChallenge, setDeletingChallenge] = useState<any>(null);
   const [editingChallenge, setEditingChallenge] = useState<any>(null);
@@ -63,7 +354,7 @@ export default function ChallengesScreen() {
     difficulty: 1,
     xp: 100,
     isPublic: true,
-    codeTemplate: '// Seu código aqui\n'
+    codeTemplate: '// Seu código aqui\n',
   });
 
   const handleAddPress = () => {
@@ -73,7 +364,7 @@ export default function ChallengesScreen() {
       difficulty: 1,
       xp: 100,
       isPublic: true,
-      codeTemplate: '// Seu código aqui\n'
+      codeTemplate: '// Seu código aqui\n',
     });
     setEditingChallenge(null);
     setShowCreateModal(true);
@@ -116,7 +407,7 @@ export default function ChallengesScreen() {
       difficulty: difficultyOptions.find(d => d.label === challenge.difficulty)?.value || 1,
       xp: typeof xp === 'number' ? xp : Number(xp) || 0,
       isPublic: challenge.isPublic,
-      codeTemplate: '// Seu código aqui\n'
+      codeTemplate: challenge.codeTemplate || '// Seu código aqui\n',
     });
     setEditingChallenge(challenge);
     setShowCreateModal(true);
@@ -220,8 +511,11 @@ export default function ChallengesScreen() {
         ) : (
           challenges.map((challenge, idx) => {
             const diffNum = Number(challenge.difficulty ?? 1);
-            const diffLabel = diffNum <= 1 ? 'Fácil' : diffNum === 2 ? 'Médio' : 'Difícil';
-            const xp = challenge.xp ?? challenge.baseXp ?? 0;
+            // Backend retorna difficulty como número (1-5), mas o componente espera string
+            const diffLabel = typeof challenge.difficulty === 'number' 
+              ? difficultyOptions.find(d => d.value === challenge.difficulty)?.label || 'Fácil'
+              : diffNum <= 1 ? 'Fácil' : diffNum === 2 ? 'Médio' : 'Difícil';
+            const xp = challenge.baseXp || challenge.xp || 0; // Backend retorna 'baseXp', mas mantém compatibilidade
             const code = challenge.publicCode || challenge.public_code || challenge.code;
             return (
               <DetailedChallengeCard
@@ -236,7 +530,7 @@ export default function ChallengesScreen() {
                 onPress={() => handleChallengePress(challenge)}
                 onEdit={() => handleEditPress(challenge)}
                 onDelete={() => handleDeletePress(challenge)}
-                onCopyCode={() => handleCopyCode(code)}
+                onCopyCode={code ? () => handleCopyCode(code) : undefined}
               />
             );
           })
@@ -356,6 +650,24 @@ export default function ChallengesScreen() {
         </SafeAreaView>
       </Modal>
 
+      {/* Modal para Resolver Desafio */}
+      <Modal
+        visible={showSolveModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+      >
+        <SolveChallengeModal
+          challenge={selectedChallenge}
+          onClose={() => {
+            setShowSolveModal(false);
+            setSelectedChallenge(null);
+          }}
+          colors={colors}
+          commonStyles={commonStyles}
+        />
+      </Modal>
+
+      {/* Modal para Confirmar Exclusão */}
       <Modal
         visible={showDeleteModal}
         animationType="fade"

@@ -17,6 +17,7 @@ import ProfileScreen from "../screens/ProfileScreen";
 import GroupsScreen from "../screens/GroupsScreen";
 import { useAuth } from "../contexts/AuthContext";
 import GroupProgressScreen from "../screens/GroupProgressScreen";
+import GroupDetailsScreen from "../screens/GroupDetailsScreen";
 import { useTheme } from "../contexts/ThemeContext";
 
 // Tipagem para o Stack Navigator
@@ -162,7 +163,7 @@ export default function AppNavigator() {
         )}
       </Stack.Screen>
       {/* Telas de grupos */}
-      <Stack.Screen name="GroupDetails" component={require('../screens/GroupDetailsScreen').default} />
+      <Stack.Screen name="GroupDetails" component={GroupDetailsScreen} />
       <Stack.Screen name="GroupProgress" component={GroupProgressScreen} />
       <Stack.Screen name="GroupChallenges" component={GroupChallengesScreen} />
       <Stack.Screen name="GroupRanking" component={GroupRankingScreen} />

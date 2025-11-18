@@ -10,10 +10,10 @@ import { Platform } from 'react-native';
  * - Android (emulador): http://10.0.2.2:3000/api
  * - iOS (simulador) / Web: http://localhost:3000/api
  */
-const BASE_URL = 'http://192.168.0.153:3000/api'
+const BASE_URL = 'http://10.0.0.40:3000/api'
   process.env.EXPO_PUBLIC_API_BASE_URL ||
   (Platform.OS === 'android'
-    ? 'http://10.0.0.183:3000/api'
+    ? 'http://10.0.0.40:3000/api'
     : 'http://localhost:3000/api');
 
 // Chaves de armazenamento
@@ -186,8 +186,16 @@ async getToken(): Promise<string | null> {
     page?: number;
     limit?: number;
   }) {
-    const response = await this.api.get('/exercises/mine', { params });
-    return response.data;
+    // Verificar se há token antes de fazer a requisição
+    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    if (!token) {
+      throw new Error('Não autenticado. Faça login novamente.');
+    }
+    
+    // O backend espera page e limit como query params
+    const config = params && Object.keys(params).length > 0 ? { params } : {};
+    const response = await this.api.get('/exercises/mine', config);
+    return response.data; // { items: [], total: number }
   }
 
   /**
@@ -203,6 +211,14 @@ async getToken(): Promise<string | null> {
     xp?: number;
   }) {
     const response = await this.api.patch(`/exercises/${challengeId}`, data);
+    return response.data;
+  }
+
+  /**
+   * CHALLENGES - Buscar desafio por ID
+   */
+  async getChallengeById(exerciseId: string) {
+    const response = await this.api.get(`/exercises/${exerciseId}`);
     return response.data;
   }
 
@@ -235,40 +251,33 @@ async getToken(): Promise<string | null> {
   }
 
   /**
-   * CHALLENGES - Listar desafios
+   * CHALLENGES - Listar desafios publicados
    */
   async getChallenges(params?: {
     page?: number;
     limit?: number;
     difficulty?: string;
     languageId?: string;
+    q?: string;
   }) {
-    const response = await this.api.get('/exercises', { params });
-    return response.data;
-  }
-
-  
-
-  async getExerciseById(id: string) {
-    const response = await this.api.get(`/exercises/${id}`);
-    return response.data;
-  }
-
-  async getExerciseByCode(code: string) {
-    const ensured = code.startsWith('#') ? code : `#${code}`;
-    const safe = encodeURIComponent(ensured);
-    const response = await this.api.get(`/exercises/code/${safe}`);
-    return response.data;
-  }
-
-  async getSubmissionsByExercise(exerciseId: string, params?: { page?: number; limit?: number }) {
-    const response = await this.api.get(`/submissions/exercise/${exerciseId}`, { params });
-    return response.data;
-  }
-
-  async getLeaderboardByExercise(exerciseId: string, params?: { page?: number; limit?: number }) {
-    const response = await this.api.get('/leaderboards/by-exercise', { params: { exerciseId, ...(params || {}) } });
-    return response.data;
+    try {
+      const response = await this.api.get('/exercises', { params });
+      
+      if (response.data && typeof response.data === 'object') {
+        if (Array.isArray(response.data)) {
+          return { items: response.data, total: response.data.length };
+        }
+        if (response.data.items || response.data.data) {
+          return {
+            items: response.data.items || response.data.data || [],
+            total: response.data.total || (response.data.items || response.data.data || []).length
+          };
+        }
+      }
+      return { items: [], total: 0 };
+    } catch (error: any) {
+      return { items: [], total: 0 };
+    }
   }
 
   /**
@@ -297,9 +306,7 @@ async getToken(): Promise<string | null> {
     } catch (error: any) {
       const status = error?.response?.status;
       const isNetworkIssue = !error?.response;
-      // Fallback amigável para WEB quando API não está disponível (404/sem servidor)
       if (Platform.OS === 'web' && (status === 404 || isNetworkIssue)) {
-        console.warn('[ApiService] /leaderboards indisponível. Usando dados mock para preview web.');
         const mock = [
           { id: 'u1', name: 'Victor Demarque', xpTotal: 10000 },
           { id: 'u2', name: 'João Antônio Souza', xpTotal: 3200 },
@@ -358,36 +365,6 @@ async getToken(): Promise<string | null> {
     }
 
     const response = await this.api.post('/forum', payload);
-    return response.data;
-  }
-
-  async getForumById(id: string) {
-    const response = await this.api.get(`/forum/${id}`);
-    return response.data;
-  }
-
-  async getForumParticipants(id: string) {
-    const response = await this.api.get(`/forum/${id}/participantes`);
-    return response.data;
-  }
-
-  async joinForum(id: string) {
-    const response = await this.api.post(`/forum/${id}/participar`);
-    return response.data;
-  }
-
-  async leaveForum(id: string) {
-    const response = await this.api.post(`/forum/${id}/sair`);
-    return response.data;
-  }
-
-  async getForumTopics(forumId: string) {
-    const response = await this.api.get(`/forum-topics/forum/${forumId}`);
-    return response.data;
-  }
-
-  async countForumTopics(forumId: string) {
-    const response = await this.api.get(`/forum-topics/forum/${forumId}/count`);
     return response.data;
   }
 
@@ -527,6 +504,48 @@ async getToken(): Promise<string | null> {
   }
 
   /**
+   * STATS - Estatísticas do dashboard
+   * Retorna: { languages, challenges, forumsCreated, totalXp, level, weekProgress }
+   */
+  async getDashboardStats(userId: string) {
+    try {
+      const response = await this.api.get(`/stats/users/${userId}`);
+      return {
+        languages: response.data.languagesUsed || 0,
+        challenges: response.data.publishedChallenges || 0,
+        forumsCreated: response.data.forumsCreated || 0,
+        totalXp: response.data.totalXp || 0,
+        level: response.data.level || 1,
+        weekProgress: response.data.weekProgress || 0,
+      };
+    } catch (error) {
+      // Retornar valores padrão em caso de erro
+      return {
+        languages: 0,
+        challenges: 0,
+        forumsCreated: 0,
+        totalXp: 0,
+        level: 1,
+        weekProgress: 0,
+      };
+    }
+  }
+
+  /**
+   * SUBMISSIONS - Listar IDs de exercícios concluídos pelo usuário
+   */
+  async getMyCompletedExercises(): Promise<string[]> {
+    try {
+      const response = await this.api.get('/submissions/me/completed');
+      // Backend retorna { exerciseIds: string[] }
+      return response.data?.exerciseIds || [];
+    } catch (error) {
+      // Se o endpoint não existir, retornar array vazio
+      return [];
+    }
+  }
+
+  /**
    * Utilitários - Salvar tokens
    */
   private async saveTokens(accessToken: string, refreshToken: string) {
@@ -548,6 +567,13 @@ async getToken(): Promise<string | null> {
   async isAuthenticated(): Promise<boolean> {
     const token = await AsyncStorage.getItem(TOKEN_KEY);
     return !!token;
+  }
+
+  /**
+   * Utilitários - Obter a base URL da API
+   */
+  getBaseUrl(): string {
+    return BASE_URL.replace('/api', ''); // Remove /api para obter apenas a base
   }
 
   /**
