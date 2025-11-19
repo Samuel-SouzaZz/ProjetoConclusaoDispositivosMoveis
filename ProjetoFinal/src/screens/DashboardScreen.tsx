@@ -60,8 +60,19 @@ export default function DashboardScreen() {
     level: 1,
     weekProgress: 0,
   });
-  const [exercises, setExercises] = useState<any[]>([]);
-  const [allExercises, setAllExercises] = useState<any[]>([]); // Todos os exercícios (sem filtro)
+  interface Exercise {
+    id: string;
+    title: string;
+    description?: string;
+    difficulty: number;
+    baseXp?: number;
+    xp?: number;
+    language?: { name: string };
+    isCompleted?: boolean;
+  }
+
+  const [exercises, setExercises] = useState<Exercise[]>([]);
+  const [allExercises, setAllExercises] = useState<Exercise[]>([]);
   const [completedExerciseIds, setCompletedExerciseIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -148,15 +159,15 @@ export default function DashboardScreen() {
       });
       
       const exercisesList = exercisesData?.items || [];
-      const normalizedExercises = exercisesList.map((ex: any) => ({
+      const normalizedExercises: Exercise[] = exercisesList.map((ex: Exercise) => ({
         ...ex,
-        id: ex.id || ex._id || ex.publicCode,
+        id: ex.id || (ex as any)._id || (ex as any).publicCode,
       }));
       
       setAllExercises(normalizedExercises);
       setExercises(normalizedExercises);
       setCompletedExerciseIds(completedIds || []);
-    } catch (err: any) {
+    } catch (err) {
       setError(ApiService.handleError(err));
     } finally {
       setLoading(false);
@@ -530,7 +541,7 @@ export default function DashboardScreen() {
                             if (exerciseId) {
                               try {
                                 navigation.navigate("ChallengeDetails", { exerciseId: String(exerciseId) });
-                              } catch (navError: any) {
+                              } catch (navError) {
                                 Alert.alert('Erro', 'Não foi possível abrir o desafio. Tente novamente.');
                               }
                             } else {

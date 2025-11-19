@@ -344,8 +344,7 @@ export default function GroupDetailsScreen() {
               <TouchableOpacity
                 style={[styles.secondaryButton, { borderColor: colors.primary }]}
                 onPress={() => {
-                  // @ts-ignore
-                  navigation.navigate('GroupChallenges', {
+                  (navigation as any).navigate('GroupChallenges', {
                     groupId: String(group.id),
                     groupName: group.name || group.title,
                     groupDescription: group.description || '',
@@ -357,8 +356,7 @@ export default function GroupDetailsScreen() {
               <TouchableOpacity
                 style={[styles.secondaryButton, { borderColor: colors.primary }]}
                 onPress={() => {
-                  // @ts-ignore
-                  navigation.navigate('GroupProgress', { groupId: String(group.id), groupName: group.name || group.title });
+                  (navigation as any).navigate('GroupProgress', { groupId: String(group.id), groupName: group.name || group.title });
                 }}
               >
                 <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Meu Progresso</Text>
@@ -366,8 +364,7 @@ export default function GroupDetailsScreen() {
               <TouchableOpacity
                 style={[styles.secondaryButton, { borderColor: colors.primary }]}
                 onPress={() => {
-                  // @ts-ignore
-                  navigation.navigate('GroupRanking', { groupId: String(group.id), groupName: group.name || group.title });
+                  (navigation as any).navigate('GroupRanking', { groupId: String(group.id), groupName: group.name || group.title });
                 }}
               >
                 <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Ranking do Grupo</Text>

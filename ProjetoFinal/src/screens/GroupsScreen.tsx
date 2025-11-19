@@ -52,7 +52,7 @@ export default function GroupsScreen() {
       setPublicGroups(Array.isArray(allRes?.items) ? allRes.items : (Array.isArray(allRes) ? allRes : []));
       setMyGroups(Array.isArray(mineRes?.items) ? mineRes.items : (Array.isArray(mineRes) ? mineRes : []));
     } catch (err) {
-      console.log('Erro ao carregar grupos:', err);
+      Alert.alert('Erro', 'Não foi possível carregar os grupos');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -84,7 +84,7 @@ export default function GroupsScreen() {
       await loadData();
       setTab('mine');
     } catch (err) {
-      console.log('Erro ao criar grupo:', err);
+      Alert.alert('Erro', 'Não foi possível criar o grupo');
     } finally {
       setLoading(false);
     }
@@ -135,8 +135,7 @@ export default function GroupsScreen() {
         <View style={{ flexDirection: isSmallScreen ? 'column' : 'row', marginTop: 16 }}>
           <TouchableOpacity
             onPress={() => {
-              // @ts-ignore
-              navigation.navigate('GroupDetails', { groupId: String(item.id) });
+              (navigation as any).navigate('GroupDetails', { groupId: String(item.id) });
             }}
             style={{
               minHeight: 44,
@@ -158,10 +157,9 @@ export default function GroupsScreen() {
               try {
                 await ApiService.joinGroup(item.id);
                 await loadData();
-                // @ts-ignore
-                navigation.navigate('GroupDetails', { groupId: String(item.id) });
+                (navigation as any).navigate('GroupDetails', { groupId: String(item.id) });
               } catch (err) {
-                console.log('Erro ao acessar grupo:', err);
+                Alert.alert('Erro', 'Não foi possível entrar no grupo');
               }
             }}
             style={{

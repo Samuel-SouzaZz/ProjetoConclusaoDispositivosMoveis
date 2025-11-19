@@ -10,10 +10,10 @@ import { Platform } from 'react-native';
  * - Android (emulador): http://10.0.2.2:3000/api
  * - iOS (simulador) / Web: http://localhost:3000/api
  */
-const BASE_URL = 'http://172.20.10.2:3000/api'
+const BASE_URL =
   process.env.EXPO_PUBLIC_API_BASE_URL ||
   (Platform.OS === 'android'
-    ? 'http://172.20.10.2:3000/api'
+    ? 'http://10.0.2.2:3000/api'
     : 'http://localhost:3000/api');
 
 // Chaves de armazenamento
@@ -198,7 +198,30 @@ class ApiService {
     languageId?: string;
     xp?: number;
   }) {
-    const response = await this.api.post('/exercises', data);
+    interface CreateChallengePayload {
+      title: string;
+      description?: string;
+      difficulty?: number;
+      codeTemplate?: string;
+      isPublic?: boolean;
+      languageId?: string;
+      baseXp?: number;
+    }
+
+    const payload: CreateChallengePayload = {
+      title: data.title,
+      description: data.description,
+      difficulty: data.difficulty,
+      codeTemplate: data.codeTemplate,
+      isPublic: data.isPublic,
+      languageId: data.languageId,
+    };
+    
+    if (data.xp !== undefined) {
+      payload.baseXp = data.xp;
+    }
+    
+    const response = await this.api.post('/exercises', payload);
     return response.data;
   }
 
@@ -234,7 +257,30 @@ class ApiService {
     languageId?: string;
     xp?: number;
   }) {
-    const response = await this.api.patch(`/exercises/${challengeId}`, data);
+    interface UpdateChallengePayload {
+      title?: string;
+      description?: string;
+      difficulty?: number;
+      codeTemplate?: string;
+      isPublic?: boolean;
+      languageId?: string;
+      baseXp?: number;
+    }
+
+    const payload: UpdateChallengePayload = {
+      title: data.title,
+      description: data.description,
+      difficulty: data.difficulty,
+      codeTemplate: data.codeTemplate,
+      isPublic: data.isPublic,
+      languageId: data.languageId,
+    };
+    
+    if (data.xp !== undefined) {
+      payload.baseXp = data.xp;
+    }
+    
+    const response = await this.api.patch(`/exercises/${challengeId}`, payload);
     return response.data;
   }
 
@@ -377,7 +423,15 @@ class ApiService {
     descricao?: string;
     isPublic?: boolean;
   }) {
-    const payload: any = {
+    interface CreateForumPayload {
+      exerciseCode: string;
+      nome: string;
+      assunto: string;
+      descricao?: string;
+      statusPrivacidade?: 'PUBLICO' | 'PRIVADO';
+    }
+
+    const payload: CreateForumPayload = {
       exerciseCode: data.exerciseCode,
       nome: data.nome,
       assunto: data.assunto,
@@ -416,7 +470,13 @@ class ApiService {
     description?: string;
     isPublic?: boolean;
   }) {
-    const payload: any = {
+    interface CreateGroupPayload {
+      name: string;
+      description?: string;
+      visibility?: 'PUBLIC' | 'PRIVATE';
+    }
+
+    const payload: CreateGroupPayload = {
       name: data.name,
       description: data.description,
     };
@@ -435,7 +495,13 @@ class ApiService {
     description?: string;
     isPublic?: boolean;
   }) {
-    const payload: any = {
+    interface UpdateGroupPayload {
+      name?: string;
+      description?: string;
+      visibility?: 'PUBLIC' | 'PRIVATE';
+    }
+
+    const payload: UpdateGroupPayload = {
       name: data.name,
       description: data.description,
     };
@@ -483,13 +549,23 @@ class ApiService {
     languageId?: string;
     xp?: number;
   }) {
-    const payload: any = {
+    interface CreateGroupChallengePayload {
+      title: string;
+      description?: string;
+      difficulty?: number;
+      codeTemplate?: string;
+      languageId?: string;
+      baseXp?: number;
+      groupId: string;
+    }
+
+    const payload: CreateGroupChallengePayload = {
       title: data.title,
       description: data.description,
       difficulty: data.difficulty,
       codeTemplate: data.codeTemplate,
       languageId: data.languageId,
-      baseXp: data.xp, // mapear xp -> baseXp
+      baseXp: data.xp,
       groupId: groupId,
     };
     const response = await this.api.post(`/exercises`, payload);
@@ -608,10 +684,12 @@ class ApiService {
       
       // Se chegou aqui, o token é válido
       return !!response.data;
-    } catch (error: any) {
+    } catch (error) {
       // Se o token for inválido ou expirado, limpar tokens
-      if (error.response?.status === 401 || error.response?.status === 403) {
-        await this.clearTokens();
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 401 || error.response?.status === 403) {
+          await this.clearTokens();
+        }
       }
       return false;
     }
@@ -627,7 +705,7 @@ class ApiService {
   /**
    * Utilitários - Tratamento de erros
    */
-  handleError(error: any): string {
+  handleError(error: unknown): string {
     if (axios.isAxiosError(error)) {
       if (error.response) {
         // Erro da API
@@ -660,13 +738,14 @@ class ApiService {
     }
     
     // Erro de rede ou outros
-    if (error?.message?.includes('Network Error') || error?.message?.includes('network')) {
+    const errorObj = error as { message?: string };
+    if (errorObj?.message?.includes('Network Error') || errorObj?.message?.includes('network')) {
       return 'Erro de rede. Verifique sua conexão com a internet.';
     }
     
     // Garantir que sempre retorna uma string
-    if (typeof error?.message === 'string') {
-      return error.message;
+    if (typeof errorObj?.message === 'string') {
+      return errorObj.message;
     }
     
     if (typeof error === 'string') {

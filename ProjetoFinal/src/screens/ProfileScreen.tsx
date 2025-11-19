@@ -1,4 +1,4 @@
-import React, { useState, useEffect,useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -67,22 +67,32 @@ export default function ProfileScreen() {
       // Verificar se o usuário está autenticado usando o AuthContext
       // Se não houver usuário no contexto, usar dados locais
       if (!user || !user.id) {
-        console.warn('[ProfileScreen] Usuário não autenticado, usando dados locais');
         setProfile(user || {});
         setLoading(false);
         return;
       }
       
-      let userData: any = null;
-      let statsData: any = { exercisesCreated: 0, exercisesSolved: 0, successRate: 0 };
+      interface UserData {
+        id: string;
+        name: string;
+        email: string;
+        xpTotal?: number;
+        level?: number;
+        stats?: { exercisesCreated?: number; exercisesSolved?: number };
+      }
+
+      interface StatsData {
+        exercisesCreated: number;
+        exercisesSolved: number;
+        successRate: number;
+      }
+
+      let userData: UserData | null = null;
+      let statsData: StatsData = { exercisesCreated: 0, exercisesSolved: 0, successRate: 0 };
       
-      // Buscar dados básicos do usuário
       try {
         userData = await ApiService.getMe();
-        console.log('[ProfileScreen] Dados do usuário obtidos:', userData?.id);
         
-        // Tentar buscar estatísticas do usuário via getUserStats
-        // Backend retorna exercisesCreatedCount e exercisesSolvedCount
         try {
           const userStats = await ApiService.getUserStats(userData.id);
           if (userStats) {
@@ -90,86 +100,51 @@ export default function ProfileScreen() {
             statsData.exercisesSolved = userStats.exercisesSolvedCount || userStats.exercisesSolved || 0;
           }
         } catch (statsError) {
-          console.warn('[ProfileScreen] Erro ao buscar estatísticas do usuário:', statsError);
+          // Ignora erros ao buscar estatísticas
         }
         
-        // Tentar calcular estatísticas básicas se disponíveis no userData
         if (userData?.stats) {
           statsData = { ...statsData, ...userData.stats };
         }
-      } catch (meError: any) {
-        console.warn("Erro ao buscar dados do usuário:", meError?.response?.status, meError?.message);
-        // Se for erro 401, pode ser que o token não esteja válido
-        if (meError?.response?.status === 401) {
-          console.warn('[ProfileScreen] Token inválido ou expirado');
-        }
-        userData = user || {};
+      } catch (meError) {
+        userData = user || {} as UserData;
       }
       
       setProfile(userData);
       
-      // Buscar desafios do usuário
       try {
-        console.log('[ProfileScreen] Buscando desafios do usuário...');
-        // Primeiro tenta sem parâmetros, o ApiService tentará com parâmetros se necessário
         let challengesData;
         try {
           challengesData = await ApiService.getMyChallenges();
-        } catch (firstError: any) {
-          // Se falhar, tenta com parâmetros explícitos
-          if (firstError?.response?.status === 400) {
-            console.log('[ProfileScreen] Tentando buscar desafios com parâmetros padrão...');
+        } catch (firstError) {
+          if ((firstError as any)?.response?.status === 400) {
             challengesData = await ApiService.getMyChallenges({ page: 1, limit: 100 });
           } else {
             throw firstError;
           }
         }
         
-        console.log("Dados de desafios recebidos:", challengesData);
-        
-        // Tenta diferentes formatos de resposta da API
-        let challengesList = [];
+        let challengesList: unknown[] = [];
         if (Array.isArray(challengesData)) {
           challengesList = challengesData;
-        } else if (challengesData?.items && Array.isArray(challengesData.items)) {
-          challengesList = challengesData.items;
-        } else if (challengesData?.data && Array.isArray(challengesData.data)) {
-          challengesList = challengesData.data;
-        } else if (challengesData?.exercises && Array.isArray(challengesData.exercises)) {
-          challengesList = challengesData.exercises;
-        } else if (challengesData?.challenges && Array.isArray(challengesData.challenges)) {
-          challengesList = challengesData.challenges;
+        } else if (challengesData && typeof challengesData === 'object') {
+          const data = challengesData as { items?: unknown[]; data?: unknown[]; exercises?: unknown[]; challenges?: unknown[] };
+          challengesList = data.items || data.data || data.exercises || data.challenges || [];
         }
         
-        console.log("Lista de desafios processada:", challengesList);
         setChallenges(challengesList);
         
-        // Atualizar estatísticas com base nos desafios encontrados
         if (challengesList.length > 0) {
           statsData.exercisesCreated = challengesList.length;
         }
-      } catch (challengesError: any) {
-        const status = challengesError?.response?.status;
-        const errorData = challengesError?.response?.data;
-        console.warn("Erro ao buscar desafios:", {
-          status,
-          message: errorData?.message || challengesError?.message,
-          data: errorData
-        });
-        
-        // Se for erro 401, o token pode estar inválido
-        if (status === 401) {
-          console.warn('[ProfileScreen] Token inválido ao buscar desafios');
-        }
+      } catch (challengesError) {
+        // Ignora erros ao buscar desafios
         
         setChallenges([]);
       }
       
-      // Buscar submissões
       try {
-        console.log('[ProfileScreen] Buscando submissões do usuário...');
         const submissionsResponse = await ApiService.getMySubmissions({ limit: 100 });
-        console.log("Dados de submissões recebidos:", submissionsResponse);
         
         let submissionsList = [];
         if (Array.isArray(submissionsResponse)) {
@@ -184,56 +159,50 @@ export default function ProfileScreen() {
         
         // Mapear exerciseId do backend para challengeId no frontend
         // Backend retorna status em UPPERCASE: 'ACCEPTED' | 'REJECTED' | 'PENDING'
-        const mappedSubmissions = submissionsList.map((sub: any) => ({
+        interface Submission {
+          exerciseId?: string;
+          challengeId?: string;
+          exerciseTitle?: string;
+          challengeTitle?: string;
+          exercise?: { title?: string };
+          challenge?: { title?: string };
+          status: string;
+          xpAwarded?: number;
+          xp?: number;
+          createdAt?: string;
+          submittedAt?: string;
+        }
+
+        const mappedSubmissions = submissionsList.map((sub: Submission) => ({
           ...sub,
           challengeId: sub.exerciseId || sub.challengeId,
           exerciseTitle: sub.exerciseTitle || sub.challengeTitle || sub.exercise?.title || sub.challenge?.title || 'Desafio',
-          // Normalizar status para o formato esperado pelo frontend (capitalized)
           status: sub.status === 'ACCEPTED' ? 'Accepted' : sub.status === 'REJECTED' ? 'Rejected' : sub.status === 'PENDING' ? 'Pending' : sub.status,
-          // Backend retorna xpAwarded, não xp
           xp: sub.xpAwarded || sub.xp || 0,
-          // Backend retorna createdAt, não submittedAt
           submittedAt: sub.createdAt || sub.submittedAt,
         }));
         
-        console.log("Lista de submissões processada:", mappedSubmissions);
         setSubmissions(mappedSubmissions);
         
-        // Atualizar estatísticas com base nas submissões
-        // Backend retorna status em UPPERCASE, então comparar com 'ACCEPTED'
         if (mappedSubmissions.length > 0) {
-          const accepted = mappedSubmissions.filter((s: any) => 
+          const accepted = mappedSubmissions.filter((s) => 
             s.status === 'Accepted' || s.status === 'ACCEPTED'
           ).length;
           statsData.exercisesSolved = accepted;
           statsData.successRate = Math.round((accepted / mappedSubmissions.length) * 100);
         }
-      } catch (submissionsError: any) {
-        const status = submissionsError?.response?.status;
-        const errorData = submissionsError?.response?.data;
-        console.warn("Erro ao buscar submissões:", {
-          status,
-          message: errorData?.message || submissionsError?.message,
-          data: errorData
-        });
-        
-        // Se for erro 401, o token pode estar inválido
-        if (status === 401) {
-          console.warn('[ProfileScreen] Token inválido ao buscar submissões');
-        }
-        
+      } catch (submissionsError) {
         setSubmissions([]);
       }
       
-      // Atualizar cards de estatísticas
       setStatCards([
-        { id: "1", label: "Criados", value: statsData.exercisesCreated || statsData.challengesCreated || 0, icon: "create", color: colors.primary },
-        { id: "2", label: "Resolvidos", value: statsData.exercisesSolved || statsData.challengesSolved || 0, icon: "checkmark-circle", color: "#4CAF50" },
-        { id: "3", label: "XP Total", value: userData?.xpTotal || userData?.xp || 0, icon: "flash", color: colors.xp },
+        { id: "1", label: "Criados", value: statsData.exercisesCreated || 0, icon: "create", color: colors.primary },
+        { id: "2", label: "Resolvidos", value: statsData.exercisesSolved || 0, icon: "checkmark-circle", color: "#4CAF50" },
+        { id: "3", label: "XP Total", value: userData?.xpTotal || 0, icon: "flash", color: colors.xp },
         { id: "4", label: "Taxa Sucesso", value: `${statsData.successRate || 0}%`, icon: "stats-chart", color: "#FF9800" },
       ]);
-    } catch (error: any) {
-      console.log("Erro ao carregar perfil:", error?.response?.data || error?.message);
+    } catch (error) {
+      // Erro ao carregar perfil
     } finally {
       setLoading(false);
     }

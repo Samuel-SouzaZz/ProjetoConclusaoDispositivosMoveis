@@ -19,7 +19,7 @@ import { styles } from "../styles/authStyles";
 import { isBiometricEnabled } from "../utils/biometricPreferences";
 
 export default function LoginScreen() {
-  const { login } = useAuth();
+  const { login, loading: authLoading } = useAuth();
   const navigation = useNavigation<any>();
 
   const [email, setEmail] = useState("");
@@ -29,19 +29,20 @@ export default function LoginScreen() {
   const [rememberMe, setRememberMe] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
   const passwordRef = useRef<RNTextInput>(null);
+  const hasAttemptedBiometric = useRef(false);
 
   useEffect(() => {
-    // Verificar disponibilidade de biometria
     checkBiometricAvailability();
     
-    // Solicitar Face ID imediatamente quando a tela carregar
-    // Não esperar delay para garantir que seja solicitado
-    const timer = setTimeout(() => {
-      checkBiometricLogin();
-    }, 300);
-    
-    return () => clearTimeout(timer);
-  }, []);
+    if (!authLoading && !hasAttemptedBiometric.current) {
+      const timer = setTimeout(() => {
+        checkBiometricLogin();
+        hasAttemptedBiometric.current = true;
+      }, 500);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [authLoading]);
 
   async function checkBiometricAvailability() {
     try {
@@ -55,7 +56,6 @@ export default function LoginScreen() {
 
   async function checkBiometricLogin() {
     try {
-      // Verificar se biometria está habilitada nas preferências
       const biometricEnabled = await isBiometricEnabled();
       if (!biometricEnabled) {
         return;
@@ -79,25 +79,28 @@ export default function LoginScreen() {
         ? "Use o Face ID para entrar" 
         : "Use sua biometria para entrar";
       
-      // Solicitar biometria
+      setLoading(true);
+      
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: promptMsg,
         cancelLabel: "Cancelar",
         disableDeviceFallback: false,
       });
 
+      setLoading(false);
+
       if (result.success) {
-        // Token já está salvo, usar para autenticar
         try {
           await ApiService.setToken(savedToken);
           await login("", "");
-        } catch (error: any) {
+        } catch (error) {
           await SecureStore.deleteItemAsync("app_biometric_token");
           Alert.alert("Erro", "Não foi possível fazer login com biometria. Tente novamente.");
         }
       }
-    } catch (error: any) {
-      // Ignora erros silenciosamente
+    } catch (error) {
+      setLoading(false);
+      // Ignora erros silenciosamente para não interromper o fluxo
     }
   }
 
@@ -111,8 +114,9 @@ export default function LoginScreen() {
     try {
       await login(email, password);
       // Removido pop-up automático - usuário pode habilitar nas Configurações
-    } catch (err: any) {
-      Alert.alert("Erro", err.message || "Não foi possível realizar o login.");
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Não foi possível realizar o login.";
+      Alert.alert("Erro", errorMessage);
     } finally {
       setLoading(false);
     }

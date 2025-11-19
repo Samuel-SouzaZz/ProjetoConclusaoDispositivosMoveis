@@ -62,11 +62,10 @@ export default function DiscussionsScreen() {
     );
   }, [forums, query]);
 
-  const handleCardPress = (forum: any) => {
+  const handleCardPress = (forum: { id?: string; _id?: string }) => {
     const id = forum?.id || forum?._id;
     if (!id) return;
-    // @ts-ignore
-    navigation.navigate('ForumDetails', { forumId: String(id) });
+    (navigation as any).navigate('ForumDetails', { forumId: String(id) });
   };
 
   const handleCreatePublication = async () => {

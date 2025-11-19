@@ -437,11 +437,10 @@ export default function ChallengesScreen() {
     }
   };
 
-  const handleChallengePress = (challenge: any) => {
+  const handleChallengePress = (challenge: { id?: string; _id?: string }) => {
     const id = challenge?.id || challenge?._id;
     if (!id) return;
-    // @ts-ignore
-    navigation.navigate('ChallengeDetails', { exerciseId: String(id) });
+    (navigation as any).navigate('ChallengeDetails', { exerciseId: String(id) });
   };
 
   const handleSaveChallenge = async () => {

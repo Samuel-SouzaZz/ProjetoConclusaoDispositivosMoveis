@@ -57,7 +57,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Não fazer login automático baseado apenas em token
       // O usuário deve fazer login manualmente ou via Face ID no LoginScreen
     } catch (error) {
-      console.warn("Erro na inicialização de autenticação:", error);
       await ApiService.clearTokens();
     } finally {
       setLoading(false);
@@ -102,19 +101,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const { user: userData, tokens } = await ApiService.login(email, password);
-      console.log('[AuthContext] Login bem-sucedido, tokens recebidos:', !!tokens?.accessToken);
 
-      // Garante usuário consistente do backend
       let me;
       try {
         me = await ApiService.getMe();
         if (!me || !me.id) {
           throw new Error("Dados do usuário inválidos");
         }
-        console.log('[AuthContext] Dados do usuário obtidos via getMe:', me.id);
       } catch (getMeError) {
-        // Se getMe falhar, usa os dados do login
-        console.warn("Erro ao buscar dados completos, usando dados do login:", getMeError);
         me = userData;
         if (!me || !me.id) {
           throw new Error("Não foi possível obter dados do usuário");
@@ -123,21 +117,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       await AsyncStorage.setItem(USER_ID_KEY, me.id);
       
-      // Sincroniza com banco local (pode falhar silenciosamente se não houver banco)
       try {
         await UserService.syncUserFromBackend(me);
       } catch (syncError) {
         // Erro no sync não deve impedir o login
-        console.warn("Erro ao sincronizar com banco local:", syncError);
       }
 
       setUser(me);
       Alert.alert("Sucesso", `Bem-vindo(a), ${me.name || 'Usuário'}!`);
-      // Removido pop-up automático - usuário pode habilitar nas Configurações
-    } catch (error: any) {
+    } catch (error) {
       const message = ApiService.handleError(error);
       Alert.alert("Erro no Login", message);
-      throw error; // Re-throw para que a tela possa tratar
+      throw error;
     }
   }
 
@@ -164,20 +155,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const { user: userData, tokens } = await ApiService.signup({ name, email, password, handle, collegeId });
-      console.log('[AuthContext] Signup bem-sucedido, tokens recebidos:', !!tokens?.accessToken);
+      const { user: userData } = await ApiService.signup({ name, email, password, handle, collegeId });
       
-      // Garante usuário consistente do backend
       let me;
       try {
         me = await ApiService.getMe();
         if (!me || !me.id) {
           throw new Error("Dados do usuário inválidos");
         }
-        console.log('[AuthContext] Dados do usuário obtidos via getMe:', me.id);
       } catch (getMeError) {
-        // Se getMe falhar, usa os dados do signup
-        console.warn("Erro ao buscar dados completos, usando dados do cadastro:", getMeError);
         me = userData;
         if (!me || !me.id) {
           throw new Error("Não foi possível obter dados do usuário");
@@ -186,21 +172,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       
       await AsyncStorage.setItem(USER_ID_KEY, me.id);
       
-      // Sincroniza com banco local (pode falhar silenciosamente se não houver banco)
       try {
         await UserService.syncUserFromBackend(me);
       } catch (syncError) {
         // Erro no sync não deve impedir o cadastro
-        console.warn("Erro ao sincronizar com banco local:", syncError);
       }
 
       setUser(me);
       Alert.alert("Sucesso", "Cadastro realizado com sucesso!");
-      // Removido pop-up automático - usuário pode habilitar nas Configurações
-    } catch (error: any) {
+    } catch (error) {
       const message = ApiService.handleError(error);
       Alert.alert("Erro no Cadastro", message);
-      throw error; // Re-throw para que a tela possa tratar
+      throw error;
     }
   }
 
@@ -214,7 +197,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         try {
           await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
         } catch (secureStoreError) {
-          console.warn("Erro ao deletar token biométrico:", secureStoreError);
+          // Ignora erros ao deletar token biométrico
         }
       }
 

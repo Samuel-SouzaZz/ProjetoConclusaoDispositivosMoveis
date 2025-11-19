@@ -79,10 +79,8 @@ class UserService {
           ]
         );
       }
-    } catch (error: any) {
-      // Log do erro mas não interrompe o fluxo
-      console.error("Erro ao sincronizar usuário com banco local:", error);
-      // Não re-throw para não quebrar o fluxo de autenticação
+    } catch (error) {
+      // Erro no sync não deve impedir o fluxo de autenticação
     }
   }
 
