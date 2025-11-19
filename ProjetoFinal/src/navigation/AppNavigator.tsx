@@ -18,6 +18,7 @@ import GroupsScreen from "../screens/GroupsScreen";
 import { useAuth } from "../contexts/AuthContext";
 import GroupProgressScreen from "../screens/GroupProgressScreen";
 import GroupDetailsScreen from "../screens/GroupDetailsScreen";
+import GroupMembersManageScreen from "../screens/GroupMembersManageScreen";
 import { useTheme } from "../contexts/ThemeContext";
 
 // Tipagem para o Stack Navigator
@@ -32,6 +33,7 @@ export type RootStackParamList = {
   GroupInvite: { groupId: string; token: string };
   ForumDetails: { forumId: string };
   ChallengeDetails: { exerciseId: string };
+  GroupMembersManage: { groupId: string; groupName?: string };
 };
 
 // Tipagem para o Tab Navigator
@@ -170,6 +172,7 @@ export default function AppNavigator() {
       <Stack.Screen name="GroupInvite" component={GroupInviteScreen} />
       <Stack.Screen name="ForumDetails" component={require('../screens/ForumDetailsScreen').default} />
       <Stack.Screen name="ChallengeDetails" component={ChallengeDetailsScreen} />
+      <Stack.Screen name="GroupMembersManage" component={GroupMembersManageScreen} />
     </Stack.Navigator>
   );
 }

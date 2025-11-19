@@ -521,10 +521,18 @@ class ApiService {
   }
 
   /**
-   * GROUPS - Membros do grupo
+   * GROUPS - Remover membro do grupo (owner/moderador)
    */
-  async getGroupMembers(groupId: string) {
-    const response = await this.api.get(`/groups/${groupId}/members`);
+  async removeGroupMember(groupId: string, userId: string) {
+    const response = await this.api.delete(`/groups/${groupId}/members/${userId}`);
+    return response.data;
+  }
+
+  /**
+   * GROUPS - Definir papel do membro (MEMBER | MODERATOR)
+   */
+  async setGroupMemberRole(groupId: string, userId: string, role: 'MEMBER' | 'MODERATOR') {
+    const response = await this.api.post(`/groups/${groupId}/members/${userId}/role`, { role });
     return response.data;
   }
 

@@ -80,7 +80,7 @@ type GroupDetailsRoute = RouteProp<RootStackParamList, "GroupDetails">;
 export default function GroupDetailsScreen() {
   const { colors, commonStyles, isDarkMode } = useTheme();
   const route = useRoute<GroupDetailsRoute>();
-  const navigation = useNavigation();
+  const navigation = useNavigation<any>();
   const { groupId } = route.params;
   const { user } = useAuth();
 
@@ -157,8 +157,8 @@ export default function GroupDetailsScreen() {
       } catch {}
       // membros
       try {
-        const mm = Array.isArray(data?.members) ? data.members : await ApiService.getGroupMembers(groupId);
-        const mItems = Array.isArray(mm) ? mm : mm?.items || [];
+        const mm = Array.isArray(data?.members) ? data.members : data?.items || [];
+        const mItems = Array.isArray(mm) ? mm : [];
         setMembers(mItems);
       } catch {}
       // desafios
@@ -318,6 +318,17 @@ export default function GroupDetailsScreen() {
                         <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Gerar Convite</Text>
                       </TouchableOpacity>
                     )}
+                    <TouchableOpacity
+                      style={[styles.secondaryButton, { borderColor: colors.primary }]}
+                      onPress={() =>
+                        navigation.navigate('GroupMembersManage', {
+                          groupId: String(groupId),
+                          groupName: group.name || group.title,
+                        })
+                      }
+                    >
+                      <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Gerenciar Membros</Text>
+                    </TouchableOpacity>
                   </View>
                 );
               })()}
@@ -329,8 +340,9 @@ export default function GroupDetailsScreen() {
             <View style={styles.metaRow}> 
               <View style={styles.metaItem}> 
                 <Ionicons name="people" size={18} color={colors.primary} />
-                <Text style={[styles.metaText, { color: colors.textSecondary }]}>
-                  {group.membersCount ?? 0} membros
+                <Text style={[styles.metaText, { color: colors.textSecondary }]}
+                >
+                  {(Array.isArray(members) ? members.length : (group.membersCount ?? 0))} membros
                 </Text>
               </View>
               <View style={styles.metaItem}> 
@@ -442,18 +454,26 @@ export default function GroupDetailsScreen() {
               <FlatList
                 data={members}
                 keyExtractor={(item: any, index: number) => String(item.id ?? index)}
-                renderItem={({ item }: { item: any }) => (
-                  <View style={[styles.memberItem, { borderBottomColor: colors.border }]}> 
-                    <View style={[styles.avatar, { backgroundColor: isDarkMode ? '#2D3748' : '#EDF2F7' }]}> 
-                      <Text style={[styles.avatarText, { color: colors.text }]}>{String(item.name || item.handle || 'U').charAt(0).toUpperCase()}</Text>
+                renderItem={({ item }: { item: any }) => {
+                  const mid = String(item?.id ?? item?.userId ?? item?.user?.id ?? '');
+                  const isMe = mid && user?.id && String(user.id) === mid;
+                  const roleRaw = String(item.role || '').toUpperCase();
+                  const isOwnerHere = isMe || roleRaw === 'OWNER';
+                  const roleLabel = isOwnerHere ? 'Dono' : (item.role || 'Membro');
+
+                  return (
+                    <View style={[styles.memberItem, { borderBottomColor: colors.border }]}> 
+                      <View style={[styles.avatar, { backgroundColor: isDarkMode ? '#2D3748' : '#EDF2F7' }]}> 
+                        <Text style={[styles.avatarText, { color: colors.text }]}>{String(item.name || item.handle || 'U').charAt(0).toUpperCase()}</Text>
+                      </View>
+                      <View style={{ flex: 1 }}> 
+                        <Text style={[styles.memberName, { color: colors.text }]}>{item.name || item.handle} {isMe ? '(Você)' : ''}</Text>
+                        <Text style={[styles.memberRole, { color: colors.textSecondary }]}>{roleLabel}</Text>
+                      </View>
+                      <Text style={[styles.joinedAt, { color: colors.textSecondary }]}>Entrou em: {formatDate(item.joinedAt)}</Text>
                     </View>
-                    <View style={{ flex: 1 }}> 
-                      <Text style={[styles.memberName, { color: colors.text }]}>{item.name || item.handle} {item.isYou ? '(Você)' : ''}</Text>
-                      <Text style={[styles.memberRole, { color: colors.textSecondary }]}>{item.role || 'Membro'}</Text>
-                    </View>
-                    <Text style={[styles.joinedAt, { color: colors.textSecondary }]}>Entrou em: {formatDate(item.joinedAt)}</Text>
-                  </View>
-                )}
+                  );
+                }}
               />
             )}
           </View>
