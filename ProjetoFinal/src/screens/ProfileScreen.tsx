@@ -1,212 +1,246 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  FlatList,
   ActivityIndicator,
   RefreshControl,
   Image,
   Dimensions,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons, FontAwesome5 } from "@expo/vector-icons";
-import { useAuth } from "../contexts/AuthContext";
+import { Ionicons } from "@expo/vector-icons";
+import { useAuth, User } from "../contexts/AuthContext";
 import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
-import DatabaseService from "../services/DatabaseService";
 import { useFocusEffect } from '@react-navigation/native';
+import { deriveLevelFromXp, getProgressToNextLevel } from "../utils/levels";
 
 const { width } = Dimensions.get("window");
 
-interface StatCard {
-  id: string;
-  label: string;
-  value: number | string;
-  icon: string;
-  color: string;
+// Interfaces
+interface Badge {
+  _id: string;
+  id?: string;
+  name: string;
+  description?: string;
+  icon?: string;
+  iconUrl?: string;
+  type?: "gold" | "silver" | "bronze" | "special";
+  earned?: boolean;
 }
 
-interface Challenge {
+interface Title {
+  _id: string;
+  id?: string;
+  name: string;
+  description?: string;
+  minLevel?: number;
+  minXp?: number;
+}
+
+interface UserTitleItem {
+  title: string | Title;
+  awardedAt?: string;
+  active?: boolean;
+}
+
+interface Exercise {
   id: string;
   title: string;
-  description: string;
-  difficulty: number | string; // Backend retorna número (1-5), mas pode vir como string
-  status: "Draft" | "Published" | "DRAFT" | "PUBLISHED" | "ARCHIVED"; // Backend retorna uppercase
-  createdAt: string;
+  description?: string;
+  difficulty?: number;
+  baseXp?: number;
+  status?: string;
 }
 
-interface Submission {
-  id: string;
-  challengeId: string;
-  exerciseTitle: string;
-  score: number;
-  status: "Accepted" | "Rejected" | "Pending";
-  xp: number;
-  submittedAt: string;
-}
+type TabType = 'completed' | 'badges' | 'titles' | 'created';
 
 export default function ProfileScreen() {
   const { user } = useAuth();
-  const { commonStyles, colors } = useTheme();
-  const [activeTab, setActiveTab] = useState<"challenges" | "solved">("challenges");
-  const [filter, setFilter] = useState<"all" | "drafts" | "published">("all");
+  const { commonStyles, colors, isDarkMode } = useTheme();
+  const [activeTab, setActiveTab] = useState<TabType>('completed');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [profile, setProfile] = useState<any>(null);
-  const [statCards, setStatCards] = useState<StatCard[]>([]);
-  const [challenges, setChallenges] = useState<Challenge[]>([]);
-  const [submissions, setSubmissions] = useState<Submission[]>([]);
+  
+  // Dados do perfil
+  const [profile, setProfile] = useState<User | null>(null);
+  const [userRank, setUserRank] = useState<number | null>(null);
+  const [loginStreak, setLoginStreak] = useState<number>(0);
+  const [completedCount, setCompletedCount] = useState<number>(0);
+  
+  // Badges e Títulos
+  const [allBadges, setAllBadges] = useState<Badge[]>([]);
+  const [userBadges, setUserBadges] = useState<string[]>([]);
+  const [loadingBadges, setLoadingBadges] = useState(true);
+  const [allTitles, setAllTitles] = useState<Title[]>([]);
+  const [userTitles, setUserTitles] = useState<UserTitleItem[]>([]);
+  const [loadingTitles, setLoadingTitles] = useState(true);
+  const [titleFilter, setTitleFilter] = useState<'all' | 'earned' | 'locked'>('all');
+  
+  // Exercícios
+  const [completedExercises, setCompletedExercises] = useState<Exercise[]>([]);
+  const [loadingCompleted, setLoadingCompleted] = useState(false);
+  const [createdExercises, setCreatedExercises] = useState<Exercise[]>([]);
+  const [loadingCreated, setLoadingCreated] = useState(false);
+
+  // Funções auxiliares de carregamento (definidas antes de loadProfile para evitar erro de inicialização)
+  const loadBadges = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoadingBadges(true);
+      const [allBadgesData, userBadgesData] = await Promise.all([
+        ApiService.getAllBadges(),
+        ApiService.getUserBadges(user.id),
+      ]);
+      
+      const earnedBadgeIds = userBadgesData.map((ub: any) =>
+        typeof ub.badge === "string" ? ub.badge : ub.badge?._id || ub.badge?.id
+      );
+      
+      setAllBadges(Array.isArray(allBadgesData) ? allBadgesData : []);
+      setUserBadges(earnedBadgeIds);
+    } catch (error) {
+      setAllBadges([]);
+      setUserBadges([]);
+    } finally {
+      setLoadingBadges(false);
+    }
+  }, [user?.id]);
+
+  const loadTitles = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoadingTitles(true);
+      const [titlesRes, userTitlesRes] = await Promise.all([
+        ApiService.getAllTitles(),
+        ApiService.getUserTitles(user.id),
+      ]);
+      
+      setAllTitles(Array.isArray(titlesRes) ? titlesRes : []);
+      setUserTitles(Array.isArray(userTitlesRes) ? userTitlesRes : []);
+    } catch (error) {
+      setAllTitles([]);
+      setUserTitles([]);
+    } finally {
+      setLoadingTitles(false);
+    }
+  }, [user?.id]);
+
+  const loadCompletedExercises = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoadingCompleted(true);
+      const completedIds = await ApiService.getMyCompletedExercises();
+      
+      // Buscar detalhes dos exercícios
+      const exercisesPromises = completedIds.map((id: string) =>
+        ApiService.getChallengeById(id).catch(() => null)
+      );
+      
+      const exercises = await Promise.all(exercisesPromises);
+      const validExercises = exercises.filter((ex): ex is Exercise => ex !== null);
+      
+      setCompletedExercises(validExercises);
+      setCompletedCount(validExercises.length);
+    } catch (error) {
+      setCompletedExercises([]);
+    } finally {
+      setLoadingCompleted(false);
+    }
+  }, [user?.id]);
+
+  const loadCreatedExercises = useCallback(async () => {
+    if (!user?.id) return;
+    
+    try {
+      setLoadingCreated(true);
+      const response = await ApiService.getMyChallenges({ page: 1, limit: 1000 });
+      const exercises = response?.items || response?.data || [];
+      setCreatedExercises(Array.isArray(exercises) ? exercises : []);
+    } catch (error) {
+      setCreatedExercises([]);
+    } finally {
+      setLoadingCreated(false);
+    }
+  }, [user?.id]);
 
   const loadProfile = useCallback(async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       
-      // Verificar se o usuário está autenticado usando o AuthContext
-      // Se não houver usuário no contexto, usar dados locais
-      if (!user || !user.id) {
-        setProfile(user || {});
-        setLoading(false);
-        return;
-      }
-      
-      interface UserData {
-        id: string;
-        name: string;
-        email: string;
-        xpTotal?: number;
-        level?: number;
-        stats?: { exercisesCreated?: number; exercisesSolved?: number };
-      }
-
-      interface StatsData {
-        exercisesCreated: number;
-        exercisesSolved: number;
-        successRate: number;
-      }
-
-      let userData: UserData | null = null;
-      let statsData: StatsData = { exercisesCreated: 0, exercisesSolved: 0, successRate: 0 };
-      
-      try {
-        userData = await ApiService.getMe();
-        
-        try {
-          const userStats = await ApiService.getUserStats(userData.id);
-          if (userStats) {
-            statsData.exercisesCreated = userStats.exercisesCreatedCount || userStats.exercisesCreated || 0;
-            statsData.exercisesSolved = userStats.exercisesSolvedCount || userStats.exercisesSolved || 0;
-          }
-        } catch (statsError) {
-          // Ignora erros ao buscar estatísticas
-        }
-        
-        if (userData?.stats) {
-          statsData = { ...statsData, ...userData.stats };
-        }
-      } catch (meError) {
-        userData = user || {} as UserData;
-      }
-      
+      // Carregar dados do usuário
+      const userData = await ApiService.getMe();
       setProfile(userData);
       
-      try {
-        let challengesData;
-        try {
-          challengesData = await ApiService.getMyChallenges();
-        } catch (firstError) {
-          if ((firstError as any)?.response?.status === 400) {
-            challengesData = await ApiService.getMyChallenges({ page: 1, limit: 100 });
-          } else {
-            throw firstError;
-          }
-        }
-        
-        let challengesList: unknown[] = [];
-        if (Array.isArray(challengesData)) {
-          challengesList = challengesData;
-        } else if (challengesData && typeof challengesData === 'object') {
-          const data = challengesData as { items?: unknown[]; data?: unknown[]; exercises?: unknown[]; challenges?: unknown[] };
-          challengesList = data.items || data.data || data.exercises || data.challenges || [];
-        }
-        
-        setChallenges(challengesList);
-        
-        if (challengesList.length > 0) {
-          statsData.exercisesCreated = challengesList.length;
-        }
-      } catch (challengesError) {
-        // Ignora erros ao buscar desafios
-        
-        setChallenges([]);
-      }
+      // Calcular nível e progresso
+      const xpTotal = userData?.xpTotal || 0;
+      const level = deriveLevelFromXp(xpTotal);
+      const progress = getProgressToNextLevel(xpTotal, level);
       
+      // Carregar estatísticas completas
+      let stats = null;
       try {
-        const submissionsResponse = await ApiService.getMySubmissions({ limit: 100 });
-        
-        let submissionsList = [];
-        if (Array.isArray(submissionsResponse)) {
-          submissionsList = submissionsResponse;
-        } else if (submissionsResponse?.items && Array.isArray(submissionsResponse.items)) {
-          submissionsList = submissionsResponse.items;
-        } else if (submissionsResponse?.data && Array.isArray(submissionsResponse.data)) {
-          submissionsList = submissionsResponse.data;
-        } else if (submissionsResponse?.submissions && Array.isArray(submissionsResponse.submissions)) {
-          submissionsList = submissionsResponse.submissions;
+        stats = await ApiService.getUserStats(user.id);
+        if (stats) {
+          setCompletedCount(stats.exercisesSolvedCount || stats.exercisesSolved || 0);
         }
-        
-        // Mapear exerciseId do backend para challengeId no frontend
-        // Backend retorna status em UPPERCASE: 'ACCEPTED' | 'REJECTED' | 'PENDING'
-        interface Submission {
-          exerciseId?: string;
-          challengeId?: string;
-          exerciseTitle?: string;
-          challengeTitle?: string;
-          exercise?: { title?: string };
-          challenge?: { title?: string };
-          status: string;
-          xpAwarded?: number;
-          xp?: number;
-          createdAt?: string;
-          submittedAt?: string;
-        }
-
-        const mappedSubmissions = submissionsList.map((sub: Submission) => ({
-          ...sub,
-          challengeId: sub.exerciseId || sub.challengeId,
-          exerciseTitle: sub.exerciseTitle || sub.challengeTitle || sub.exercise?.title || sub.challenge?.title || 'Desafio',
-          status: sub.status === 'ACCEPTED' ? 'Accepted' : sub.status === 'REJECTED' ? 'Rejected' : sub.status === 'PENDING' ? 'Pending' : sub.status,
-          xp: sub.xpAwarded || sub.xp || 0,
-          submittedAt: sub.createdAt || sub.submittedAt,
-        }));
-        
-        setSubmissions(mappedSubmissions);
-        
-        if (mappedSubmissions.length > 0) {
-          const accepted = mappedSubmissions.filter((s) => 
-            s.status === 'Accepted' || s.status === 'ACCEPTED'
-          ).length;
-          statsData.exercisesSolved = accepted;
-          statsData.successRate = Math.round((accepted / mappedSubmissions.length) * 100);
-        }
-      } catch (submissionsError) {
-        setSubmissions([]);
-      }
+      } catch {}
       
-      setStatCards([
-        { id: "1", label: "Criados", value: statsData.exercisesCreated || 0, icon: "create", color: colors.primary },
-        { id: "2", label: "Resolvidos", value: statsData.exercisesSolved || 0, icon: "checkmark-circle", color: "#4CAF50" },
-        { id: "3", label: "XP Total", value: userData?.xpTotal || 0, icon: "flash", color: colors.xp },
-        { id: "4", label: "Taxa Sucesso", value: `${statsData.successRate || 0}%`, icon: "stats-chart", color: "#FF9800" },
-      ]);
+      // Nota: O endpoint /users/me/profile/complete não existe no backend
+      // As estatísticas já são obtidas via getUserStats acima
+      
+      // Carregar ranking
+      try {
+        const leaderboard = await ApiService.getGeneralLeaderboard({ page: 1, limit: 1000 });
+        const userIndex = leaderboard.findIndex((u: any) => 
+          String(u.userId || u._id || u.id) === String(user.id)
+        );
+        if (userIndex !== -1) {
+          setUserRank(userIndex + 1);
+        }
+      } catch {}
+      
+      // Carregar streak (se disponível)
+      try {
+        const streakData = await ApiService.getUserStats(user.id);
+        if (streakData?.loginStreakCurrent) {
+          setLoginStreak(streakData.loginStreakCurrent);
+        }
+      } catch {}
+      
+      // Carregar badges
+      loadBadges();
+      
+      // Carregar títulos
+      loadTitles();
+      
+      // Carregar exercícios completos
+      loadCompletedExercises();
+      
+      // Carregar exercícios criados
+      loadCreatedExercises();
+      
     } catch (error) {
-      // Erro ao carregar perfil
+      // Erro ao carregar perfil - garantir que o loading seja desativado
+      // Se houver erro, usar dados do user do contexto como fallback
+      if (user) {
+        setProfile(user);
+      }
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, loadBadges, loadTitles, loadCompletedExercises, loadCreatedExercises]);
 
   useFocusEffect(
     useCallback(() => {
@@ -220,12 +254,68 @@ export default function ProfileScreen() {
     setRefreshing(false);
   };
 
-  const navigateToChallenge = (challengeId: string, isEdit: boolean) => {
-  };
+  // Construir URL completa do avatar (mesma lógica do DashboardScreen e frontend web)
+  // IMPORTANTE: Todos os hooks devem ser chamados ANTES de qualquer return condicional
+  const avatarUrl = useMemo(() => {
+    try {
+      const url = profile?.avatarUrl || user?.avatarUrl;
+      if (!url || url === null || url === undefined) {
+        return null;
+      }
+      
+      // Garantir que é uma string
+      const urlString = typeof url === 'string' ? url : String(url);
+      const trimmed = urlString.trim();
+      
+      if (!trimmed || trimmed === 'null' || trimmed === 'undefined') {
+        return null;
+      }
+      
+      // Preservar data URLs e blob URLs como estão
+      if (/^(data:|blob:)/i.test(trimmed)) {
+        return trimmed;
+      }
+      
+      // Se já é uma URL completa (http/https), retornar direto
+      if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+        return trimmed;
+      }
+      
+      // Se não, construir URL completa usando a base URL da API
+      // getBaseUrl() retorna a base sem /api, então precisamos adicionar o caminho do avatar
+      const baseUrl = ApiService.getBaseUrl();
+      const avatarPath = trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+      
+      // Se o avatarPath começa com /uploads, usar direto
+      // Caso contrário, pode ser necessário adicionar /uploads/avatars
+      if (avatarPath.startsWith('/uploads')) {
+        return `${baseUrl}${avatarPath}`;
+      }
+      
+      // Tentar com /uploads/avatars se não começar com /
+      return `${baseUrl}${avatarPath.startsWith('/') ? avatarPath : `/uploads/avatars/${avatarPath}`}`;
+    } catch (error) {
+      // Em caso de erro, retornar null para mostrar o ícone padrão
+      return null;
+    }
+  }, [profile?.avatarUrl, user?.avatarUrl]);
 
+  // Computações que dependem de dados (devem vir depois dos hooks)
+  const xpTotal = profile?.xpTotal || user?.xpTotal || 0;
+  const level = deriveLevelFromXp(xpTotal);
+  const progress = getProgressToNextLevel(xpTotal, level);
+  const activeTitle = userTitles.find((ut) => ut.active)?.title;
+  const titleName = typeof activeTitle === 'object' && activeTitle ? activeTitle.name : 
+                    (typeof activeTitle === 'string' ? activeTitle : '');
+  const badgesCount = userBadges.length;
+  const earnedBadges = allBadges.filter((b: Badge) => 
+    userBadges.includes(b._id || b.id || '')
+  );
+
+  // Return condicional APÓS todos os hooks
   if (loading && !profile) {
     return (
-      <SafeAreaView style={commonStyles.container}>
+      <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.text }]}>Carregando perfil...</Text>
@@ -234,241 +324,856 @@ export default function ProfileScreen() {
     );
   }
 
-  const filteredChallenges = challenges.filter(ch => {
-    // Backend retorna status em UPPERCASE: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
-    if (filter === "drafts") return ch.status === "Draft" || ch.status === "DRAFT";
-    if (filter === "published") return ch.status === "Published" || ch.status === "PUBLISHED";
-    return true;
-  });
-
-  const StatCard = ({ item }: { item: StatCard }) => (
-    <View style={[styles.statCard, { backgroundColor: colors.card, shadowColor: item.color }]}>
-      <Ionicons name={item.icon as any} size={24} color={item.color} />
-      <Text style={[styles.statValue, { color: colors.text }]}>{item.value}</Text>
-      <Text style={[styles.statLabel, { color: colors.textSecondary }]}>{item.label}</Text>
-    </View>
-  );
-
-  const ChallengeItem = ({ item }: { item: Challenge }) => (
-    <TouchableOpacity
-      style={[styles.challengeItem, { backgroundColor: colors.card }]}
-      onPress={() => navigateToChallenge(item.id, true)}
-    >
-      <View style={styles.challengeHeader}>
-        <Text style={[styles.challengeTitle, { color: colors.text }]}>{item.title}</Text>
-        <View style={[styles.statusBadge, (item.status === "Published" || item.status === "PUBLISHED") ? styles.badgePublished : styles.badgeDraft]}>
-          <Text style={[styles.badgeText, { color: colors.text }]}>
-            {(item.status === "Published" || item.status === "PUBLISHED") ? "Publicado" : 
-             (item.status === "DRAFT" || item.status === "Draft") ? "Rascunho" : 
-             (item.status === "ARCHIVED") ? "Arquivado" : "Rascunho"}
-          </Text>
-        </View>
-      </View>
-      <Text style={[styles.challengeDescription, { color: colors.text }]} numberOfLines={2}>{item.description}</Text>
-      <View style={styles.challengeFooter}>
-        <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(item.difficulty) }]}>
-          <Text style={[styles.difficultyText, { color: colors.text }]}>{getDifficultyLabel(item.difficulty)}</Text>
-        </View>
-        <Text style={[styles.dateText, { color: colors.textSecondary }]}>{new Date(item.createdAt).toLocaleDateString()}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const SubmissionItem = ({ item }: { item: Submission }) => (
-    <TouchableOpacity
-      style={[styles.submissionItem, { backgroundColor: colors.card }]}
-      onPress={() => navigateToChallenge(item.challengeId, false)}
-    >
-      <View style={styles.submissionHeader}>
-        <Text style={[styles.submissionTitle, { color: colors.text }]}>{item.exerciseTitle}</Text>
-        <View style={[styles.statusBadge, item.status === "Accepted" ? styles.badgeAccepted : styles.badgeRejected]}>
-          <Text style={[styles.badgeText, { color: colors.text }]}>{item.status === "Accepted" ? "Aceito" : "Rejeitado"}</Text>
-        </View>
-      </View>
-      <View style={styles.submissionFooter}>
-        <View style={styles.submissionStats}>
-          <Text style={[styles.scoreText, { color: colors.primary }]}>{item.score}%</Text>
-          <Text style={[styles.submissionXpText, { color: colors.xp }]}>+{item.xp} XP</Text>
-        </View>
-        <Text style={[styles.dateText, { color: colors.textSecondary }]}>{new Date(item.submittedAt).toLocaleDateString()}</Text>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const getDifficultyColor = (difficulty: number | string) => {
-    // Backend retorna difficulty como número (1-5)
-    const numDifficulty = typeof difficulty === 'number' ? difficulty : 
-      difficulty === 'Fácil' || difficulty === '1' ? 1 :
-      difficulty === 'Médio' || difficulty === '2' ? 2 :
-      difficulty === 'Difícil' || difficulty === '3' ? 3 : 1;
-    
-    switch (numDifficulty) {
-      case 1: return colors.easy;
-      case 2: return colors.medium;
-      case 3: return colors.hard;
-      default: return colors.easy;
-    }
-  };
-  
-  const getDifficultyLabel = (difficulty: number | string) => {
-    // Backend retorna difficulty como número (1-5)
-    const numDifficulty = typeof difficulty === 'number' ? difficulty : 
-      difficulty === 'Fácil' || difficulty === '1' ? 1 :
-      difficulty === 'Médio' || difficulty === '2' ? 2 :
-      difficulty === 'Difícil' || difficulty === '3' ? 3 : 1;
-    
-    switch (numDifficulty) {
-      case 1: return 'Fácil';
-      case 2: return 'Médio';
-      case 3: return 'Difícil';
-      default: return 'Fácil';
-    }
-  };
-
   return (
-    <SafeAreaView style={commonStyles.container}>
+    <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]} edges={['top']}>
       <ScrollView
         style={commonStyles.scrollView}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-          <TouchableOpacity style={styles.avatarContainer}>
-            <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-              {profile?.avatarUrl ? (
-                <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
-              ) : (
-                <Ionicons name="person" size={40} color="#fff" />
-              )}
-            </View>
-            <View style={[styles.editIcon, { backgroundColor: colors.primary }]}>
-              <Ionicons name="pencil" size={12} color="#fff" />
-            </View>
-          </TouchableOpacity>
-          
-          <Text style={[styles.userName, { color: colors.text }]}>{profile?.name || "Usuário"}</Text>
-          <Text style={[styles.userHandle, { color: colors.textSecondary }]}>@{profile?.handle || "user"}</Text>
-          
-          <View style={styles.levelContainer}>
-            <Text style={[styles.levelText, { color: colors.text }]}>Nível {profile?.level || 1}</Text>
-            <View style={[styles.xpBar, { backgroundColor: colors.border }]}>
-              <View style={[styles.xpBarFill, { width: `${(profile?.xpTotal || 0) % 1000 / 10}%`, backgroundColor: colors.primary }]} />
-            </View>
-            <Text style={[styles.levelXpText, { color: colors.textSecondary }]}>{profile?.xpTotal || 0} XP</Text>
-          </View>
-          
-          {profile?.bio && (
-            <Text style={[styles.bio, { color: colors.textSecondary }]}>{profile.bio}</Text>
-          )}
-        </View>
-
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.statsScroll}
-          contentContainerStyle={styles.statsContent}
-        >
-          {statCards.map((card) => (
-            <StatCard key={card.id} item={card} />
-          ))}
-        </ScrollView>
-
-        <View style={[styles.tabsContainer, { backgroundColor: colors.card }]}>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "challenges" && [styles.tabActive, { borderBottomColor: colors.primary }]]}
-            onPress={() => setActiveTab("challenges")}
-          >
-            <Text style={[styles.tabText, activeTab === "challenges" && [styles.tabTextActive, { color: colors.primary }], { color: colors.textSecondary }]}>
-              Meus Desafios
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tab, activeTab === "solved" && [styles.tabActive, { borderBottomColor: colors.primary }]]}
-            onPress={() => setActiveTab("solved")}
-          >
-            <Text style={[styles.tabText, activeTab === "solved" && [styles.tabTextActive, { color: colors.primary }], { color: colors.textSecondary }]}>
-              Resolvidos
-            </Text>
-          </TouchableOpacity>
-        </View>
-
-        {activeTab === "challenges" && (
-          <View style={[styles.filtersContainer, { backgroundColor: colors.background }]}>
-            <TouchableOpacity
-              style={[styles.filter, filter === "all" && [styles.filterActive, { backgroundColor: colors.primary }], { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => setFilter("all")}
-            >
-              <Text style={[styles.filterText, filter === "all" && styles.filterTextActive, { color: colors.text }]}>
-                Todos
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filter, filter === "drafts" && [styles.filterActive, { backgroundColor: colors.primary }], { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => setFilter("drafts")}
-            >
-              <Text style={[styles.filterText, filter === "drafts" && styles.filterTextActive, { color: colors.text }]}>
-                Rascunhos
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.filter, filter === "published" && [styles.filterActive, { backgroundColor: colors.primary }], { backgroundColor: colors.card, borderColor: colors.border }]}
-              onPress={() => setFilter("published")}
-            >
-              <Text style={[styles.filterText, filter === "published" && styles.filterTextActive, { color: colors.text }]}>
-                Publicados
-              </Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <View style={[styles.contentContainer, { backgroundColor: colors.background }]}>
-          {activeTab === "challenges" ? (
-            filteredChallenges.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="document-outline" size={48} color={colors.textSecondary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Nenhum desafio encontrado</Text>
+        {/* Header com Gradiente (estilo TryHackMe) */}
+        <View style={[styles.header, { backgroundColor: colors.primary }]}>
+          <View style={styles.headerContent}>
+            {/* Avatar */}
+            <View style={styles.avatarContainer}>
+              <View style={[styles.avatar, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
+                {avatarUrl && typeof avatarUrl === 'string' && avatarUrl.length > 0 ? (
+                  <Image 
+                    source={{ uri: avatarUrl }} 
+                    style={styles.avatarImage}
+                    onError={() => {
+                      // Se a imagem falhar ao carregar, não fazer nada (já mostra o ícone padrão)
+                    }}
+                  />
+                ) : (
+                  <Ionicons name="person" size={50} color="#fff" />
+                )}
               </View>
-            ) : (
-              <FlatList
-                data={filteredChallenges}
-                renderItem={({ item }) => <ChallengeItem item={item} />}
-                keyExtractor={(item) => item.id}
-                scrollEnabled={false}
-              />
-            )
-          ) : (
-            submissions.length === 0 ? (
-              <View style={styles.emptyContainer}>
-                <Ionicons name="checkmark-circle-outline" size={48} color={colors.textSecondary} />
-                <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Nenhuma submissão encontrada</Text>
+              <TouchableOpacity
+                style={[styles.editButton, { backgroundColor: colors.secondary || '#4A90E2' }]}
+                accessibilityLabel="Editar foto de perfil"
+                accessibilityRole="button"
+              >
+                <Ionicons name="pencil" size={14} color="#fff" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Informações do Usuário */}
+            <View style={styles.userInfo}>
+              <View style={styles.usernameContainer}>
+                <Text style={styles.username}>{profile?.name || user?.name || "Usuário"}</Text>
+                {titleName && titleName.trim() !== '' && (
+                  <Text style={styles.userTitle}>[{titleName}]</Text>
+                )}
               </View>
-            ) : (
-              <FlatList
-                data={submissions}
-                renderItem={({ item }) => <SubmissionItem item={item} />}
-                keyExtractor={(item) => item.id}
-                scrollEnabled={false}
-              />
-            )
-          )}
+              
+              {/* Nível e Progresso */}
+              <View style={styles.levelInfo}>
+                <View style={styles.levelItem}>
+                  <Text style={styles.levelLabel}>Nível</Text>
+                  <Text style={styles.levelValue}>{level}</Text>
+                </View>
+                <View style={styles.progressItem}>
+                  <Text style={styles.progressLabel}>Próximo Nível</Text>
+                  <Text style={styles.progressValue}>
+                    {Math.max(0, progress.nextRequirement - progress.withinLevelXp)} XP
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+
+          {/* Cards de Estatísticas */}
+          <View style={styles.statsCards}>
+            <StatCard
+              icon="trophy"
+              value={userRank || 'N/A'}
+              label="Rank"
+              color="#FFD700"
+              accessibilityLabel={`Rank ${userRank || 'não disponível'}`}
+            />
+            <StatCard
+              icon="medal"
+              value={badgesCount}
+              label="Emblemas"
+              color="#C0C0C0"
+              accessibilityLabel={`${badgesCount} emblemas conquistados`}
+            />
+            <StatCard
+              icon="flame"
+              value={loginStreak}
+              label="Streak"
+              color="#FF6B6B"
+              accessibilityLabel={`${loginStreak} dias de streak`}
+            />
+            <StatCard
+              icon="checkmark-circle"
+              value={completedCount}
+              label="Completos"
+              color="#4CAF50"
+              accessibilityLabel={`${completedCount} desafios completos`}
+            />
+          </View>
         </View>
 
-        <View style={[styles.badgesSection, { backgroundColor: colors.background }]}>
-          <Text style={[styles.sectionTitle, { color: colors.text }]}>Conquistas</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View style={[styles.badgeItem, { backgroundColor: colors.card }]}>
-              <Ionicons name="trophy" size={32} color={colors.xp} />
-              <Text style={[styles.badgeLabel, { color: colors.text }]}>Primeiro Desafio</Text>
-            </View>
-            <View style={[styles.badgeItem, { backgroundColor: colors.card }]}>
-              <Ionicons name="star" size={32} color="#FF9800" />
-              <Text style={[styles.badgeLabel, { color: colors.text }]}>10 Resolvidos</Text>
-            </View>
+        {/* Tabs */}
+        <View style={[styles.tabsContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
+            <TabButton
+              icon="checkmark-circle"
+              label="Completos"
+              active={activeTab === 'completed'}
+              onPress={() => setActiveTab('completed')}
+              colors={colors}
+              accessibilityLabel="Desafios completos"
+            />
+            <TabButton
+              icon="medal"
+              label="Badges"
+              active={activeTab === 'badges'}
+              onPress={() => setActiveTab('badges')}
+              colors={colors}
+              accessibilityLabel="Emblemas conquistados"
+            />
+            <TabButton
+              icon="trophy"
+              label="Títulos"
+              active={activeTab === 'titles'}
+              onPress={() => setActiveTab('titles')}
+              colors={colors}
+              accessibilityLabel="Títulos conquistados"
+            />
+            <TabButton
+              icon="code"
+              label="Criados"
+              active={activeTab === 'created'}
+              onPress={() => setActiveTab('created')}
+              colors={colors}
+              accessibilityLabel="Desafios criados"
+            />
           </ScrollView>
+        </View>
+
+        {/* Conteúdo das Tabs */}
+        <View style={[styles.contentArea, { backgroundColor: colors.background }]}>
+          {activeTab === 'completed' && (
+            <CompletedTab
+              exercises={completedExercises}
+              loading={loadingCompleted}
+              colors={colors}
+              isDarkMode={isDarkMode}
+            />
+          )}
+          
+          {activeTab === 'badges' && (
+            <BadgesTab
+              badges={earnedBadges}
+              loading={loadingBadges}
+              colors={colors}
+              isDarkMode={isDarkMode}
+            />
+          )}
+          
+          {activeTab === 'titles' && (
+            <TitlesTab
+              allTitles={allTitles}
+              userTitles={userTitles}
+              filter={titleFilter}
+              onFilterChange={setTitleFilter}
+              loading={loadingTitles}
+              colors={colors}
+              isDarkMode={isDarkMode}
+              userStats={profile?.stats || profile}
+            />
+          )}
+          
+          {activeTab === 'created' && (
+            <CreatedTab
+              exercises={createdExercises}
+              loading={loadingCreated}
+              colors={colors}
+              isDarkMode={isDarkMode}
+            />
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 }
+
+// Componente de Card de Estatística
+const StatCard = ({ icon, value, label, color, accessibilityLabel }: {
+  icon: string;
+  value: string | number;
+  label: string;
+  color: string;
+  accessibilityLabel?: string;
+}) => {
+  return (
+    <View
+      style={[styles.statCard, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="text"
+    >
+      <Ionicons name={icon as any} size={24} color={color} />
+      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statLabel}>{label}</Text>
+    </View>
+  );
+};
+
+// Componente de Tab Button
+const TabButton = ({ icon, label, active, onPress, colors, accessibilityLabel }: {
+  icon: string;
+  label: string;
+  active: boolean;
+  onPress: () => void;
+  colors: any;
+  accessibilityLabel?: string;
+}) => {
+  return (
+    <TouchableOpacity
+      style={[
+        styles.tab,
+        active && [styles.tabActive, { borderBottomColor: colors.primary }],
+      ]}
+      onPress={onPress}
+      accessibilityLabel={accessibilityLabel}
+      accessibilityRole="tab"
+      accessibilityState={{ selected: active }}
+    >
+      <Ionicons
+        name={icon as any}
+        size={16}
+        color={active ? colors.primary : colors.textSecondary}
+      />
+      <Text
+        style={[
+          styles.tabText,
+          { color: active ? colors.primary : colors.textSecondary },
+        ]}
+      >
+        {label}
+      </Text>
+    </TouchableOpacity>
+  );
+};
+
+// Tab: Desafios Completos
+const CompletedTab = ({ exercises, loading, colors, isDarkMode }: {
+  exercises: Exercise[];
+  loading: boolean;
+  colors: any;
+  isDarkMode: boolean;
+}) => {
+  if (loading) {
+    return (
+      <View style={styles.emptyContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+          Carregando desafios completos...
+        </Text>
+      </View>
+    );
+  }
+
+  if (exercises.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons name="checkmark-circle-outline" size={64} color={colors.textSecondary} />
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+          Nenhum desafio completo ainda
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.exercisesGrid}>
+      {exercises.map((exercise) => (
+        <ExerciseCard key={exercise.id} exercise={exercise} colors={colors} isDarkMode={isDarkMode} />
+      ))}
+    </View>
+  );
+};
+
+// Tab: Badges
+const BadgesTab = ({ badges, loading, colors, isDarkMode }: {
+  badges: Badge[];
+  loading: boolean;
+  colors: any;
+  isDarkMode: boolean;
+}) => {
+  if (loading) {
+    return (
+      <View style={styles.emptyContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+          Carregando emblemas...
+        </Text>
+      </View>
+    );
+  }
+
+  if (badges.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons name="lock-closed" size={64} color={colors.textSecondary} />
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+          Nenhum emblema conquistado ainda
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.badgesGrid}>
+      {badges.map((badge, index) => (
+        <BadgeItem key={badge._id || badge.id || index} badge={badge} colors={colors} isDarkMode={isDarkMode} />
+      ))}
+    </View>
+  );
+};
+
+// Tab: Títulos
+const TitlesTab = ({ allTitles, userTitles, filter, onFilterChange, loading, colors, isDarkMode, userStats }: {
+  allTitles: Title[];
+  userTitles: UserTitleItem[];
+  filter: 'all' | 'earned' | 'locked';
+  onFilterChange: (filter: 'all' | 'earned' | 'locked') => void;
+  loading: boolean;
+  colors: any;
+  isDarkMode: boolean;
+  userStats?: any;
+}) => {
+  // Função para calcular progresso do título (completa, baseada no web)
+  const getTitleProgress = (title: Title) => {
+    // Verificar se já foi conquistado
+    const earned = userTitles.some((ut) => {
+      const tid = typeof ut.title === 'string' ? ut.title : (ut.title as any)?._id || (ut.title as any)?.id;
+      return tid && String(tid) === String(title._id || title.id);
+    });
+    
+    if (earned) {
+      return { earned: true, percent: 100, label: 'Conquistado' };
+    }
+    
+    // Obter estatísticas do usuário
+    const solved = Number(userStats?.exercisesSolvedCount || userStats?.exercisesSolved || 0);
+    const created = Number(userStats?.exercisesCreatedCount || userStats?.exercisesCreated || 0);
+    const forumComments = Number(userStats?.forumCommentsCount || userStats?.forumComments || 0);
+    const forumTopics = Number(userStats?.forumTopicsCount || userStats?.forumTopics || 0);
+    const groupsJoined = Number(userStats?.groupsJoinedCount || userStats?.groupsJoined || 0);
+    const groupsCreated = Number(userStats?.groupsCreatedCount || userStats?.groupsCreated || 0);
+    const loginStreak = Number(userStats?.loginStreakCurrent || userStats?.loginStreak || 0);
+    
+    const name = (title.name || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    
+    // Resolver Desafios
+    if (name === 'primeiro de muitos' || name.includes('primeiro de muitos')) {
+      const needed = 1;
+      const done = solved;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Falta ${falta} desafio` : 'Quase lá') };
+    }
+    if (name === 'dev em ascensao' || name.includes('dev em ascensao')) {
+      const needed = 10;
+      const done = solved;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} desafios` : 'Quase lá') };
+    }
+    if (name === 'destrava codigos' || name.includes('destrava codigos')) {
+      const needed = 5;
+      const done = solved;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} desafios` : 'Quase lá') };
+    }
+    if (name === 'mao na massa' || name.includes('mao na massa')) {
+      const needed = 25;
+      const done = solved;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} desafios` : 'Quase lá') };
+    }
+    if (name === 'ligeirinho da logica' || name.includes('ligeirinho da logica')) {
+      const needed = 50;
+      const done = solved;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} desafios` : 'Quase lá') };
+    }
+    if (name === 'lenda do terminal' || name.includes('lenda do terminal')) {
+      const needed = 100;
+      const done = solved;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} desafios` : 'Quase lá') };
+    }
+    
+    // Criar Desafios
+    if (name.includes('criador de bugs')) {
+      const needed = 1;
+      const done = created;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Falta ${falta} desafio criado` : 'Quase lá') };
+    }
+    if (name === 'arquiteto de ideias' || name.includes('arquiteto de ideias')) {
+      const needed = 5;
+      const done = created;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} desafios criados` : 'Quase lá') };
+    }
+    if (name === 'engenheiro de logica' || name.includes('engenheiro de logica')) {
+      const needed = 10;
+      const done = created;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} desafios criados` : 'Quase lá') };
+    }
+    if (name === 'sensei do codigo' || name.includes('sensei do codigo')) {
+      const needed = 25;
+      const done = created;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} desafios criados` : 'Quase lá') };
+    }
+    
+    // Comentários no Fórum
+    if (name === 'palpiteiro de primeira viagem' || name.includes('palpiteiro de primeira viagem')) {
+      const needed = 1;
+      const done = forumComments;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Falta ${falta} comentário` : 'Quase lá') };
+    }
+    if (name === 'conselheiro de plantao' || name.includes('conselheiro de plantao')) {
+      const needed = 10;
+      const done = forumComments;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} comentários` : 'Quase lá') };
+    }
+    if (name === 'guru da comunidade' || name.includes('guru da comunidade')) {
+      const needed = 25;
+      const done = forumComments;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} comentários` : 'Quase lá') };
+    }
+    
+    // Tópicos do Fórum
+    if (name === 'quebrador de gelo' || name.includes('quebrador de gelo')) {
+      const needed = 1;
+      const done = forumTopics;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Falta ${falta} tópico` : 'Quase lá') };
+    }
+    if (name === 'gerador de ideias' || name.includes('gerador de ideias')) {
+      const needed = 5;
+      const done = forumTopics;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} tópicos` : 'Quase lá') };
+    }
+    if (name === 'debatedor nato' || name.includes('debatedor nato')) {
+      const needed = 10;
+      const done = forumTopics;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} tópicos` : 'Quase lá') };
+    }
+    if (name === 'voz do forum' || name.includes('voz do forum')) {
+      const needed = 25;
+      const done = forumTopics;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} tópicos` : 'Quase lá') };
+    }
+    
+    // Entrar em Grupos
+    if (name === 'recruta do codigo' || name.includes('recruta do codigo')) {
+      const needed = 1;
+      const done = groupsJoined;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Falta ${falta} grupo` : 'Quase lá') };
+    }
+    if (name === 'integrador' || name.includes('integrador')) {
+      const needed = 5;
+      const done = groupsJoined;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} grupos` : 'Quase lá') };
+    }
+    if (name === 'conectadao' || name.includes('conectadao')) {
+      const needed = 10;
+      const done = groupsJoined;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} grupos` : 'Quase lá') };
+    }
+    
+    // Criar Grupos
+    if (name === 'fundador de equipe' || name.includes('fundador de equipe')) {
+      const needed = 1;
+      const done = groupsCreated;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Falta ${falta} grupo criado` : 'Quase lá') };
+    }
+    if (name === 'lider de stack' || name.includes('lider de stack')) {
+      const needed = 3;
+      const done = groupsCreated;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} grupos criados` : 'Quase lá') };
+    }
+    if (name === 'gestor do caos' || name.includes('gestor do caos')) {
+      const needed = 5;
+      const done = groupsCreated;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} grupos criados` : 'Quase lá') };
+    }
+    if (name === 'senhor das comunidades' || name.includes('senhor das comunidades')) {
+      const needed = 10;
+      const done = groupsCreated;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} grupos criados` : 'Quase lá') };
+    }
+    
+    // Login consecutivo (streak)
+    if (name === 'explorador do codigo' || name.includes('explorador do codigo')) {
+      const needed = 1;
+      const done = loginStreak;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Falta ${falta} dia` : 'Quase lá') };
+    }
+    if (name === 'dev constante' || name.includes('dev constante')) {
+      const needed = 7;
+      const done = loginStreak;
+      const percent = Math.max(0, Math.min(100, Math.round((done / needed) * 100)));
+      const falta = Math.max(0, needed - done);
+      const earnedNow = done >= needed;
+      return { earned: earnedNow, percent, label: earnedNow ? 'Conquistado' : (falta > 0 ? `Faltam ${falta} dias` : 'Quase lá') };
+    }
+    
+    // Fallback para títulos não mapeados
+    return { earned: false, percent: 0, label: 'Ação necessária' };
+  };
+
+  if (loading) {
+    return (
+      <View style={styles.emptyContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+          Carregando títulos...
+        </Text>
+      </View>
+    );
+  }
+
+  // Sempre mostrar os filtros, mesmo quando não há resultados
+  const filteredTitles = allTitles.filter((t) => {
+    const { earned } = getTitleProgress(t);
+    if (filter === 'earned') return earned;
+    if (filter === 'locked') return !earned;
+    return true;
+  });
+
+  return (
+    <View>
+      {/* Filtro - sempre visível */}
+      <View style={styles.filterContainer}>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            filter === 'all' && [styles.filterButtonActive, { backgroundColor: colors.primary }],
+            { borderColor: colors.border },
+          ]}
+          onPress={() => onFilterChange('all')}
+          accessibilityLabel="Filtrar todos os títulos"
+          accessibilityRole="button"
+          accessibilityState={{ selected: filter === 'all' }}
+        >
+          <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
+            Todos
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            filter === 'earned' && [styles.filterButtonActive, { backgroundColor: colors.primary }],
+            { borderColor: colors.border },
+          ]}
+          onPress={() => onFilterChange('earned')}
+          accessibilityLabel="Filtrar títulos conquistados"
+          accessibilityRole="button"
+          accessibilityState={{ selected: filter === 'earned' }}
+        >
+          <Text style={[styles.filterText, filter === 'earned' && styles.filterTextActive]}>
+            Conquistados
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.filterButton,
+            filter === 'locked' && [styles.filterButtonActive, { backgroundColor: colors.primary }],
+            { borderColor: colors.border },
+          ]}
+          onPress={() => onFilterChange('locked')}
+          accessibilityLabel="Filtrar títulos bloqueados"
+          accessibilityRole="button"
+          accessibilityState={{ selected: filter === 'locked' }}
+        >
+          <Text style={[styles.filterText, filter === 'locked' && styles.filterTextActive]}>
+            Bloqueados
+          </Text>
+        </TouchableOpacity>
+      </View>
+
+      {/* Grid de Títulos ou Mensagem Vazia */}
+      {filteredTitles.length === 0 ? (
+        <View style={styles.emptyContainer}>
+          <Ionicons name="trophy-outline" size={64} color={colors.textSecondary} />
+          <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+            {filter === 'earned' 
+              ? 'Nenhum título conquistado ainda'
+              : filter === 'locked'
+              ? 'Nenhum título bloqueado'
+              : 'Nenhum título encontrado'}
+          </Text>
+          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+            {filter !== 'all' && 'Toque em "Todos" para ver todos os títulos'}
+          </Text>
+        </View>
+      ) : (
+        <View style={styles.titlesGrid}>
+          {filteredTitles.map((title) => {
+            const { earned, percent, label } = getTitleProgress(title);
+            return (
+              <TitleCard
+                key={title._id || title.id}
+                title={title}
+                earned={earned}
+                percent={percent}
+                label={label}
+                colors={colors}
+                isDarkMode={isDarkMode}
+              />
+            );
+          })}
+        </View>
+      )}
+    </View>
+  );
+};
+
+// Tab: Desafios Criados
+const CreatedTab = ({ exercises, loading, colors, isDarkMode }: {
+  exercises: Exercise[];
+  loading: boolean;
+  colors: any;
+  isDarkMode: boolean;
+}) => {
+  if (loading) {
+    return (
+      <View style={styles.emptyContainer}>
+        <ActivityIndicator size="large" color={colors.primary} />
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+          Carregando desafios criados...
+        </Text>
+      </View>
+    );
+  }
+
+  if (exercises.length === 0) {
+    return (
+      <View style={styles.emptyContainer}>
+        <Ionicons name="code-outline" size={64} color={colors.textSecondary} />
+        <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+          Nenhum desafio criado ainda
+        </Text>
+      </View>
+    );
+  }
+
+  return (
+    <View style={styles.exercisesGrid}>
+      {exercises.map((exercise) => (
+        <ExerciseCard key={exercise.id} exercise={exercise} colors={colors} isDarkMode={isDarkMode} />
+      ))}
+    </View>
+  );
+};
+
+// Componente de Card de Exercício
+const ExerciseCard = ({ exercise, colors, isDarkMode }: {
+  exercise: Exercise;
+  colors: any;
+  isDarkMode: boolean;
+}) => {
+  const getDifficultyColor = (difficulty?: number) => {
+    if (!difficulty) return colors.easy || '#4CAF50';
+    if (difficulty <= 2) return colors.easy || '#4CAF50';
+    if (difficulty <= 3) return colors.medium || '#FF9800';
+    return colors.hard || '#F44336';
+  };
+
+  return (
+    <View
+      style={[styles.exerciseCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+      accessibilityLabel={`Desafio ${exercise.title}`}
+      accessibilityRole="button"
+    >
+      <View style={styles.exerciseHeader}>
+        <Text style={[styles.exerciseTitle, { color: colors.text }]} numberOfLines={2}>
+          {exercise.title}
+        </Text>
+        {exercise.difficulty && (
+          <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(exercise.difficulty) }]}>
+            <Text style={styles.difficultyText}>
+              Dificuldade: {exercise.difficulty}/5
+            </Text>
+          </View>
+        )}
+      </View>
+      
+      {exercise.description && (
+        <Text style={[styles.exerciseDescription, { color: colors.textSecondary }]} numberOfLines={3}>
+          {exercise.description}
+        </Text>
+      )}
+      
+      <View style={[styles.exerciseFooter, { borderTopColor: colors.border }]}>
+        {exercise.baseXp && (
+          <View style={styles.xpContainer}>
+            <Ionicons name="star" size={16} color={colors.xp || '#FFD700'} />
+            <Text style={[styles.xpText, { color: colors.xp || '#FFD700' }]}>
+              {exercise.baseXp} XP
+            </Text>
+          </View>
+        )}
+        {exercise.status && (
+          <View style={[styles.statusBadge, { backgroundColor: colors.border }]}>
+            <Text style={[styles.statusText, { color: colors.textSecondary }]}>
+              {exercise.status === 'PUBLISHED' ? 'Publicado' : 
+               exercise.status === 'DRAFT' ? 'Rascunho' : 'Arquivado'}
+            </Text>
+          </View>
+        )}
+      </View>
+    </View>
+  );
+};
+
+// Componente de Badge
+const BadgeItem = ({ badge, colors, isDarkMode }: {
+  badge: Badge;
+  colors: any;
+  isDarkMode: boolean;
+}) => {
+  return (
+    <View
+      style={[styles.badgeItem, { backgroundColor: colors.card }]}
+      accessibilityLabel={`Emblema ${badge.name}`}
+      accessibilityRole="image"
+    >
+      {badge.iconUrl || badge.icon ? (
+        <Image
+          source={{ uri: badge.iconUrl || badge.icon }}
+          style={styles.badgeImage}
+        />
+      ) : (
+        <Ionicons name="medal" size={48} color={colors.primary} />
+      )}
+      <Text style={[styles.badgeName, { color: colors.text }]} numberOfLines={2}>
+        {badge.name}
+      </Text>
+    </View>
+  );
+};
+
+// Componente de Card de Título
+const TitleCard = ({ title, earned, percent, label, colors, isDarkMode }: {
+  title: Title;
+  earned: boolean;
+  percent: number;
+  label: string;
+  colors: any;
+  isDarkMode: boolean;
+}) => {
+  return (
+    <View
+      style={[styles.titleCard, { backgroundColor: colors.card, borderColor: colors.border }]}
+      accessibilityLabel={`Título ${title.name}, ${label}`}
+      accessibilityRole="text"
+    >
+      {earned && (
+        <View style={[styles.earnedChip, { backgroundColor: '#4CAF50' }]}>
+          <Text style={styles.earnedChipText}>Conquistado</Text>
+        </View>
+      )}
+      
+      <Text style={[styles.titleName, { color: colors.text }]} numberOfLines={2}>
+        {title.name}
+      </Text>
+      
+      {title.description && (
+        <Text style={[styles.titleDescription, { color: colors.textSecondary }]} numberOfLines={2}>
+          {title.description}
+        </Text>
+      )}
+      
+      <View style={styles.titleProgressWrapper}>
+        <View style={[styles.titleProgressBar, { backgroundColor: colors.border }]}>
+          <View
+            style={[
+              styles.titleProgressFill,
+              { width: `${Math.max(0, Math.min(100, percent))}%`, backgroundColor: colors.primary },
+            ]}
+          />
+        </View>
+        <Text style={[styles.titleLabel, { color: earned ? '#4CAF50' : colors.textSecondary }]}>
+          {earned ? '✅' : '🔒'} {label}
+        </Text>
+      </View>
+    </View>
+  );
+};
 
 const styles = StyleSheet.create({
   loadingContainer: {
@@ -481,15 +1186,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   header: {
+    paddingTop: 20,
+    paddingBottom: 24,
     paddingHorizontal: 20,
-    paddingTop: 30,
-    paddingBottom: 30,
-    alignItems: "center",
-    borderBottomWidth: 1,
+  },
+  headerContent: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 16,
+    marginBottom: 20,
   },
   avatarContainer: {
     position: "relative",
-    marginBottom: 12,
   },
   avatar: {
     width: 100,
@@ -497,271 +1205,296 @@ const styles = StyleSheet.create({
     borderRadius: 50,
     justifyContent: "center",
     alignItems: "center",
+    borderWidth: 3,
+    borderColor: "rgba(255, 255, 255, 0.3)",
   },
   avatarImage: {
     width: 100,
     height: 100,
     borderRadius: 50,
   },
-  editIcon: {
+  editButton: {
     position: "absolute",
     bottom: 0,
     right: 0,
-    borderRadius: 15,
-    width: 30,
-    height: 30,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 3,
+    borderWidth: 2,
     borderColor: "#fff",
   },
-  userName: {
-    fontSize: 24,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  userHandle: {
-    fontSize: 14,
-    marginBottom: 16,
-  },
-  levelContainer: {
-    width: "100%",
-    maxWidth: 300,
-    marginBottom: 12,
-  },
-  levelText: {
-    fontSize: 14,
-    fontWeight: "600",
-    marginBottom: 8,
-    textAlign: "center",
-  },
-  xpBar: {
-    width: "100%",
-    height: 8,
-    borderRadius: 4,
-    marginBottom: 8,
-  },
-  xpBarFill: {
-    height: "100%",
-    borderRadius: 4,
-  },
-  levelXpText: {
-    fontSize: 12,
-    textAlign: "center",
-  },
-  bio: {
-    fontSize: 14,
-    textAlign: "center",
-    paddingHorizontal: 20,
-  },
-  statsScroll: {
-    paddingVertical: 20,
-  },
-  statsContent: {
-    paddingHorizontal: 20,
-    gap: 16,
-  },
-  statCard: {
-    width: width * 0.35,
-    borderRadius: 16,
-    padding: 16,
-    alignItems: "center",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  userInfo: {
+    flex: 1,
     gap: 8,
   },
-  statValue: {
+  usernameContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  username: {
     fontSize: 24,
     fontWeight: "bold",
+    color: "#fff",
+  },
+  userTitle: {
+    fontSize: 18,
+    color: "#FFD700",
+    fontWeight: "600",
+  },
+  levelInfo: {
+    flexDirection: "row",
+    gap: 24,
+  },
+  levelItem: {
+    alignItems: "center",
+    gap: 4,
+  },
+  levelLabel: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.8)",
+  },
+  levelValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  progressItem: {
+    alignItems: "center",
+    gap: 4,
+  },
+  progressLabel: {
+    fontSize: 12,
+    color: "rgba(255, 255, 255, 0.8)",
+  },
+  progressValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
+  },
+  statsCards: {
+    flexDirection: "row",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  statCard: {
+    flex: 1,
+    minWidth: width * 0.2,
+    borderRadius: 12,
+    padding: 12,
+    alignItems: "center",
+    gap: 8,
+    borderWidth: 1,
+    borderColor: "rgba(255, 255, 255, 0.2)",
+  },
+  statValue: {
+    fontSize: 20,
+    fontWeight: "bold",
+    color: "#fff",
   },
   statLabel: {
-    fontSize: 12,
+    fontSize: 11,
+    color: "rgba(255, 255, 255, 0.8)",
     textAlign: "center",
   },
   tabsContainer: {
-    flexDirection: "row",
+    borderBottomWidth: 2,
+  },
+  tabs: {
     paddingHorizontal: 20,
-    paddingTop: 20,
-    gap: 12,
+    gap: 0,
   },
   tab: {
-    flex: 1,
-    paddingVertical: 12,
-    borderBottomWidth: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingVertical: 16,
+    paddingHorizontal: 16,
+    borderBottomWidth: 3,
     borderBottomColor: "transparent",
   },
   tabActive: {
+    borderBottomWidth: 3,
   },
   tabText: {
-    fontSize: 16,
-    fontWeight: "600",
-    textAlign: "center",
-  },
-  tabTextActive: {
-  },
-  filtersContainer: {
-    flexDirection: "row",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 8,
-  },
-  filter: {
-    paddingHorizontal: 16,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  filterActive: {
-  },
-  filterText: {
-    fontSize: 14,
-    fontWeight: "500",
-  },
-  filterTextActive: {
-    color: "#fff",
-  },
-  contentContainer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    minHeight: 200,
-  },
-  challengeItem: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  challengeHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 8,
-  },
-  challengeTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    flex: 1,
-    marginRight: 8,
-  },
-  challengeDescription: {
-    fontSize: 14,
-    marginBottom: 12,
-    lineHeight: 20,
-  },
-  challengeFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  difficultyBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  difficultyText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  dateText: {
-    fontSize: 12,
-  },
-  submissionItem: {
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  submissionHeader: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 12,
-  },
-  submissionTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    flex: 1,
-    marginRight: 8,
-  },
-  submissionFooter: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-  },
-  submissionStats: {
-    flexDirection: "row",
-    gap: 16,
-  },
-  scoreText: {
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  submissionXpText: {
     fontSize: 14,
     fontWeight: "600",
   },
-  statusBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  badgePublished: {
-    backgroundColor: "#E8F5E8",
-  },
-  badgeDraft: {
-    backgroundColor: "#FFF3E0",
-  },
-  badgeAccepted: {
-    backgroundColor: "#E8F5E8",
-  },
-  badgeRejected: {
-    backgroundColor: "#FFEBEE",
-  },
-  badgeText: {
-    fontSize: 12,
-    fontWeight: "600",
+  contentArea: {
+    padding: 20,
+    minHeight: 400,
   },
   emptyContainer: {
     alignItems: "center",
     justifyContent: "center",
     paddingVertical: 60,
+    gap: 16,
   },
   emptyText: {
     fontSize: 16,
-    marginTop: 16,
-  },
-  badgesSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 16,
-  },
-  badgeItem: {
-    alignItems: "center",
-    borderRadius: 12,
-    padding: 20,
-    marginRight: 12,
-    width: 120,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  badgeLabel: {
-    fontSize: 12,
-    marginTop: 8,
     textAlign: "center",
   },
+  emptySubtext: {
+    fontSize: 14,
+    textAlign: "center",
+    marginTop: 8,
+    opacity: 0.7,
+  },
+  exercisesGrid: {
+    gap: 16,
+  },
+  exerciseCard: {
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    gap: 12,
+  },
+  exerciseHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  exerciseTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    flex: 1,
+  },
+  difficultyBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  difficultyText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  exerciseDescription: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  exerciseFooter: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingTop: 12,
+    borderTopWidth: 1,
+  },
+  xpContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  xpText: {
+    fontSize: 14,
+    fontWeight: "600",
+  },
+  statusBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  statusText: {
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  badgesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 16,
+    justifyContent: "center",
+  },
+  badgeItem: {
+    width: (width - 60) / 3,
+    alignItems: "center",
+    padding: 16,
+    borderRadius: 12,
+    gap: 8,
+  },
+  badgeImage: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+  },
+  badgeName: {
+    fontSize: 12,
+    fontWeight: "600",
+    textAlign: "center",
+  },
+  filterContainer: {
+    flexDirection: "row",
+    gap: 8,
+    marginBottom: 16,
+  },
+  filterButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    alignItems: "center",
+  },
+  filterButtonActive: {
+    borderWidth: 0,
+  },
+  filterText: {
+    fontSize: 13,
+    fontWeight: "500",
+  },
+  filterTextActive: {
+    color: "#fff",
+    fontWeight: "600",
+  },
+  titlesGrid: {
+    gap: 12,
+  },
+  titleCard: {
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    gap: 12,
+    position: "relative",
+  },
+  earnedChip: {
+    position: "absolute",
+    top: 8,
+    right: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  earnedChipText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#fff",
+  },
+  titleName: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginTop: 4,
+  },
+  titleDescription: {
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  titleProgressWrapper: {
+    gap: 6,
+  },
+  titleProgressBar: {
+    height: 8,
+    borderRadius: 4,
+    overflow: "hidden",
+  },
+  titleProgressFill: {
+    height: "100%",
+    borderRadius: 4,
+  },
+  titleLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
 });
-

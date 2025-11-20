@@ -43,7 +43,7 @@ const ScreenHeader = ({ title, onAddPress }: { title: string; onAddPress: () => 
   );
 };
 
-// Estilos para SolveChallengeModal
+// Estilos para o modal de resolver desafio
 const modalStyles = StyleSheet.create({
   modalHeader: {
     flexDirection: "row",
@@ -139,7 +139,7 @@ const modalStyles = StyleSheet.create({
   },
 });
 
-// Componente Modal para Resolver Desafio
+// Componente modal para resolver desafio
 const SolveChallengeModal = ({ challenge, onClose, colors, commonStyles }: any) => {
   const { user } = useAuth();
   const [code, setCode] = useState('');

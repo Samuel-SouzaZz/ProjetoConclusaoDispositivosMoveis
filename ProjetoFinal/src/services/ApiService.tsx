@@ -10,11 +10,8 @@ import { Platform } from 'react-native';
  * - Android (emulador): http://10.0.2.2:3000/api
  * - iOS (simulador) / Web: http://localhost:3000/api
  */
-const BASE_URL =
-  process.env.EXPO_PUBLIC_API_BASE_URL ||
-  (Platform.OS === 'android'
-    ? 'http://10.0.2.2:3000/api'
-    : 'http://localhost:3000/api');
+const BASE_URL = 'http://localhost:3000/api'
+
 
 // Chaves de armazenamento
 const TOKEN_KEY = '@app:access_token';
@@ -107,8 +104,8 @@ class ApiService {
 
 
   /**
- * Retornar o token JWT salvo (para uso no AuthContext/biometria)
- */
+   * Retornar o token JWT salvo (para uso no AuthContext/biometria)
+   */
   async getToken(): Promise<string | null> {
     const token = await AsyncStorage.getItem(TOKEN_KEY);
     return token;
@@ -180,10 +177,11 @@ class ApiService {
 
   /**
    * USERS - Perfil completo com estatísticas, desafios e submissões
+   * Nota: Este endpoint não existe no backend. Use getUserStats() para obter estatísticas.
    */
   async getUserCompleteProfile() {
-    const response = await this.api.get('/users/me/profile/complete');
-    return response.data;
+    // Endpoint não existe no backend - retornar null para evitar erro 404
+    return null;
   }
 
   /**
@@ -371,7 +369,8 @@ class ApiService {
     limit?: number;
   }) {
     try {
-      const response = await this.api.get('/leaderboards', { params });
+      // Usar o endpoint correto do backend: /leaderboards/general
+      const response = await this.api.get('/leaderboards/general', { params });
       return response.data;
     } catch (error: any) {
       const status = error?.response?.status;
@@ -654,6 +653,78 @@ class ApiService {
   }
 
   /**
+   * USERS - Estatísticas do usuário
+   */
+  async getUserStats(userId: string) {
+    try {
+      const response = await this.api.get(`/stats/users/${userId}`);
+      return response.data;
+    } catch (error) {
+      return null;
+    }
+  }
+
+  /**
+   * BADGES - Listar todos os badges disponíveis
+   */
+  async getAllBadges() {
+    try {
+      const response = await this.api.get('/badges');
+      return Array.isArray(response.data) ? response.data : (response.data?.items || []);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
+   * BADGES - Listar badges do usuário
+   */
+  async getUserBadges(userId: string) {
+    try {
+      const response = await this.api.get(`/users/${userId}/badges`);
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
+   * TITLES - Listar todos os títulos disponíveis
+   */
+  async getAllTitles() {
+    try {
+      const response = await this.api.get('/titles');
+      return Array.isArray(response.data) ? response.data : (response.data?.items || []);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
+   * TITLES - Listar títulos do usuário
+   */
+  async getUserTitles(userId: string) {
+    try {
+      const response = await this.api.get(`/users/${userId}/titles`);
+      return Array.isArray(response.data) ? response.data : [];
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
+   * LEADERBOARDS - Ranking geral
+   */
+  async getGeneralLeaderboard(params?: { page?: number; limit?: number }) {
+    try {
+      const response = await this.api.get('/leaderboards/general', { params });
+      return Array.isArray(response.data) ? response.data : (response.data?.items || []);
+    } catch (error) {
+      return [];
+    }
+  }
+
+  /**
    * Utilitários - Salvar tokens
    */
   private async saveTokens(accessToken: string, refreshToken: string) {
@@ -707,7 +778,7 @@ class ApiService {
    * Utilitários - Obter a base URL da API
    */
   getBaseUrl(): string {
-    return BASE_URL.replace('/api', ''); // Remove /api para obter apenas a base
+    return BASE_URL.replace('/api', ''); // Remove /api para obter apenas a base URL
   }
 
   /**

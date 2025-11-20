@@ -10,7 +10,7 @@ import DatabaseService from "../services/DatabaseService";
 import { RootStackParamList } from "../navigation/AppNavigator";
 import { isBiometricEnabled, clearBiometricPreference } from "../utils/biometricPreferences";
 
-interface User {
+export interface User {
   id: string;
   name: string;
   email: string;

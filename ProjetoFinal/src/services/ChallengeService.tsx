@@ -6,7 +6,7 @@ interface Challenge {
   title: string;
   description?: string;
   difficulty: number;
-  baseXp: number; // Padronizado para baseXp (backend usa baseXp)
+  baseXp: number; // Padronizado para baseXp (o backend usa baseXp)
   isPublic: boolean;
   codeTemplate?: string;
   status?: string;
@@ -29,7 +29,7 @@ class ChallengeService {
         [challengeData.id]
       );
 
-      // Usar baseXp do backend, com fallback para xp (compatibilidade)
+      // Usar baseXp do backend, com fallback para xp (compatibilidade retroativa)
       const baseXp = challengeData.baseXp || challengeData.xp || 100;
       
       if (existing) {
