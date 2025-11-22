@@ -405,16 +405,25 @@ class ApiService {
   /**
    * FORUMS - Fóruns públicos e fóruns do usuário
    */
+  /**
+   * Lista fóruns públicos, com suporte opcional a paginação.
+   */
   async getPublicForums(params?: { page?: number; limit?: number }) {
     const response = await this.api.get('/forum/foruns', { params });
     return response.data;
   }
 
+  /**
+   * Lista fóruns dos quais o usuário autenticado participa.
+   */
   async getMyForums(params?: { page?: number; limit?: number }) {
     const response = await this.api.get('/forum/meus', { params });
     return response.data;
   }
 
+  /**
+   * Cria um novo fórum vinculado a um exercício.
+   */
   async createForum(data: {
     exerciseCode: string;
     nome: string;
@@ -442,6 +451,131 @@ class ApiService {
     }
 
     const response = await this.api.post('/forum', payload);
+    return response.data;
+  }
+
+  /**
+   * Busca detalhes de um fórum pelo seu ID.
+   */
+  async getForumById(forumId: string) {
+    const response = await this.api.get(`/forum/${forumId}`);
+    return response.data;
+  }
+
+  /**
+   * Lista tópicos de um fórum específico, com paginação opcional.
+   */
+  async getForumTopics(forumId: string, params?: { page?: number; limit?: number }) {
+    const response = await this.api.get(`/forum-topics/forum/${forumId}`, { params });
+    return response.data;
+  }
+
+  /**
+   * Obtém os participantes (dono, moderadores, membros) de um fórum.
+   */
+  async getForumParticipants(forumId: string) {
+    const response = await this.api.get(`/forum/${forumId}/participantes`);
+    return response.data;
+  }
+
+  /**
+   * Faz o usuário autenticado participar de um fórum público.
+   */
+  async joinForum(forumId: string) {
+    const response = await this.api.post(`/forum/${forumId}/participar`);
+    return response.data;
+  }
+
+  /**
+   * Remove o usuário autenticado de um fórum.
+   */
+  async leaveForum(forumId: string) {
+    const response = await this.api.post(`/forum/${forumId}/sair`);
+    return response.data;
+  }
+
+  /**
+   * Busca um tópico de fórum pelo seu ID.
+   */
+  async getForumTopicById(topicId: string) {
+    const response = await this.api.get(`/forum-topics/${topicId}`);
+    return response.data;
+  }
+
+  /**
+   * Cria um novo tópico dentro de um fórum.
+   */
+  async createForumTopic(forumId: string, data: {
+    titulo: string;
+    conteudo: string;
+    palavrasChave?: string[];
+  }) {
+    const response = await this.api.post(`/forum-topics/forum/${forumId}`, data);
+    return response.data;
+  }
+
+  /**
+   * Atualiza campos de um tópico de fórum existente.
+   */
+  async updateForumTopic(topicId: string, data: {
+    titulo?: string;
+    conteudo?: string;
+    palavrasChave?: string[];
+    status?: 'ABERTO' | 'FECHADO' | 'ARQUIVADO';
+    fixado?: boolean;
+  }) {
+    const response = await this.api.patch(`/forum-topics/${topicId}`, data);
+    return response.data;
+  }
+
+  /**
+   * Exclui um tópico de fórum pelo ID.
+   */
+  async deleteForumTopic(topicId: string) {
+    const response = await this.api.delete(`/forum-topics/${topicId}`);
+    return response.data;
+  }
+
+  /**
+   * FORUM COMMENTS - Comentários de tópicos
+   */
+  /**
+   * Lista comentários de um tópico específico, com paginação opcional.
+   */
+  async getTopicComments(topicId: string, params?: { page?: number; limit?: number }) {
+    const response = await this.api.get(`/forum-comments/topic/${topicId}`, { params });
+    return response.data;
+  }
+
+  /**
+   * Busca um comentário específico de fórum pelo ID.
+   */
+  async getForumCommentById(commentId: string) {
+    const response = await this.api.get(`/forum-comments/${commentId}`);
+    return response.data;
+  }
+
+  /**
+   * Cria um novo comentário em um tópico de fórum.
+   */
+  async createForumComment(topicId: string, data: { conteudo: string }) {
+    const response = await this.api.post(`/forum-comments/topic/${topicId}`, data);
+    return response.data;
+  }
+
+  /**
+   * Atualiza o conteúdo de um comentário existente.
+   */
+  async updateForumComment(commentId: string, data: { conteudo: string }) {
+    const response = await this.api.patch(`/forum-comments/${commentId}`, data);
+    return response.data;
+  }
+
+  /**
+   * Remove um comentário de fórum pelo ID.
+   */
+  async deleteForumComment(commentId: string) {
+    const response = await this.api.delete(`/forum-comments/${commentId}`);
     return response.data;
   }
 

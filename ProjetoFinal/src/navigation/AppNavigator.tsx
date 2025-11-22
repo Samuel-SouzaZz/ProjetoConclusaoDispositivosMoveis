@@ -19,6 +19,8 @@ import { useAuth } from "../contexts/AuthContext";
 import GroupProgressScreen from "../screens/GroupProgressScreen";
 import GroupDetailsScreen from "../screens/GroupDetailsScreen";
 import GroupMembersManageScreen from "../screens/GroupMembersManageScreen";
+import ForumDetailsScreen from "../screens/ForumDetailsScreen";
+import TopicDetailsScreen from "../screens/TopicDetailsScreen";
 import { useTheme } from "../contexts/ThemeContext";
 
 // Tipagem para o Stack Navigator
@@ -32,6 +34,7 @@ export type RootStackParamList = {
   GroupRanking: { groupId: string; groupName?: string };
   GroupInvite: { groupId: string; token: string };
   ForumDetails: { forumId: string };
+  TopicDetails: { forumId: string; topicId: string }; // Add TopicDetails to RootStackParamList
   ChallengeDetails: { exerciseId: string };
   GroupMembersManage: { groupId: string; groupName?: string };
 };
@@ -170,7 +173,8 @@ export default function AppNavigator() {
       <Stack.Screen name="GroupChallenges" component={GroupChallengesScreen} />
       <Stack.Screen name="GroupRanking" component={GroupRankingScreen} />
       <Stack.Screen name="GroupInvite" component={GroupInviteScreen} />
-      <Stack.Screen name="ForumDetails" component={require('../screens/ForumDetailsScreen').default} />
+      <Stack.Screen name="ForumDetails" component={ForumDetailsScreen} />
+      <Stack.Screen name="TopicDetails" component={TopicDetailsScreen} />
       <Stack.Screen name="ChallengeDetails" component={ChallengeDetailsScreen} />
       <Stack.Screen name="GroupMembersManage" component={GroupMembersManageScreen} />
     </Stack.Navigator>
