@@ -2,26 +2,22 @@ import axios, { AxiosInstance, AxiosError } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
-/**
- * Configuração da API
- *
- * Usa `EXPO_PUBLIC_API_BASE_URL` se definido (ex.: http://192.168.1.100:3000/api)
- * Caso contrário, escolhe um valor padrão por plataforma:
- * - Android (emulador): http://10.0.2.2:3000/api
- * - iOS (simulador) / Web: http://localhost:3000/api
- */
-const BASE_URL = 'http://localhost:3000/api'
-
-
-// Chaves de armazenamento
+const BASE_URL = 'http://localhost:3000/api';
 const TOKEN_KEY = '@app:access_token';
 const REFRESH_TOKEN_KEY = '@app:refresh_token';
 
-/**
- * Serviço de API - Conecta ao backend Node.js
- */
 class ApiService {
   private api: AxiosInstance;
+
+  private async safeRequest<T>(request: () => Promise<{ data: T } | AxiosResponse<T>>): Promise<T> {
+    try {
+      const response = await request();
+      return (response as AxiosResponse<T>).data ?? (response as any);
+    } catch (error) {
+      const message = this.handleError(error);
+      throw new Error(message);
+    }
+  }
 
   constructor() {
     this.api = axios.create({
@@ -32,7 +28,6 @@ class ApiService {
       },
     });
 
-    // Interceptor para adicionar token automaticamente
     this.api.interceptors.request.use(
       async (config) => {
         const token = await AsyncStorage.getItem(TOKEN_KEY);
@@ -44,13 +39,10 @@ class ApiService {
       (error) => Promise.reject(error)
     );
 
-    // Interceptor para tratar erros
     this.api.interceptors.response.use(
       (response) => response,
       async (error: AxiosError) => {
         if (error.response?.status === 401) {
-          // Token expirado - tentar renovar apenas se não for uma requisição de validação
-          // Não renovar em getMe() ou refresh para evitar loops e login automático
           const url = error.config?.url || '';
           const isValidationRequest = url.includes('/users/me') || 
                                       url.includes('/auth/refresh') ||
@@ -63,21 +55,17 @@ class ApiService {
               try {
                 const newTokens = await this.refreshTokens(refreshToken);
                 await this.saveTokens(newTokens.accessToken, newTokens.refreshToken);
-                // Retentar a requisição original
                 if (error.config) {
                   error.config.headers.Authorization = `Bearer ${newTokens.accessToken}`;
                   return this.api.request(error.config);
                 }
               } catch {
-                // Falha ao renovar - limpar tokens mas não fazer logout automático
                 await this.clearTokens();
               }
             } else {
-              // Sem refresh token, limpar tokens
               await this.clearTokens();
             }
           } else {
-            // Para requisições de validação, apenas limpar tokens se expirado
             await this.clearTokens();
           }
         }
@@ -86,107 +74,69 @@ class ApiService {
     );
   }
 
-  /**
-   * AUTH - Cadastro
-   */
-  async signup(data: {
+  async signup(payload: {
     name: string;
     email: string;
     password: string;
     handle: string;
     collegeId?: string;
   }) {
-    const response = await this.api.post('/auth/signup', data);
-    const { user, tokens } = response.data;
+    const response = await this.safeRequest(() => this.api.post('/auth/signup', payload));
+    const { user, tokens } = response;
     await this.saveTokens(tokens.accessToken, tokens.refreshToken);
     return { user, tokens };
   }
 
 
-  /**
-   * Retornar o token JWT salvo (para uso no AuthContext/biometria)
-   */
   async getToken(): Promise<string | null> {
     const token = await AsyncStorage.getItem(TOKEN_KEY);
     return token;
   }
 
-  /**
-   * Utilitários - Definir token manualmente (usado para login biométrico)
-   */
   async setToken(token: string): Promise<void> {
     await AsyncStorage.setItem(TOKEN_KEY, token);
-    // Atualizar o interceptor do axios com o novo token
     this.api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
-  /**
-   * AUTH - Login
-   */
   async login(email: string, password: string) {
-    const response = await this.api.post('/auth/login', { email, password });
-    const { user, tokens } = response.data;
+    const response = await this.safeRequest(() => this.api.post('/auth/login', { email, password }));
+    const { user, tokens } = response;
     await this.saveTokens(tokens.accessToken, tokens.refreshToken);
     return { user, tokens };
   }
 
-  /**
-   * AUTH - Renovar token
-   */
   async refreshTokens(refreshToken: string) {
-    const response = await this.api.post('/auth/refresh', { refreshToken });
-    return response.data.tokens;
+    const response = await this.safeRequest(() => this.api.post('/auth/refresh', { refreshToken }));
+    return response.tokens;
   }
 
-  /**
-   * USERS - Perfil atual
-   */
   async getMe() {
-    const response = await this.api.get('/users/me');
-    return response.data;
+    return this.safeRequest(() => this.api.get('/users/me'));
   }
 
-  /**
-   * USERS - Atualizar perfil
-   */
   async updateMe(data: {
     name?: string;
     handle?: string;
     bio?: string;
     avatarUrl?: string;
   }) {
-    const response = await this.api.patch('/users/me', data);
-    return response.data;
+    return this.safeRequest(() => this.api.patch('/users/me', data));
   }
 
-  /**
-   * LEADERBOARDS - Ranking por grupo
-   */
   async getLeaderboardByGroup(groupId: string, params?: { page?: number; limit?: number }) {
-    const response = await this.api.get('/leaderboards/by-group', { params: { groupId, ...(params || {}) } });
-    return response.data;
+    return this.safeRequest(() =>
+      this.api.get('/leaderboards/by-group', { params: { groupId, ...(params || {}) } })
+    );
   }
 
-  /**
-   * USERS - Perfil público
-   */
   async getPublicProfile(userId: string) {
-    const response = await this.api.get(`/users/${userId}/profile`);
-    return response.data;
+    return this.safeRequest(() => this.api.get(`/users/${userId}/profile`));
   }
 
-  /**
-   * USERS - Perfil completo com estatísticas, desafios e submissões
-   * Nota: Este endpoint não existe no backend. Use getUserStats() para obter estatísticas.
-   */
   async getUserCompleteProfile() {
-    // Endpoint não existe no backend - retornar null para evitar erro 404
     return null;
   }
 
-  /**
-   * CHALLENGES - Criar desafio
-   */
   async createChallenge(data: {
     title: string;
     description?: string;
@@ -219,33 +169,23 @@ class ApiService {
       payload.baseXp = data.xp;
     }
     
-    const response = await this.api.post('/exercises', payload);
-    return response.data;
+    return this.safeRequest(() => this.api.post('/exercises', payload));
   }
 
-  /**
-   * CHALLENGES - Listar meus desafios
-   */
   async getMyChallenges(params?: {
     status?: 'Draft' | 'Published' | 'all';
     page?: number;
     limit?: number;
   }) {
-    // Verificar se há token antes de fazer a requisição
     const token = await AsyncStorage.getItem(TOKEN_KEY);
     if (!token) {
       throw new Error('Não autenticado. Faça login novamente.');
     }
     
-    // O backend espera page e limit como query params
     const config = params && Object.keys(params).length > 0 ? { params } : {};
-    const response = await this.api.get('/exercises/mine', config);
-    return response.data; // { items: [], total: number }
+    return this.safeRequest(() => this.api.get('/exercises/mine', config));
   }
 
-  /**
-   * CHALLENGES - Atualizar desafio
-   */
   async updateChallenge(challengeId: string, data: {
     title?: string;
     description?: string;
@@ -278,49 +218,29 @@ class ApiService {
       payload.baseXp = data.xp;
     }
     
-    const response = await this.api.patch(`/exercises/${challengeId}`, payload);
-    return response.data;
+    return this.safeRequest(() => this.api.patch(`/exercises/${challengeId}`, payload));
   }
 
-  /**
-   * CHALLENGES - Buscar desafio por ID
-   */
   async getChallengeById(exerciseId: string) {
-    const response = await this.api.get(`/exercises/${exerciseId}`);
-    return response.data;
+    return this.safeRequest(() => this.api.get(`/exercises/${exerciseId}`));
   }
 
-  /**
-   * CHALLENGES - Excluir desafio
-   */
   async deleteChallenge(challengeId: string) {
-    const response = await this.api.delete(`/exercises/${challengeId}`);
-    return response.data;
+    return this.safeRequest(() => this.api.delete(`/exercises/${challengeId}`));
   }
 
-  /**
-   * SUBMISSIONS - Listar minhas submissões
-   */
   async getMySubmissions(params?: {
     page?: number;
     limit?: number;
     status?: 'Accepted' | 'Rejected' | 'Pending' | 'all';
   }) {
-    const response = await this.api.get('/submissions/my', { params });
-    return response.data;
+    return this.safeRequest(() => this.api.get('/submissions/me', { params }));
   }
 
-  /**
-   * COLLEGES - Listar faculdades
-   */
   async getColleges() {
-    const response = await this.api.get('/colleges');
-    return response.data;
+    return this.safeRequest(() => this.api.get('/colleges'));
   }
 
-  /**
-   * CHALLENGES - Listar desafios publicados
-   */
   async getChallenges(params?: {
     page?: number;
     limit?: number;
@@ -329,16 +249,18 @@ class ApiService {
     q?: string;
   }) {
     try {
-      const response = await this.api.get('/exercises', { params });
+      const data = await this.safeRequest(() => this.api.get('/exercises', { params }));
       
-      if (response.data && typeof response.data === 'object') {
-        if (Array.isArray(response.data)) {
-          return { items: response.data, total: response.data.length };
+      if (data && typeof data === 'object') {
+        if (Array.isArray(data)) {
+          return { items: data, total: data.length };
         }
-        if (response.data.items || response.data.data) {
+        if ((data as any).items || (data as any).data) {
           return {
-            items: response.data.items || response.data.data || [],
-            total: response.data.total || (response.data.items || response.data.data || []).length
+            items: (data as any).items || (data as any).data || [],
+            total:
+              (data as any).total ||
+              ((data as any).items || (data as any).data || []).length
           };
         }
       }
@@ -348,30 +270,21 @@ class ApiService {
     }
   }
 
-  /**
-   * SUBMISSIONS - Submeter solução
-   */
   async submitChallenge(data: {
     exerciseId: string;
     code: string;
     languageId: string;
   }) {
-    const response = await this.api.post('/submissions', data);
-    return response.data;
+    return this.safeRequest(() => this.api.post('/submissions', data));
   }
 
-  /**
-   * LEADERBOARDS - Rankings
-   */
   async getLeaderboards(params?: {
     seasonId?: string;
     collegeId?: string;
     limit?: number;
   }) {
     try {
-      // Usar o endpoint correto do backend: /leaderboards/general
-      const response = await this.api.get('/leaderboards/general', { params });
-      return response.data;
+      return await this.safeRequest(() => this.api.get('/leaderboards/general', { params }));
     } catch (error: any) {
       const status = error?.response?.status;
       const isNetworkIssue = !error?.response;
@@ -394,36 +307,18 @@ class ApiService {
     }
   }
 
-  /**
-   * LANGUAGES - Linguagens disponíveis
-   */
   async getLanguages() {
-    const response = await this.api.get('/languages');
-    return response.data;
+    return this.safeRequest(() => this.api.get('/languages'));
   }
 
-  /**
-   * FORUMS - Fóruns públicos e fóruns do usuário
-   */
-  /**
-   * Lista fóruns públicos, com suporte opcional a paginação.
-   */
   async getPublicForums(params?: { page?: number; limit?: number }) {
-    const response = await this.api.get('/forum/foruns', { params });
-    return response.data;
+    return this.safeRequest(() => this.api.get('/forum/foruns', { params }));
   }
 
-  /**
-   * Lista fóruns dos quais o usuário autenticado participa.
-   */
   async getMyForums(params?: { page?: number; limit?: number }) {
-    const response = await this.api.get('/forum/meus', { params });
-    return response.data;
+    return this.safeRequest(() => this.api.get('/forum/meus', { params }));
   }
 
-  /**
-   * Cria um novo fórum vinculado a um exercício.
-   */
   async createForum(data: {
     exerciseCode: string;
     nome: string;
@@ -450,73 +345,41 @@ class ApiService {
       payload.statusPrivacidade = data.isPublic ? 'PUBLICO' : 'PRIVADO';
     }
 
-    const response = await this.api.post('/forum', payload);
-    return response.data;
+    return this.safeRequest(() => this.api.post('/forum', payload));
   }
 
-  /**
-   * Busca detalhes de um fórum pelo seu ID.
-   */
   async getForumById(forumId: string) {
-    const response = await this.api.get(`/forum/${forumId}`);
-    return response.data;
+    return this.safeRequest(() => this.api.get(`/forum/${forumId}`));
   }
 
-  /**
-   * Lista tópicos de um fórum específico, com paginação opcional.
-   */
   async getForumTopics(forumId: string, params?: { page?: number; limit?: number }) {
-    const response = await this.api.get(`/forum-topics/forum/${forumId}`, { params });
-    return response.data;
+    return this.safeRequest(() => this.api.get(`/forum-topics/forum/${forumId}`, { params }));
   }
 
-  /**
-   * Obtém os participantes (dono, moderadores, membros) de um fórum.
-   */
   async getForumParticipants(forumId: string) {
-    const response = await this.api.get(`/forum/${forumId}/participantes`);
-    return response.data;
+    return this.safeRequest(() => this.api.get(`/forum/${forumId}/participantes`));
   }
 
-  /**
-   * Faz o usuário autenticado participar de um fórum público.
-   */
   async joinForum(forumId: string) {
-    const response = await this.api.post(`/forum/${forumId}/participar`);
-    return response.data;
+    return this.safeRequest(() => this.api.post(`/forum/${forumId}/participar`));
   }
 
-  /**
-   * Remove o usuário autenticado de um fórum.
-   */
   async leaveForum(forumId: string) {
-    const response = await this.api.post(`/forum/${forumId}/sair`);
-    return response.data;
+    return this.safeRequest(() => this.api.post(`/forum/${forumId}/sair`));
   }
 
-  /**
-   * Busca um tópico de fórum pelo seu ID.
-   */
   async getForumTopicById(topicId: string) {
-    const response = await this.api.get(`/forum-topics/${topicId}`);
-    return response.data;
+    return this.safeRequest(() => this.api.get(`/forum-topics/${topicId}`));
   }
 
-  /**
-   * Cria um novo tópico dentro de um fórum.
-   */
   async createForumTopic(forumId: string, data: {
     titulo: string;
     conteudo: string;
     palavrasChave?: string[];
   }) {
-    const response = await this.api.post(`/forum-topics/forum/${forumId}`, data);
-    return response.data;
+    return this.safeRequest(() => this.api.post(`/forum-topics/forum/${forumId}`, data));
   }
 
-  /**
-   * Atualiza campos de um tópico de fórum existente.
-   */
   async updateForumTopic(topicId: string, data: {
     titulo?: string;
     conteudo?: string;
@@ -524,80 +387,41 @@ class ApiService {
     status?: 'ABERTO' | 'FECHADO' | 'ARQUIVADO';
     fixado?: boolean;
   }) {
-    const response = await this.api.patch(`/forum-topics/${topicId}`, data);
-    return response.data;
+    return this.safeRequest(() => this.api.patch(`/forum-topics/${topicId}`, data));
   }
 
-  /**
-   * Exclui um tópico de fórum pelo ID.
-   */
   async deleteForumTopic(topicId: string) {
-    const response = await this.api.delete(`/forum-topics/${topicId}`);
-    return response.data;
+    return this.safeRequest(() => this.api.delete(`/forum-topics/${topicId}`));
   }
 
-  /**
-   * FORUM COMMENTS - Comentários de tópicos
-   */
-  /**
-   * Lista comentários de um tópico específico, com paginação opcional.
-   */
   async getTopicComments(topicId: string, params?: { page?: number; limit?: number }) {
-    const response = await this.api.get(`/forum-comments/topic/${topicId}`, { params });
-    return response.data;
+    return this.safeRequest(() => this.api.get(`/forum-comments/topic/${topicId}`, { params }));
   }
 
-  /**
-   * Busca um comentário específico de fórum pelo ID.
-   */
   async getForumCommentById(commentId: string) {
-    const response = await this.api.get(`/forum-comments/${commentId}`);
-    return response.data;
+    return this.safeRequest(() => this.api.get(`/forum-comments/${commentId}`));
   }
 
-  /**
-   * Cria um novo comentário em um tópico de fórum.
-   */
   async createForumComment(topicId: string, data: { conteudo: string }) {
-    const response = await this.api.post(`/forum-comments/topic/${topicId}`, data);
-    return response.data;
+    return this.safeRequest(() => this.api.post(`/forum-comments/topic/${topicId}`, data));
   }
 
-  /**
-   * Atualiza o conteúdo de um comentário existente.
-   */
   async updateForumComment(commentId: string, data: { conteudo: string }) {
-    const response = await this.api.patch(`/forum-comments/${commentId}`, data);
-    return response.data;
+    return this.safeRequest(() => this.api.patch(`/forum-comments/${commentId}`, data));
   }
 
-  /**
-   * Remove um comentário de fórum pelo ID.
-   */
   async deleteForumComment(commentId: string) {
-    const response = await this.api.delete(`/forum-comments/${commentId}`);
-    return response.data;
+    return this.safeRequest(() => this.api.delete(`/forum-comments/${commentId}`));
   }
 
-  /**
-   * GROUPS - Grupos
-   */
   async getGroups() {
-    const response = await this.api.get('/groups');
-    return response.data;
+    return this.safeRequest(() => this.api.get('/groups'));
   }
 
-  /**
-   * GROUPS - Meus grupos
-   */
   async getMyGroups() {
-    const response = await this.api.get('/groups/my');
-    return response.data;
+    return this.safeRequest(() => this.api.get('/groups/my'));
   }
 
-  /**
-   * GROUPS - Criar grupo
-   */
   async createGroup(data: {
     name: string;
     description?: string;
@@ -616,13 +440,9 @@ class ApiService {
     if (typeof data.isPublic === 'boolean') {
       payload.visibility = data.isPublic ? 'PUBLIC' : 'PRIVATE';
     }
-    const response = await this.api.post('/groups', payload);
-    return response.data;
+    return this.safeRequest(() => this.api.post('/groups', payload));
   }
 
-  /**
-   * GROUPS - Atualizar grupo
-   */
   async updateGroup(groupId: string, data: {
     name?: string;
     description?: string;
@@ -641,46 +461,27 @@ class ApiService {
     if (typeof data.isPublic === 'boolean') {
       payload.visibility = data.isPublic ? 'PUBLIC' : 'PRIVATE';
     }
-    const response = await this.api.patch(`/groups/${groupId}`, payload);
-    return response.data;
+    return this.safeRequest(() => this.api.patch(`/groups/${groupId}`, payload));
   }
 
-  /**
-   * GROUPS - Detalhes de um grupo
-   */
   async getGroup(groupId: string) {
-    const response = await this.api.get(`/groups/${groupId}`);
-    return response.data;
+    return this.safeRequest(() => this.api.get(`/groups/${groupId}`));
   }
 
-  /**
-   * GROUPS - Remover membro do grupo (owner/moderador)
-   */
   async removeGroupMember(groupId: string, userId: string) {
-    const response = await this.api.delete(`/groups/${groupId}/members/${userId}`);
-    return response.data;
+    return this.safeRequest(() => this.api.delete(`/groups/${groupId}/members/${userId}`));
   }
 
-  /**
-   * GROUPS - Definir papel do membro (MEMBER | MODERATOR)
-   */
   async setGroupMemberRole(groupId: string, userId: string, role: 'MEMBER' | 'MODERATOR') {
-    const response = await this.api.post(`/groups/${groupId}/members/${userId}/role`, { role });
-    return response.data;
+    return this.safeRequest(() =>
+      this.api.post(`/groups/${groupId}/members/${userId}/role`, { role })
+    );
   }
 
-  /**
-   * GROUPS - Desafios (exercícios) do grupo
-   */
   async getGroupChallenges(groupId: string) {
-    const response = await this.api.get(`/groups/${groupId}/exercises`);
-    return response.data;
+    return this.safeRequest(() => this.api.get(`/groups/${groupId}/exercises`));
   }
 
-  /**
-   * GROUPS - Criar desafio (exercise) no grupo
-   * Backend espera POST /exercises com { groupId, baseXp, ... }
-   */
   async createGroupChallenge(groupId: string, data: {
     title: string;
     description?: string;
@@ -709,58 +510,41 @@ class ApiService {
       baseXp: data.xp,
       groupId: groupId,
     };
-    const response = await this.api.post(`/exercises`, payload);
-    return response.data;
+    return this.safeRequest(() => this.api.post('/exercises', payload));
   }
 
-  /**
-   * GROUPS - Entrar/Sair do grupo
-   */
   async joinGroup(groupId: string) {
-    const response = await this.api.post(`/groups/${groupId}/join`);
-    return response.data;
+    return this.safeRequest(() => this.api.post(`/groups/${groupId}/join`));
   }
 
   async leaveGroup(groupId: string) {
-    const response = await this.api.post(`/groups/${groupId}/leave`);
-    return response.data;
+    return this.safeRequest(() => this.api.post(`/groups/${groupId}/leave`));
   }
 
   async generateGroupInviteLink(groupId: string) {
-    const response = await this.api.post(`/groups/${groupId}/invite-link`);
-    return response.data;
+    return this.safeRequest(() => this.api.post(`/groups/${groupId}/invite-link`));
   }
 
   async joinGroupByToken(groupId: string, token: string) {
-    const response = await this.api.post(`/groups/${groupId}/join-by-token`, { token });
-    return response.data;
+    return this.safeRequest(() => this.api.post(`/groups/${groupId}/join-by-token`, { token }));
   }
 
-  /**
-   * STATS - Estatísticas
-   */
   async getStats() {
-    const response = await this.api.get('/stats');
-    return response.data;
+    return this.safeRequest(() => this.api.get('/stats/public'));
   }
 
-  /**
-   * STATS - Estatísticas do dashboard
-   * Retorna: { languages, challenges, forumsCreated, totalXp, level, weekProgress }
-   */
   async getDashboardStats(userId: string) {
     try {
-      const response = await this.api.get(`/stats/users/${userId}`);
+      const response = await this.safeRequest(() => this.api.get(`/stats/users/${userId}`));
       return {
-        languages: response.data.languagesUsed || 0,
-        challenges: response.data.publishedChallenges || 0,
-        forumsCreated: response.data.forumsCreated || 0,
-        totalXp: response.data.totalXp || 0,
-        level: response.data.level || 1,
-        weekProgress: response.data.weekProgress || 0,
+        languages: response.languagesUsed || 0,
+        challenges: response.publishedChallenges || 0,
+        forumsCreated: response.forumsCreated || 0,
+        totalXp: response.totalXp || 0,
+        level: response.level || 1,
+        weekProgress: response.weekProgress || 0,
       };
     } catch (error) {
-      // Retornar valores padrão em caso de erro
       return {
         languages: 0,
         challenges: 0,
@@ -772,120 +556,84 @@ class ApiService {
     }
   }
 
-  /**
-   * SUBMISSIONS - Listar IDs de exercícios concluídos pelo usuário
-   */
   async getMyCompletedExercises(): Promise<string[]> {
     try {
-      const response = await this.api.get('/submissions/me/completed');
-      // Backend retorna { exerciseIds: string[] }
-      return response.data?.exerciseIds || [];
+      const response = await this.safeRequest(() => this.api.get('/submissions/me/completed'));
+      return response?.exerciseIds || [];
     } catch (error) {
-      // Se o endpoint não existir, retornar array vazio
       return [];
     }
   }
 
-  /**
-   * USERS - Estatísticas do usuário
-   */
   async getUserStats(userId: string) {
     try {
-      const response = await this.api.get(`/stats/users/${userId}`);
-      return response.data;
+      return await this.safeRequest(() => this.api.get(`/stats/users/${userId}`));
     } catch (error) {
       return null;
     }
   }
 
-  /**
-   * BADGES - Listar todos os badges disponíveis
-   */
   async getAllBadges() {
     try {
-      const response = await this.api.get('/badges');
-      return Array.isArray(response.data) ? response.data : (response.data?.items || []);
+      const response = await this.safeRequest(() => this.api.get('/badges'));
+      return Array.isArray(response) ? response : (response?.items || []);
     } catch (error) {
       return [];
     }
   }
 
-  /**
-   * BADGES - Listar badges do usuário
-   */
   async getUserBadges(userId: string) {
     try {
-      const response = await this.api.get(`/users/${userId}/badges`);
-      return Array.isArray(response.data) ? response.data : [];
+      const response = await this.safeRequest(() => this.api.get(`/users/${userId}/badges`));
+      return Array.isArray(response) ? response : [];
     } catch (error) {
       return [];
     }
   }
 
-  /**
-   * TITLES - Listar todos os títulos disponíveis
-   */
   async getAllTitles() {
     try {
-      const response = await this.api.get('/titles');
-      return Array.isArray(response.data) ? response.data : (response.data?.items || []);
+      const response = await this.safeRequest(() => this.api.get('/titles'));
+      return Array.isArray(response) ? response : (response?.items || []);
     } catch (error) {
       return [];
     }
   }
 
-  /**
-   * TITLES - Listar títulos do usuário
-   */
   async getUserTitles(userId: string) {
     try {
-      const response = await this.api.get(`/users/${userId}/titles`);
-      return Array.isArray(response.data) ? response.data : [];
+      const response = await this.safeRequest(() => this.api.get(`/users/${userId}/titles`));
+      return Array.isArray(response) ? response : [];
     } catch (error) {
       return [];
     }
   }
 
-  /**
-   * LEADERBOARDS - Ranking geral
-   */
   async getGeneralLeaderboard(params?: { page?: number; limit?: number }) {
     try {
-      const response = await this.api.get('/leaderboards/general', { params });
-      return Array.isArray(response.data) ? response.data : (response.data?.items || []);
+      const response = await this.safeRequest(() => this.api.get('/leaderboards/general', { params }));
+      return Array.isArray(response) ? response : (response?.items || []);
     } catch (error) {
       return [];
     }
   }
 
-  /**
-   * Utilitários - Salvar tokens
-   */
   private async saveTokens(accessToken: string, refreshToken: string) {
     await AsyncStorage.setItem(TOKEN_KEY, accessToken);
     await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
 
-  /**
-   * Utilitários - Limpar tokens (logout)
-   */
   async clearTokens() {
     await AsyncStorage.removeItem(TOKEN_KEY);
     await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
   }
 
-  /**
-   * Utilitários - Verificar se está autenticado (valida o token de fato)
-   * Não tenta renovar o token automaticamente
-   */
   async isAuthenticated(): Promise<boolean> {
     const token = await AsyncStorage.getItem(TOKEN_KEY);
     if (!token) {
       return false;
     }
     
-    // Validar o token tentando buscar os dados do usuário
-    // Usar uma requisição direta sem interceptor para evitar refresh automático
     try {
       const response = await axios.get(`${BASE_URL}/users/me`, {
         headers: {
@@ -895,10 +643,8 @@ class ApiService {
         timeout: 5000,
       });
       
-      // Se chegou aqui, o token é válido
       return !!response.data;
     } catch (error) {
-      // Se o token for inválido ou expirado, limpar tokens
       if (axios.isAxiosError(error)) {
         if (error.response?.status === 401 || error.response?.status === 403) {
           await this.clearTokens();
@@ -908,31 +654,21 @@ class ApiService {
     }
   }
 
-  /**
-   * Utilitários - Obter a base URL da API
-   */
   getBaseUrl(): string {
-    return BASE_URL.replace('/api', ''); // Remove /api para obter apenas a base URL
+    return BASE_URL.replace('/api', '');
   }
 
-  /**
-   * Utilitários - Tratamento de erros
-   */
   handleError(error: unknown): string {
     if (axios.isAxiosError(error)) {
       if (error.response) {
-        // Erro da API
         const data = error.response.data;
         let message: string;
         
-        // Se data é uma string, usar diretamente
         if (typeof data === 'string') {
           message = data;
         }
-        // Se data é um objeto, extrair message ou error
         else if (data && typeof data === 'object') {
           message = data.message || data.error || data.msg || JSON.stringify(data);
-          // Se message ainda é um objeto, converter para string
           if (typeof message === 'object') {
             message = JSON.stringify(message);
           }
@@ -942,21 +678,17 @@ class ApiService {
         
         return message || 'Erro ao comunicar com o servidor';
       } else if (error.request) {
-        // Sem resposta do servidor
         return 'Não foi possível conectar ao servidor. Verifique sua conexão e se o servidor está rodando em ' + BASE_URL;
       } else if (error.code === 'ECONNABORTED') {
-        // Timeout
         return 'Tempo de conexão esgotado. Verifique sua conexão.';
       }
     }
     
-    // Erro de rede ou outros
     const errorObj = error as { message?: string };
     if (errorObj?.message?.includes('Network Error') || errorObj?.message?.includes('network')) {
       return 'Erro de rede. Verifique sua conexão com a internet.';
     }
     
-    // Garantir que sempre retorna uma string
     if (typeof errorObj?.message === 'string') {
       return errorObj.message;
     }
@@ -970,4 +702,5 @@ class ApiService {
 }
 
 export default new ApiService();
+
 
