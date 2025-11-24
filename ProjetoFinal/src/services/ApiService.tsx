@@ -123,6 +123,12 @@ class ApiService {
     return this.safeRequest(() => this.api.patch('/users/me', data));
   }
 
+  async uploadMyAvatar(dataUrl: string) {
+    return this.safeRequest(() =>
+      this.api.post("/users/me/avatar", { dataUrl })
+    );
+  }
+
   async getLeaderboardByGroup(groupId: string, params?: { page?: number; limit?: number }) {
     return this.safeRequest(() =>
       this.api.get('/leaderboards/by-group', { params: { groupId, ...(params || {}) } })

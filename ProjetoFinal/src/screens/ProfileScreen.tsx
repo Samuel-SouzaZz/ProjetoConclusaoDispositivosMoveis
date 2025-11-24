@@ -17,6 +17,7 @@ import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
 import { useFocusEffect } from '@react-navigation/native';
 import { deriveLevelFromXp, getProgressToNextLevel } from "../utils/levels";
+import * as ImagePicker from "expo-image-picker";
 
 const { width } = Dimensions.get("window");
 
@@ -64,7 +65,37 @@ export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('completed');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  
+
+  // Editar Avatar do usuario
+  const pickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+  if (status !== "granted") {
+    alert("Acesso necessário para suas imagens da galeria.");
+    return;
+  }
+
+  const result = await ImagePicker.launchImageLibraryAsync({
+    mediaTypes: "images",
+    base64: true,
+    allowsEditing: true,
+    aspect: [1, 1],
+    quality: 0.8,
+  });
+
+  if (!result.canceled && result.assets?.length > 0) {
+    const asset = result.assets[0];
+
+    const dataUrl = `data:image/jpeg;base64,${asset.base64}`;
+
+    try {
+      await ApiService.uploadMyAvatar(dataUrl);
+      await loadProfile();
+    } catch (err) {
+      console.log("Erro ao enviar avatar", err);
+    }
+  }
+};
+
   // Dados do perfil
   const [profile, setProfile] = useState<User | null>(null);
   const [userRank, setUserRank] = useState<number | null>(null);
@@ -360,6 +391,7 @@ export default function ProfileScreen() {
                 )}
               </View>
               <TouchableOpacity
+                onPress={pickImage}
                 style={[styles.editButton, { backgroundColor: colors.secondary || '#4A90E2' }]}
                 accessibilityLabel="Editar foto de perfil"
                 accessibilityRole="button"
