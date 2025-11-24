@@ -1,10 +1,11 @@
-import React, { useEffect, useMemo, useState, useRef } from "react";
+import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
+
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, TextInput, TouchableOpacity, Dimensions, Modal, ScrollView } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
 import { Ionicons } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
+import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
 
@@ -12,55 +13,92 @@ export default function DiscussionsScreen() {
   const { commonStyles, colors } = useTheme();
   const navigation = useNavigation<any>();
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [listError, setListError] = useState<string | null>(null);
+
   const [forums, setForums] = useState<any[]>([]);
   const [query, setQuery] = useState("");
+  const [filterMode, setFilterMode] = useState<'ALL' | 'PUBLIC' | 'PRIVATE'>('ALL');
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showPrivacyPicker, setShowPrivacyPicker] = useState(false);
+  const [showFilterPicker, setShowFilterPicker] = useState(false);
+
   const [submitting, setSubmitting] = useState(false);
-  const [formData, setFormData] = useState({ exerciseCode: "", title: "", subject: "", description: "", isPublic: true });
+  const [formData, setFormData] = useState({ exerciseCode: "", title: "", subject: "", description: "", keywords: "", isPublic: true });
+  const [formError, setFormError] = useState<string | null>(null);
+
   const [codeLookupLoading, setCodeLookupLoading] = useState(false);
   const [codeLookupError, setCodeLookupError] = useState<string | null>(null);
   const numColumns = width >= 900 ? 3 : width >= 650 ? 2 : 1;
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      try {
-        setLoading(true);
-        const data = await ApiService.getPublicForums();
-        if (!mounted) return;
-        const items = Array.isArray(data) ? data : data?.items || [];
-        const mapped = items.map((f: any) => ({
-          id: f._id || f.id,
-          title: f.nome || f.title || "Fórum",
-          subject: f.assunto || "",
-          description: f.descricao || "",
-          isPublic: f.statusPrivacidade ? f.statusPrivacidade === "PUBLICO" : (f.isPublic ?? true),
-          topicsCount: f.qtdTopicos ?? 0,
-          isActive: f.status ? f.status === "ATIVO" : (f.isActive ?? true),
-        }));
-        setForums(mapped);
-        setError(null);
-      } catch (err: any) {
-        if (!mounted) return;
-        setError(ApiService.handleError(err));
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    })();
-    return () => { mounted = false; };
-  }, []);
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      (async () => {
+        try {
+          setLoading(true);
+
+          const [publicData, myData] = await Promise.all([
+            ApiService.getPublicForums().catch(() => []),
+            ApiService.getMyForums().catch(() => []),
+          ]);
+
+          if (!mounted) return;
+
+          const publicItems = Array.isArray(publicData) ? publicData : publicData?.items || [];
+          const myItems = Array.isArray(myData) ? myData : myData?.items || [];
+
+          const combined = [...publicItems, ...myItems];
+          const mapById = new Map<string, any>();
+
+          combined.forEach((f: any) => {
+            const id = String(f._id || f.id || "");
+            if (!id) return;
+            if (!mapById.has(id)) {
+              mapById.set(id, f);
+            }
+          });
+
+          const mapped = Array.from(mapById.values()).map((f: any) => ({
+            id: f._id || f.id,
+            title: f.nome || f.title || "Fórum",
+            subject: f.assunto || "",
+            description: f.descricao || "",
+            isPublic: f.statusPrivacidade ? f.statusPrivacidade === "PUBLICO" : (f.isPublic ?? true),
+            topicsCount: f.qtdTopicos ?? 0,
+            isActive: f.status ? f.status === "ATIVO" : (f.isActive ?? true),
+          }));
+
+          setForums(mapped);
+          setListError(null);
+        } catch (err: any) {
+          if (!mounted) return;
+          setListError(ApiService.handleError(err));
+        } finally {
+          if (mounted) setLoading(false);
+        }
+      })();
+      return () => { mounted = false; };
+    }, [])
+  );
 
   const filteredForums = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return forums;
-    return forums.filter(f =>
+
+    let base = forums;
+    if (filterMode === 'PUBLIC') {
+      base = base.filter(f => !!f.isPublic);
+    } else if (filterMode === 'PRIVATE') {
+      base = base.filter(f => !f.isPublic);
+    }
+
+    if (!q) return base;
+
+    return base.filter(f =>
       (f.title || "").toLowerCase().includes(q) ||
       (f.subject || "").toLowerCase().includes(q) ||
       (f.description || "").toLowerCase().includes(q)
     );
-  }, [forums, query]);
+  }, [forums, query, filterMode]);
 
   const handleCardPress = (forum: { id?: string; _id?: string }) => {
     const id = forum?.id || forum?._id;
@@ -70,12 +108,14 @@ export default function DiscussionsScreen() {
 
   const handleCreatePublication = async () => {
     if (submitting) return;
+    setFormError(null);
+
     const exerciseCode = normalizeForumCode(formData.exerciseCode);
     const nome = formData.title.trim();
     const assunto = formData.subject.trim();
 
     if (!exerciseCode || !nome || !assunto) {
-      setError('Código do desafio, nome do fórum e assunto são obrigatórios.');
+      setFormError('Código do desafio, nome do fórum e assunto são obrigatórios.');
       return;
     }
 
@@ -87,6 +127,9 @@ export default function DiscussionsScreen() {
         assunto,
         descricao: formData.description.trim() || undefined,
         isPublic: formData.isPublic,
+        palavrasChave: formData.keywords
+          ? formData.keywords.split(',').map(k => k.trim()).filter(Boolean)
+          : undefined,
       });
 
       const newForum = {
@@ -100,11 +143,11 @@ export default function DiscussionsScreen() {
       };
 
       setForums(prev => [newForum, ...prev]);
-      setFormData({ exerciseCode: '', title: '', subject: '', description: '', isPublic: true });
-      setError(null);
+      setFormData({ exerciseCode: '', title: '', subject: '', description: '', keywords: '', isPublic: true });
+      setFormError(null);
       setShowCreateModal(false);
     } catch (err: any) {
-      setError(ApiService.handleError(err));
+      setFormError(ApiService.handleError(err));
     } finally {
       setSubmitting(false);
     }
@@ -129,7 +172,8 @@ export default function DiscussionsScreen() {
     setCodeLookupLoading(true);
     setCodeLookupError(null);
     try {
-      const ex = await ApiService.getExerciseByCode(normalized.replace('#', ''));
+      const ex = await ApiService.getExerciseByCode(normalized);
+
       if (ex) prefillFromExercise(ex);
     } catch (err: any) {
       setCodeLookupError(ApiService.handleError(err));
@@ -171,7 +215,10 @@ export default function DiscussionsScreen() {
             returnKeyType="search"
           />
         </View>
-        <TouchableOpacity style={[styles.filterButton, { borderColor: colors.border }]}>
+        <TouchableOpacity
+          style={[styles.filterButton, { borderColor: colors.border }]}
+          onPress={() => setShowFilterPicker(true)}
+        >
           <Ionicons name="filter" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
       </View>
@@ -180,9 +227,9 @@ export default function DiscussionsScreen() {
         <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
-      ) : error ? (
+      ) : listError ? (
         <View style={styles.center}>
-          <Text style={{ color: colors.text }}>{String(error)}</Text>
+          <Text style={{ color: colors.text }}>{String(listError)}</Text>
         </View>
       ) : (
         <FlatList
@@ -209,7 +256,9 @@ export default function DiscussionsScreen() {
                 <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={1}>{item.title}</Text>
                 <View style={[styles.visibilityBadge, { backgroundColor: (colors as any).tagBackground || '#EEF6FF', borderColor: colors.border }]}>
                   <Ionicons name="planet" size={12} color={colors.primary} />
-                  <Text style={[styles.visibilityText, { color: colors.primary }]}>Público</Text>
+                  <Text style={[styles.visibilityText, { color: colors.primary }]}>
+                    {item.isPublic ? 'Público' : 'Privado'}
+                  </Text>
                 </View>
               </View>
               {!!item.description && (
@@ -247,7 +296,9 @@ export default function DiscussionsScreen() {
             </View>
             <ScrollView>
               <View style={styles.formGroup}>
+
                 <Text style={[styles.label, { color: colors.text }]}>Código do Desafio *</Text>
+
                 <TextInput
                   style={[styles.input, { borderColor: colors.border, color: colors.text }]}
                   placeholder="Digite o código do desafio (ex: #ASFS0001)"
@@ -298,6 +349,16 @@ export default function DiscussionsScreen() {
                 />
               </View>
               <View style={styles.formGroup}>
+                <Text style={[styles.label, { color: colors.text }]}>Palavras-chave</Text>
+                <TextInput
+                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
+                  placeholder="Ex: react, backend, javascript"
+                  placeholderTextColor={colors.textSecondary}
+                  value={formData.keywords}
+                  onChangeText={(v) => setFormData({ ...formData, keywords: v })}
+                />
+              </View>
+              <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Privacidade</Text>
                 <TouchableOpacity
                   style={[styles.input, { borderColor: colors.border, justifyContent: 'center', flexDirection: 'row', alignItems: 'center', paddingRight: 10 }]}
@@ -312,9 +373,10 @@ export default function DiscussionsScreen() {
                 </TouchableOpacity>
               </View>
               <View style={styles.modalActions}>
+
                 <TouchableOpacity
                   style={[styles.actionBtn, styles.actionBtnGhost, { borderColor: colors.border }]}
-                  onPress={() => { setFormData({ exerciseCode: '', title: '', subject: '', description: '', isPublic: true }); setCodeLookupError(null); }}
+                  onPress={() => { setFormData({ exerciseCode: '', title: '', subject: '', description: '', keywords: '', isPublic: true }); setCodeLookupError(null); }}
                 >
                   <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Limpar</Text>
                 </TouchableOpacity>
@@ -328,9 +390,15 @@ export default function DiscussionsScreen() {
                   <Text style={styles.saveText}>{submitting ? 'Criando...' : 'Criar Fórum'}</Text>
                 </TouchableOpacity>
               </View>
+              {!!formError && (
+                <View style={{ marginTop: 8 }}>
+                  <Text style={{ color: (colors as any).error || '#F44336' }}>{formError}</Text>
+                </View>
+              )}
             </ScrollView>
           </View>
         </View>
+
       </Modal>
 
       <Modal
@@ -367,6 +435,49 @@ export default function DiscussionsScreen() {
         </TouchableOpacity>
       </Modal>
 
+      <Modal
+        visible={showFilterPicker}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFilterPicker(false)}
+      >
+        <TouchableOpacity
+          style={styles.privacyOverlay}
+          activeOpacity={1}
+          onPressOut={() => setShowFilterPicker(false)}
+        >
+          <View style={[styles.privacyDropdown, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+            <TouchableOpacity
+              style={styles.privacyOption}
+              onPress={() => {
+                setFilterMode('ALL');
+                setShowFilterPicker(false);
+              }}
+            >
+              <Text style={{ color: colors.text }}>Todos (públicos e privados)</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.privacyOption}
+              onPress={() => {
+                setFilterMode('PUBLIC');
+                setShowFilterPicker(false);
+              }}
+            >
+              <Text style={{ color: colors.text }}>Públicos</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.privacyOption}
+              onPress={() => {
+                setFilterMode('PRIVATE');
+                setShowFilterPicker(false);
+              }}
+            >
+              <Text style={{ color: colors.text }}>Inativos (Privados)</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
     </SafeAreaView>
   );
 }
@@ -396,7 +507,7 @@ const styles = StyleSheet.create({
   footerText: { fontSize: 12 },
   linkText: { fontSize: 12, fontWeight: '700' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 16 },
-  modalContent: { width: '100%', maxWidth: 560, borderRadius: 16, padding: 16 },
+  modalContent: { width: '100%', maxWidth: 560, maxHeight: '80%', borderRadius: 16, padding: 16 },
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   modalTitle: { fontSize: 18, fontWeight: '800' },
   formGroup: { marginBottom: 12 },

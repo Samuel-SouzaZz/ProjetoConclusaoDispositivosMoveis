@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
@@ -9,10 +9,12 @@ const REFRESH_TOKEN_KEY = '@app:refresh_token';
 class ApiService {
   private api: AxiosInstance;
 
-  private async safeRequest<T>(request: () => Promise<{ data: T } | AxiosResponse<T>>): Promise<T> {
+  private async safeRequest<T = any>(
+    request: () => Promise<{ data: T } | AxiosResponse<T>>
+  ): Promise<T> {
     try {
-      const response = await request();
-      return (response as AxiosResponse<T>).data ?? (response as any);
+      const response: any = await request();
+      return (response as AxiosResponse<T>).data ?? response;
     } catch (error) {
       const message = this.handleError(error);
       throw new Error(message);
@@ -81,7 +83,7 @@ class ApiService {
     handle: string;
     collegeId?: string;
   }) {
-    const response = await this.safeRequest(() => this.api.post('/auth/signup', payload));
+    const response: any = await this.safeRequest(() => this.api.post('/auth/signup', payload));
     const { user, tokens } = response;
     await this.saveTokens(tokens.accessToken, tokens.refreshToken);
     return { user, tokens };
@@ -99,14 +101,14 @@ class ApiService {
   }
 
   async login(email: string, password: string) {
-    const response = await this.safeRequest(() => this.api.post('/auth/login', { email, password }));
+    const response: any = await this.safeRequest(() => this.api.post('/auth/login', { email, password }));
     const { user, tokens } = response;
     await this.saveTokens(tokens.accessToken, tokens.refreshToken);
     return { user, tokens };
   }
 
   async refreshTokens(refreshToken: string) {
-    const response = await this.safeRequest(() => this.api.post('/auth/refresh', { refreshToken }));
+    const response: any = await this.safeRequest(() => this.api.post('/auth/refresh', { refreshToken }));
     return response.tokens;
   }
 
@@ -225,6 +227,10 @@ class ApiService {
     return this.safeRequest(() => this.api.get(`/exercises/${exerciseId}`));
   }
 
+  async getExerciseByCode(code: string) {
+    return this.safeRequest(() => this.api.get(`/exercises/code/${encodeURIComponent(code)}`));
+  }
+
   async deleteChallenge(challengeId: string) {
     return this.safeRequest(() => this.api.delete(`/exercises/${challengeId}`));
   }
@@ -325,6 +331,7 @@ class ApiService {
     assunto: string;
     descricao?: string;
     isPublic?: boolean;
+    palavrasChave?: string[];
   }) {
     interface CreateForumPayload {
       exerciseCode: string;
@@ -332,6 +339,7 @@ class ApiService {
       assunto: string;
       descricao?: string;
       statusPrivacidade?: 'PUBLICO' | 'PRIVADO';
+      palavrasChave?: string[];
     }
 
     const payload: CreateForumPayload = {
@@ -339,6 +347,7 @@ class ApiService {
       nome: data.nome,
       assunto: data.assunto,
       descricao: data.descricao,
+      palavrasChave: data.palavrasChave,
     };
 
     if (typeof data.isPublic === 'boolean') {
@@ -350,6 +359,38 @@ class ApiService {
 
   async getForumById(forumId: string) {
     return this.safeRequest(() => this.api.get(`/forum/${forumId}`));
+  }
+
+  async updateForum(forumId: string, data: {
+    nome?: string;
+    assunto?: string;
+    descricao?: string;
+    isPublic?: boolean;
+    palavrasChave?: string[];
+  }) {
+    interface UpdateForumPayload {
+      nome?: string;
+      assunto?: string;
+      descricao?: string;
+      statusPrivacidade?: 'PUBLICO' | 'PRIVADO';
+      palavrasChave?: string[];
+    }
+
+    const payload: UpdateForumPayload = {
+      nome: data.nome,
+      assunto: data.assunto,
+      descricao: data.descricao,
+    };
+
+    if (typeof data.isPublic === 'boolean') {
+      payload.statusPrivacidade = data.isPublic ? 'PUBLICO' : 'PRIVADO';
+    }
+
+    return this.safeRequest(() => this.api.patch(`/forum/${forumId}`, payload));
+  }
+
+  async deleteForum(forumId: string) {
+    return this.safeRequest(() => this.api.delete(`/forum/${forumId}`));
   }
 
   async getForumTopics(forumId: string, params?: { page?: number; limit?: number }) {
@@ -535,7 +576,7 @@ class ApiService {
 
   async getDashboardStats(userId: string) {
     try {
-      const response = await this.safeRequest(() => this.api.get(`/stats/users/${userId}`));
+      const response: any = await this.safeRequest(() => this.api.get(`/stats/users/${userId}`));
       return {
         languages: response.languagesUsed || 0,
         challenges: response.publishedChallenges || 0,
@@ -558,7 +599,7 @@ class ApiService {
 
   async getMyCompletedExercises(): Promise<string[]> {
     try {
-      const response = await this.safeRequest(() => this.api.get('/submissions/me/completed'));
+      const response: any = await this.safeRequest(() => this.api.get('/submissions/me/completed'));
       return response?.exerciseIds || [];
     } catch (error) {
       return [];
@@ -593,7 +634,7 @@ class ApiService {
 
   async getAllTitles() {
     try {
-      const response = await this.safeRequest(() => this.api.get('/titles'));
+      const response: any = await this.safeRequest(() => this.api.get('/titles'));
       return Array.isArray(response) ? response : (response?.items || []);
     } catch (error) {
       return [];
@@ -602,7 +643,7 @@ class ApiService {
 
   async getUserTitles(userId: string) {
     try {
-      const response = await this.safeRequest(() => this.api.get(`/users/${userId}/titles`));
+      const response: any = await this.safeRequest(() => this.api.get(`/users/${userId}/titles`));
       return Array.isArray(response) ? response : [];
     } catch (error) {
       return [];
@@ -611,7 +652,7 @@ class ApiService {
 
   async getGeneralLeaderboard(params?: { page?: number; limit?: number }) {
     try {
-      const response = await this.safeRequest(() => this.api.get('/leaderboards/general', { params }));
+      const response: any = await this.safeRequest(() => this.api.get('/leaderboards/general', { params }));
       return Array.isArray(response) ? response : (response?.items || []);
     } catch (error) {
       return [];
