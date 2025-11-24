@@ -97,9 +97,18 @@ export default function ProfileScreen() {
         ApiService.getUserBadges(user.id),
       ]);
       
-      const earnedBadgeIds = userBadgesData.map((ub: any) =>
-        typeof ub.badge === "string" ? ub.badge : ub.badge?._id || ub.badge?.id
-      );
+      const earnedBadgeIds = userBadgesData
+        .map((ub: any) => {
+          if (typeof ub.badge === "string" && ub.badge.trim().length > 0) {
+            return ub.badge.trim();
+          }
+          const badgeId = ub.badge?._id || ub.badge?.id;
+          if (badgeId && (typeof badgeId === 'string' || typeof badgeId === 'number')) {
+            return String(badgeId);
+          }
+          return null;
+        })
+        .filter((id: any): id is string => id != null && typeof id === 'string' && id.trim().length > 0);
       
       setAllBadges(Array.isArray(allBadgesData) ? allBadgesData : []);
       setUserBadges(earnedBadgeIds);
@@ -305,12 +314,13 @@ export default function ProfileScreen() {
   const level = deriveLevelFromXp(xpTotal);
   const progress = getProgressToNextLevel(xpTotal, level);
   const activeTitle = userTitles.find((ut) => ut.active)?.title;
-  const titleName = typeof activeTitle === 'object' && activeTitle ? activeTitle.name : 
-                    (typeof activeTitle === 'string' ? activeTitle : '');
+  const titleName = typeof activeTitle === 'object' && activeTitle && activeTitle.name ? activeTitle.name : 
+                    (typeof activeTitle === 'string' && activeTitle.trim() ? activeTitle.trim() : '');
   const badgesCount = userBadges.length;
-  const earnedBadges = allBadges.filter((b: Badge) => 
-    userBadges.includes(b._id || b.id || '')
-  );
+  const earnedBadges = allBadges.filter((b: Badge) => {
+    const badgeId = String(b._id || b.id || '');
+    return badgeId && badgeId.trim().length > 0 && userBadges.includes(badgeId);
+  });
 
   // Return condicional APÓS todos os hooks
   if (loading && !profile) {
@@ -362,8 +372,8 @@ export default function ProfileScreen() {
             <View style={styles.userInfo}>
               <View style={styles.usernameContainer}>
                 <Text style={styles.username}>{profile?.name || user?.name || "Usuário"}</Text>
-                {titleName && titleName.trim() !== '' && (
-                  <Text style={styles.userTitle}>[{titleName}]</Text>
+                {titleName && typeof titleName === 'string' && titleName.trim().length > 0 && (
+                  <Text style={styles.userTitle}>[{titleName.trim()}]</Text>
                 )}
               </View>
               
@@ -513,10 +523,10 @@ const StatCard = ({ icon, value, label, color, accessibilityLabel }: {
     <View
       style={[styles.statCard, { backgroundColor: 'rgba(255, 255, 255, 0.1)' }]}
       accessibilityLabel={accessibilityLabel}
-      accessibilityRole="text"
+      accessibilityRole="none"
     >
       <Ionicons name={icon as any} size={24} color={color} />
-      <Text style={styles.statValue}>{value}</Text>
+      <Text style={styles.statValue}>{value != null ? String(value) : ''}</Text>
       <Text style={styles.statLabel}>{label}</Text>
     </View>
   );
@@ -590,8 +600,8 @@ const CompletedTab = ({ exercises, loading, colors, isDarkMode }: {
 
   return (
     <View style={styles.exercisesGrid}>
-      {exercises.map((exercise) => (
-        <ExerciseCard key={exercise.id} exercise={exercise} colors={colors} isDarkMode={isDarkMode} />
+      {exercises.map((exercise, index) => (
+        <ExerciseCard key={exercise.id || `exercise-${index}`} exercise={exercise} colors={colors} isDarkMode={isDarkMode} />
       ))}
     </View>
   );
@@ -629,7 +639,7 @@ const BadgesTab = ({ badges, loading, colors, isDarkMode }: {
   return (
     <View style={styles.badgesGrid}>
       {badges.map((badge, index) => (
-        <BadgeItem key={badge._id || badge.id || index} badge={badge} colors={colors} isDarkMode={isDarkMode} />
+        <BadgeItem key={badge._id || badge.id || `badge-${index}`} badge={badge} colors={colors} isDarkMode={isDarkMode} />
       ))}
     </View>
   );
@@ -895,6 +905,23 @@ const TitlesTab = ({ allTitles, userTitles, filter, onFilterChange, loading, col
     return { earned: false, percent: 0, label: 'Ação necessária' };
   };
 
+  // Garantir que getTitleProgress sempre retorna um objeto válido com label sempre sendo string
+  const safeGetTitleProgress = (title: Title) => {
+    try {
+      const result = getTitleProgress(title);
+      if (!result || typeof result !== 'object') {
+        return { earned: false, percent: 0, label: 'Ação necessária' };
+      }
+      return {
+        earned: Boolean(result.earned),
+        percent: typeof result.percent === 'number' && !isNaN(result.percent) ? Math.max(0, Math.min(100, result.percent)) : 0,
+        label: typeof result.label === 'string' && result.label.trim().length > 0 ? result.label.trim() : 'Ação necessária'
+      };
+    } catch (error) {
+      return { earned: false, percent: 0, label: 'Ação necessária' };
+    }
+  };
+
   if (loading) {
     return (
       <View style={styles.emptyContainer}>
@@ -908,7 +935,7 @@ const TitlesTab = ({ allTitles, userTitles, filter, onFilterChange, loading, col
 
   // Sempre mostrar os filtros, mesmo quando não há resultados
   const filteredTitles = allTitles.filter((t) => {
-    const { earned } = getTitleProgress(t);
+    const { earned } = safeGetTitleProgress(t);
     if (filter === 'earned') return earned;
     if (filter === 'locked') return !earned;
     return true;
@@ -976,17 +1003,19 @@ const TitlesTab = ({ allTitles, userTitles, filter, onFilterChange, loading, col
               ? 'Nenhum título bloqueado'
               : 'Nenhum título encontrado'}
           </Text>
-          <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
-            {filter !== 'all' && 'Toque em "Todos" para ver todos os títulos'}
-          </Text>
+          {filter !== 'all' && (
+            <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+              Toque em "Todos" para ver todos os títulos
+            </Text>
+          )}
         </View>
       ) : (
         <View style={styles.titlesGrid}>
-          {filteredTitles.map((title) => {
-            const { earned, percent, label } = getTitleProgress(title);
+          {filteredTitles.map((title, index) => {
+            const { earned, percent, label } = safeGetTitleProgress(title);
             return (
               <TitleCard
-                key={title._id || title.id}
+                key={title._id || title.id || `title-${index}`}
                 title={title}
                 earned={earned}
                 percent={percent}
@@ -1033,8 +1062,8 @@ const CreatedTab = ({ exercises, loading, colors, isDarkMode }: {
 
   return (
     <View style={styles.exercisesGrid}>
-      {exercises.map((exercise) => (
-        <ExerciseCard key={exercise.id} exercise={exercise} colors={colors} isDarkMode={isDarkMode} />
+      {exercises.map((exercise, index) => (
+        <ExerciseCard key={exercise.id || `exercise-${index}`} exercise={exercise} colors={colors} isDarkMode={isDarkMode} />
       ))}
     </View>
   );
@@ -1056,12 +1085,12 @@ const ExerciseCard = ({ exercise, colors, isDarkMode }: {
   return (
     <View
       style={[styles.exerciseCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-      accessibilityLabel={`Desafio ${exercise.title}`}
+      accessibilityLabel={`Desafio ${exercise.title || ''}`}
       accessibilityRole="button"
     >
       <View style={styles.exerciseHeader}>
         <Text style={[styles.exerciseTitle, { color: colors.text }]} numberOfLines={2}>
-          {exercise.title}
+          {exercise.title || ''}
         </Text>
         {exercise.difficulty && (
           <View style={[styles.difficultyBadge, { backgroundColor: getDifficultyColor(exercise.difficulty) }]}>
@@ -1072,7 +1101,7 @@ const ExerciseCard = ({ exercise, colors, isDarkMode }: {
         )}
       </View>
       
-      {exercise.description && (
+      {exercise.description && typeof exercise.description === 'string' && exercise.description.trim().length > 0 && (
         <Text style={[styles.exerciseDescription, { color: colors.textSecondary }]} numberOfLines={3}>
           {exercise.description}
         </Text>
@@ -1109,19 +1138,27 @@ const BadgeItem = ({ badge, colors, isDarkMode }: {
   return (
     <View
       style={[styles.badgeItem, { backgroundColor: colors.card }]}
-      accessibilityLabel={`Emblema ${badge.name}`}
+      accessibilityLabel={`Emblema ${badge.name || ''}`}
       accessibilityRole="image"
     >
-      {badge.iconUrl || badge.icon ? (
-        <Image
-          source={{ uri: badge.iconUrl || badge.icon }}
-          style={styles.badgeImage}
-        />
-      ) : (
-        <Ionicons name="medal" size={48} color={colors.primary} />
-      )}
+      {(() => {
+        const iconUri = (badge.iconUrl && typeof badge.iconUrl === 'string' && badge.iconUrl.trim().length > 0) 
+          ? badge.iconUrl.trim() 
+          : (badge.icon && typeof badge.icon === 'string' && badge.icon.trim().length > 0) 
+            ? badge.icon.trim() 
+            : null;
+        
+        return iconUri ? (
+          <Image
+            source={{ uri: iconUri }}
+            style={styles.badgeImage}
+          />
+        ) : (
+          <Ionicons name="medal" size={48} color={colors.primary} />
+        );
+      })()}
       <Text style={[styles.badgeName, { color: colors.text }]} numberOfLines={2}>
-        {badge.name}
+        {badge.name || ''}
       </Text>
     </View>
   );
@@ -1139,8 +1176,8 @@ const TitleCard = ({ title, earned, percent, label, colors, isDarkMode }: {
   return (
     <View
       style={[styles.titleCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-      accessibilityLabel={`Título ${title.name}, ${label}`}
-      accessibilityRole="text"
+      accessibilityLabel={`Título ${title.name || ''}, ${label || ''}`}
+      accessibilityRole="none"
     >
       {earned && (
         <View style={[styles.earnedChip, { backgroundColor: '#4CAF50' }]}>
@@ -1149,10 +1186,10 @@ const TitleCard = ({ title, earned, percent, label, colors, isDarkMode }: {
       )}
       
       <Text style={[styles.titleName, { color: colors.text }]} numberOfLines={2}>
-        {title.name}
+        {title.name || ''}
       </Text>
       
-      {title.description && (
+      {title.description && typeof title.description === 'string' && title.description.trim().length > 0 && (
         <Text style={[styles.titleDescription, { color: colors.textSecondary }]} numberOfLines={2}>
           {title.description}
         </Text>
@@ -1168,7 +1205,7 @@ const TitleCard = ({ title, earned, percent, label, colors, isDarkMode }: {
           />
         </View>
         <Text style={[styles.titleLabel, { color: earned ? '#4CAF50' : colors.textSecondary }]}>
-          {earned ? '✅' : '🔒'} {label}
+          {earned ? '✅' : '🔒'} {label || ''}
         </Text>
       </View>
     </View>
