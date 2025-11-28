@@ -87,16 +87,15 @@ export default function AppNavigator() {
               tabBarActiveTintColor: colors.primary,
               tabBarInactiveTintColor: colors.textSecondary,
               tabBarStyle: {
+                position: "absolute",
                 backgroundColor: colors.card,
-                borderTopWidth: 0,
-                elevation: 0,
+                borderTopLeftRadius: 20,
+                borderTopRightRadius: 20,
                 height: 70,
                 paddingBottom: 10,
                 paddingTop: 10,
-                position: "absolute",
-                left: 0,
-                right: 0,
-                bottom: 0,
+                borderTopColor: colors.border,
+                overflow: "hidden",
               },
             }}
           >
