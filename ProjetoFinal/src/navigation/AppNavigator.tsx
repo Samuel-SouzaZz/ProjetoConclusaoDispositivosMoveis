@@ -88,12 +88,15 @@ export default function AppNavigator() {
               tabBarInactiveTintColor: colors.textSecondary,
               tabBarStyle: {
                 backgroundColor: colors.card,
-                borderTopLeftRadius: 20,
-                borderTopRightRadius: 20,
+                borderTopWidth: 0,
+                elevation: 0,
                 height: 70,
                 paddingBottom: 10,
                 paddingTop: 10,
-                borderTopColor: colors.border,
+                position: "absolute",
+                left: 0,
+                right: 0,
+                bottom: 0,
               },
             }}
           >
@@ -121,7 +124,7 @@ export default function AppNavigator() {
               name="ForumTab"
               component={ForumScreen}
               options={{
-                tabBarLabel: "Forum",
+                tabBarLabel: "Fórum",
                 tabBarIcon: ({ color, size }) => (
                   <Ionicons name="chatbubbles" size={size} color={color} />
                 ),
