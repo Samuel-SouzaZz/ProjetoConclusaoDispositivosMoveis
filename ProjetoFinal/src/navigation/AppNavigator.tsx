@@ -6,7 +6,7 @@ import LoginScreen from "../screens/LoginScreen";
 import SignupScreen from "../screens/SignupScreen";
 import HomeScreen from "../screens/HomeScreen";
 import DashboardScreen from "../screens/DashboardScreen";
-import DiscussionsScreen from "../screens/DiscussionsScreen";
+import ForumScreen from "../screens/ForumScreen";
 import RankingScreen from "../screens/RankingScreen";
 import ChallengesScreen from "../screens/ChallengesScreen";
 import ChallengeDetailsScreen from "../screens/ChallengeDetailsScreen";
@@ -45,7 +45,7 @@ export type RootStackParamList = {
 type TabParamList = {
   DashboardTab: undefined;
   ChallengesTab: undefined;
-  DiscussionsTab: undefined;
+  ForumTab: undefined;
   GroupsTab: undefined;
   RankingTab: undefined;
   SettingsTab: undefined;
@@ -118,10 +118,10 @@ export default function AppNavigator() {
               }}
             />
             <Tab.Screen
-              name="DiscussionsTab"
-              component={DiscussionsScreen}
+              name="ForumTab"
+              component={ForumScreen}
               options={{
-                tabBarLabel: "Discussões",
+                tabBarLabel: "Forum",
                 tabBarIcon: ({ color, size }) => (
                   <Ionicons name="chatbubbles" size={size} color={color} />
                 ),

@@ -4,7 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 
 interface BottomNavigationProps {
-  activeRoute: "Home" | "Dashboard" | "Discussions" | "Ranking" | "Challenges" | "Settings";
+  activeRoute: "Home" | "Dashboard" | "Foruns" | "Ranking" | "Challenges" | "Settings";
 }
 
 export default function BottomNavigation({ activeRoute }: BottomNavigationProps) {
@@ -24,13 +24,13 @@ export default function BottomNavigation({ activeRoute }: BottomNavigationProps)
       </TouchableOpacity>
 
       <TouchableOpacity
-        style={[styles.navItem, activeRoute === "Discussions" && styles.navItemActive]}
-        onPress={() => navigation.navigate("Discussions")}
+        style={[styles.navItem, activeRoute === "Foruns" && styles.navItemActive]}
+        onPress={() => navigation.navigate("Foruns")}
       >
         <Ionicons
           name="chatbubbles"
           size={24}
-          color={activeRoute === "Discussions" ? "#4A90E2" : "#1A1A1A"}
+          color={activeRoute === "Foruns" ? "#4A90E2" : "#1A1A1A"}
         />
       </TouchableOpacity>
 

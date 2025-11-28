@@ -9,7 +9,7 @@ import { useNavigation, useFocusEffect } from "@react-navigation/native";
 
 const { width } = Dimensions.get("window");
 
-export default function DiscussionsScreen() {
+export default function ForumScreen() {
   const { commonStyles, colors } = useTheme();
   const navigation = useNavigation<any>();
   const [loading, setLoading] = useState(true);

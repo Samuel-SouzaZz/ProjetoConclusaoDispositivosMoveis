@@ -26,7 +26,7 @@ import type { RootStackParamList } from "../navigation/AppNavigator";
 type TabParamList = {
   DashboardTab: undefined;
   ChallengesTab: { openCreate?: boolean } | undefined;
-  DiscussionsTab: undefined;
+  ForumTab: undefined;
   GroupsTab: undefined;
   RankingTab: undefined;
   SettingsTab: undefined;
@@ -417,7 +417,7 @@ export default function DashboardScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.progressCard, { backgroundColor: colors.card, flex: 1, marginLeft: 12 }]}
-              onPress={() => navigation.navigate("DiscussionsTab")}
+              onPress={() => navigation.navigate("ForumTab")}
               accessibilityLabel="Ver fóruns"
               accessibilityRole="button"
             >
