@@ -1,8 +1,19 @@
 import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
+import Constants from "expo-constants";
 
-const BASE_URL = 'http://localhost:3000/api';
+const extra = Constants.expoConfig?.extra ?? {};
+
+const apiUrl = extra.apiUrl as string;
+const apiPath = extra.apiPath as string;
+
+if (!extra?.apiUrl || !extra?.apiPath) {
+  throw new Error("Variáveis API_URL ou API_PATH não foram carregadas do app.config.js");
+}
+
+export const BASE_URL = `${apiUrl}${apiPath}`;
+
 const TOKEN_KEY = '@app:access_token';
 const REFRESH_TOKEN_KEY = '@app:refresh_token';
 
@@ -46,11 +57,11 @@ class ApiService {
       async (error: AxiosError) => {
         if (error.response?.status === 401) {
           const url = error.config?.url || '';
-          const isValidationRequest = url.includes('/users/me') || 
-                                      url.includes('/auth/refresh') ||
-                                      url.includes('/auth/login') ||
-                                      url.includes('/auth/signup');
-          
+          const isValidationRequest = url.includes('/users/me') ||
+            url.includes('/auth/refresh') ||
+            url.includes('/auth/login') ||
+            url.includes('/auth/signup');
+
           if (!isValidationRequest) {
             const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
             if (refreshToken) {
@@ -172,11 +183,11 @@ class ApiService {
       isPublic: data.isPublic,
       languageId: data.languageId,
     };
-    
+
     if (data.xp !== undefined) {
       payload.baseXp = data.xp;
     }
-    
+
     return this.safeRequest(() => this.api.post('/exercises', payload));
   }
 
@@ -189,7 +200,7 @@ class ApiService {
     if (!token) {
       throw new Error('Não autenticado. Faça login novamente.');
     }
-    
+
     const config = params && Object.keys(params).length > 0 ? { params } : {};
     return this.safeRequest(() => this.api.get('/exercises/mine', config));
   }
@@ -221,11 +232,11 @@ class ApiService {
       isPublic: data.isPublic,
       languageId: data.languageId,
     };
-    
+
     if (data.xp !== undefined) {
       payload.baseXp = data.xp;
     }
-    
+
     return this.safeRequest(() => this.api.patch(`/exercises/${challengeId}`, payload));
   }
 
@@ -262,7 +273,7 @@ class ApiService {
   }) {
     try {
       const data = await this.safeRequest(() => this.api.get('/exercises', { params }));
-      
+
       if (data && typeof data === 'object') {
         if (Array.isArray(data)) {
           return { items: data, total: data.length };
@@ -680,7 +691,7 @@ class ApiService {
     if (!token) {
       return false;
     }
-    
+
     try {
       const response = await axios.get(`${BASE_URL}/users/me`, {
         headers: {
@@ -689,7 +700,7 @@ class ApiService {
         },
         timeout: 5000,
       });
-      
+
       return !!response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
@@ -710,7 +721,7 @@ class ApiService {
       if (error.response) {
         const data = error.response.data;
         let message: string;
-        
+
         if (typeof data === 'string') {
           message = data;
         }
@@ -722,7 +733,7 @@ class ApiService {
         } else {
           message = 'Erro ao comunicar com o servidor';
         }
-        
+
         return message || 'Erro ao comunicar com o servidor';
       } else if (error.request) {
         return 'Não foi possível conectar ao servidor. Verifique sua conexão e se o servidor está rodando em ' + BASE_URL;
@@ -730,20 +741,20 @@ class ApiService {
         return 'Tempo de conexão esgotado. Verifique sua conexão.';
       }
     }
-    
+
     const errorObj = error as { message?: string };
     if (errorObj?.message?.includes('Network Error') || errorObj?.message?.includes('network')) {
       return 'Erro de rede. Verifique sua conexão com a internet.';
     }
-    
+
     if (typeof errorObj?.message === 'string') {
       return errorObj.message;
     }
-    
+
     if (typeof error === 'string') {
       return error;
     }
-    
+
     return 'Erro desconhecido';
   }
 }
