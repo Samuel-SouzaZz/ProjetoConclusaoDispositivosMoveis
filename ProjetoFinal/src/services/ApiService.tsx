@@ -1,4 +1,4 @@
-import axios, { AxiosInstance, AxiosError, AxiosResponse } from 'axios';
+import axios, { AxiosInstance, AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import Constants from "expo-constants";
@@ -42,18 +42,18 @@ class ApiService {
     });
 
     this.api.interceptors.request.use(
-      async (config) => {
+      async (config: InternalAxiosRequestConfig) => {
         const token = await AsyncStorage.getItem(TOKEN_KEY);
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
         return config;
       },
-      (error) => Promise.reject(error)
+      (error: AxiosError) => Promise.reject(error)
     );
 
     this.api.interceptors.response.use(
-      (response) => response,
+      (response: AxiosResponse) => response,
       async (error: AxiosError) => {
         if (error.response?.status === 401) {
           const url = error.config?.url || '';
@@ -687,6 +687,24 @@ class ApiService {
     }
   }
 
+  async executeCode(data: {
+    sourceCode: string;
+    languageId: number;
+    input?: string;
+  }): Promise<{ sucesso: boolean; resultado: string }> {
+    try {
+      const response = await this.safeRequest(() => 
+        this.api.post('/execute', data)
+      );
+      return response as { sucesso: boolean; resultado: string };
+    } catch (error: any) {
+      return {
+        sucesso: false,
+        resultado: error?.message || 'Erro ao executar código',
+      };
+    }
+  }
+
   private async saveTokens(accessToken: string, refreshToken: string) {
     await AsyncStorage.setItem(TOKEN_KEY, accessToken);
     await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
@@ -713,11 +731,10 @@ class ApiService {
       });
 
       return !!response.data;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        if (error.response?.status === 401 || error.response?.status === 403) {
-          await this.clearTokens();
-        }
+    } catch (err) {
+      const axiosErr = err as AxiosError;
+      if (axiosErr?.response?.status === 401 || axiosErr?.response?.status === 403) {
+        await this.clearTokens();
       }
       return false;
     }
@@ -728,29 +745,29 @@ class ApiService {
   }
 
   handleError(error: unknown): string {
-    if (axios.isAxiosError(error)) {
-      if (error.response) {
-        const data = error.response.data;
-        let message: string;
+    const axiosError = error as AxiosError<Record<string, unknown>>;
+    
+    if (axios.isAxiosError(error) && axiosError.response) {
+      const data = axiosError.response.data;
+      let message: string;
 
-        if (typeof data === 'string') {
-          message = data;
-        }
-        else if (data && typeof data === 'object') {
-          message = data.message || data.error || data.msg || JSON.stringify(data);
-          if (typeof message === 'object') {
-            message = JSON.stringify(message);
-          }
-        } else {
-          message = 'Erro ao comunicar com o servidor';
-        }
-
-        return message || 'Erro ao comunicar com o servidor';
-      } else if (error.request) {
-        return 'Não foi possível conectar ao servidor. Verifique sua conexão e se o servidor está rodando em ' + BASE_URL;
-      } else if (error.code === 'ECONNABORTED') {
-        return 'Tempo de conexão esgotado. Verifique sua conexão.';
+      if (typeof data === 'string') {
+        message = data;
       }
+      else if (data && typeof data === 'object') {
+        message = (data.message || data.error || data.msg || JSON.stringify(data)) as string;
+        if (typeof message === 'object') {
+          message = JSON.stringify(message);
+        }
+      } else {
+        message = 'Erro ao comunicar com o servidor';
+      }
+
+      return message || 'Erro ao comunicar com o servidor';
+    } else if (axios.isAxiosError(error) && axiosError.request) {
+      return 'Não foi possível conectar ao servidor. Verifique sua conexão e se o servidor está rodando em ' + BASE_URL;
+    } else if (axios.isAxiosError(error) && axiosError.code === 'ECONNABORTED') {
+      return 'Tempo de conexão esgotado. Verifique sua conexão.';
     }
 
     const errorObj = error as { message?: string };
