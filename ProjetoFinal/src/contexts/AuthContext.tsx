@@ -30,14 +30,17 @@ interface AuthContextType {
   signup: (email: string, password: string, name: string, handle: string, collegeId?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
+  enableBiometricAuth: () => Promise<boolean>;
+  disableBiometricAuth: () => Promise<void>;
+  loginWithBiometrics: () => Promise<boolean>;
 }
 
-const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+export const AuthContext = createContext<AuthContextType | null>(null);
 
 const USER_ID_KEY = "@app:user_id";
 const BIOMETRIC_TOKEN_KEY = "app_biometric_token";
 
-export function AuthProvider({ children }: { children: ReactNode }) {
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation<NavigationProp<RootStackParamList>>();
@@ -53,9 +56,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Não fazer login biométrico automático no AuthContext
       // Deixar o LoginScreen fazer isso para ter melhor controle
       // Isso evita conflitos e garante que o Face ID seja solicitado corretamente
-      
+
       // Não fazer login automático baseado apenas em token
       // O usuário deve fazer login manualmente ou via Face ID no LoginScreen
+
+      const biometricEnabled = await isBiometricEnabled();
+      if (biometricEnabled) {
+        await loginWithBiometrics();
+      }
     } catch (error) {
       await ApiService.clearTokens();
     } finally {
@@ -72,7 +80,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         Alert.alert("Erro", "Sessão expirada. Faça login novamente.");
         return;
       }
-      
+
       // Validar se o token ainda é válido
       try {
         const userData = await ApiService.getMe();
@@ -116,7 +124,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       await AsyncStorage.setItem(USER_ID_KEY, me.id);
-      
+
       try {
         await UserService.syncUserFromBackend(me);
       } catch (syncError) {
@@ -129,6 +137,76 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const message = ApiService.handleError(error);
       Alert.alert("Erro no Login", message);
       throw error;
+    }
+  }
+
+  async function enableBiometricAuth(): Promise<boolean> {
+    try {
+
+      const refreshToken = await ApiService.getRefreshToken?.();
+      const accessToken = await ApiService.getToken();
+      const tokenToSave = refreshToken || accessToken;
+
+      if (!tokenToSave) {
+        return false;
+      }
+
+      if (Platform.OS !== "web") {
+        await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, tokenToSave);
+      } else {
+        await AsyncStorage.setItem(BIOMETRIC_TOKEN_KEY, tokenToSave);
+      }
+
+      await AsyncStorage.setItem("@biometric_enabled", "true");
+      return true;
+    } catch (error) {
+      console.warn("enableBiometricAuth error:", error);
+      return false;
+    }
+  }
+
+  async function disableBiometricAuth() {
+    await clearBiometricPreference();
+    await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
+  }
+
+  async function loginWithBiometrics(): Promise<boolean> {
+    try {
+      const enabled = await isBiometricEnabled();
+      if (!enabled) return false;
+
+      const hasHardware = await LocalAuthentication.hasHardwareAsync();
+      const enrolled = await LocalAuthentication.isEnrolledAsync();
+      if (!hasHardware || !enrolled) return false;
+
+      const result = await LocalAuthentication.authenticateAsync({
+        promptMessage: "Autentique-se para entrar",
+        fallbackLabel: "Usar senha",
+      });
+
+      if (!result.success) return false;
+
+      // ler token salvo
+      const storedToken = Platform.OS !== "web"
+        ? await SecureStore.getItemAsync(BIOMETRIC_TOKEN_KEY)
+        : await AsyncStorage.getItem(BIOMETRIC_TOKEN_KEY);
+
+      if (!storedToken) return false;
+
+      // configura ApiService com o token (usa setToken existente)
+      await ApiService.setToken(storedToken);
+
+      // obtém dados do usuário e define no estado
+      const me = await ApiService.getMe();
+      if (me && me.id) {
+        setUser(me);
+        return true;
+      }
+
+      return false;
+    } catch (error) {
+      console.warn("loginWithBiometrics error:", error);
+      return false;
     }
   }
 
@@ -156,7 +234,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const { user: userData } = await ApiService.signup({ name, email, password, handle, collegeId });
-      
+
       let me;
       try {
         me = await ApiService.getMe();
@@ -169,9 +247,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           throw new Error("Não foi possível obter dados do usuário");
         }
       }
-      
+
       await AsyncStorage.setItem(USER_ID_KEY, me.id);
-      
+
       try {
         await UserService.syncUserFromBackend(me);
       } catch (syncError) {
@@ -191,7 +269,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       await ApiService.clearTokens();
       await AsyncStorage.removeItem(USER_ID_KEY);
-      
+
       // SecureStore só funciona em plataformas móveis
       if (Platform.OS !== 'web') {
         try {
@@ -212,7 +290,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       setUser(null);
     } catch (error) {
-      
+
     }
   }
 
@@ -222,17 +300,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await UserService.syncUserFromBackend(userData);
       setUser(userData);
     } catch (error) {
-      
+
     }
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, refreshUser, enableBiometricAuth, disableBiometricAuth, loginWithBiometrics }}>
       {children}
     </AuthContext.Provider>
   );
 }
 
 export function useAuth() {
-  return useContext(AuthContext);
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within AuthProvider");
+  }
+  return context;
 }

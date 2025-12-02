@@ -11,11 +11,13 @@ import {
   setBiometricEnabled,
   BiometricInfo,
 } from "../utils/biometricPreferences";
+import { TextStyle } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import * as SecureStore from "expo-secure-store";
 import ApiService from "../services/ApiService";
 
 export default function SettingsScreen() {
-  const { logout, user } = useAuth();
+  const { logout, user, enableBiometricAuth, disableBiometricAuth } = useAuth();
   const { isDarkMode, toggleTheme, colors, commonStyles } = useTheme();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [pushNotifications, setPushNotifications] = useState(true);
@@ -31,6 +33,20 @@ export default function SettingsScreen() {
   const [biometricEnabled, setBiometricEnabledState] = useState(false);
   const [biometricInfo, setBiometricInfo] = useState<BiometricInfo | null>(null);
   const [loadingBiometric, setLoadingBiometric] = useState(true);
+  const pickerFixedStyle: TextStyle = {
+    width: 140,
+    minWidth: 120,
+    color: colors.text,
+    fontSize: 16,
+    paddingVertical: 4,
+    backgroundColor: isDarkMode ? colors.card : "transparent",
+
+    // Esseciais para o ANDROID
+    fontFamily: undefined,
+    letterSpacing: 0,
+    textTransform: "none",
+  };
+  const insets = useSafeAreaInsets();
 
   useEffect(() => {
     loadBiometricSettings();
@@ -54,33 +70,20 @@ export default function SettingsScreen() {
     if (value) {
       // Habilitar Face ID
       if (!biometricInfo?.isAvailable) {
-        Alert.alert(
-          "Biometria Indisponível",
-          "Seu dispositivo não suporta autenticação biométrica ou não está configurada."
-        );
+        Alert.alert("Biometria Indisponível", "Seu dispositivo não suporta autenticação biométrica ou não está configurada.");
         return;
       }
 
       // Verificar se já existe token salvo
       try {
-        const token = await ApiService.getToken();
-        if (!token) {
-          Alert.alert(
-            "Erro",
-            "Você precisa estar autenticado para habilitar a biometria. Faça login novamente."
-          );
-          return;
+        const ok = await enableBiometricAuth();
+        if (ok) {
+          setBiometricEnabledState(true);
+          Alert.alert("Sucesso", `${biometricInfo?.biometricType} habilitado com sucesso!`);
+        } else {
+          Alert.alert("Erro", "Não foi possível habilitar a biometria. Faça login com sua senha e tente novamente.");
         }
-
-        // Salvar token no SecureStore
-        await SecureStore.setItemAsync("app_biometric_token", token);
-        await setBiometricEnabled(true);
-        setBiometricEnabledState(true);
-        Alert.alert(
-          "Sucesso",
-          `${biometricInfo.biometricType} habilitado com sucesso!`
-        );
-      } catch (error: any) {
+      } catch (err) {
         Alert.alert("Erro", "Não foi possível habilitar a biometria. Tente novamente.");
       }
     } else {
@@ -111,11 +114,14 @@ export default function SettingsScreen() {
 
   return (
     <SafeAreaView style={commonStyles.container}>
-      <ScrollView style={styles.scrollView}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={{ paddingBottom: insets.bottom + 40 }}
+      >
         <View style={styles.container}>
           <Text style={[commonStyles.text, styles.pageTitle]}>Configurações</Text>
           <Text style={[commonStyles.text, styles.subtitle]}>Personalize sua experiência e configure suas preferências.</Text>
-          
+
           {/* Seção de Aparência */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -124,12 +130,12 @@ export default function SettingsScreen() {
               </View>
               <Text style={[commonStyles.text, styles.sectionTitle]}>Aparência</Text>
             </View>
-            
+
             <View style={styles.settingCard}>
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Tema</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Escolha entre modo claro ou escuro</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Escolha entre modo claro ou escuro</Text>
                 </View>
                 <Switch
                   value={isDarkMode}
@@ -139,31 +145,11 @@ export default function SettingsScreen() {
                   ios_backgroundColor="#3e3e3e"
                 />
               </View>
-              
-              <View style={styles.settingItem}>
-                <View>
-                  <Text style={[commonStyles.text, styles.settingLabel]}>Tamanho da Fonte</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Ajuste o tamanho do texto para melhor legibilidade</Text>
-                </View>
-                <View style={styles.pickerContainer}>
-                  <Picker
-                    selectedValue={selectedFontSize}
-                    style={[styles.picker, {color: colors.text, backgroundColor: isDarkMode ? colors.card : 'transparent'}]}
-                    dropdownIconColor={colors.primary}
-                    onValueChange={(itemValue) => setSelectedFontSize(itemValue)}
-                    mode="dropdown"
-                  >
-                    <Picker.Item label="Pequeno" value="Pequeno" />
-                    <Picker.Item label="Médio" value="Médio" />
-                    <Picker.Item label="Grande" value="Grande" />
-                  </Picker>
-                </View>
-              </View>
-              
+
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Alto Contraste</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Melhora a visibilidade com cores de alto contraste</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Melhora a visibilidade com cores de alto contraste</Text>
                 </View>
                 <Switch
                   value={false}
@@ -171,11 +157,11 @@ export default function SettingsScreen() {
                   thumbColor={'#f4f3f4'}
                 />
               </View>
-              
+
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Animações</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Ativa ou desativa animações na interface</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Ativa ou desativa animações na interface</Text>
                 </View>
                 <Switch
                   value={true}
@@ -185,7 +171,7 @@ export default function SettingsScreen() {
               </View>
             </View>
           </View>
-          
+
           {/* Seção de Notificações */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -194,12 +180,12 @@ export default function SettingsScreen() {
               </View>
               <Text style={[commonStyles.text, styles.sectionTitle]}>Notificações</Text>
             </View>
-            
+
             <View style={styles.settingCard}>
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Notificações por Email</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Receba atualizações importantes por email</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Receba atualizações importantes por email</Text>
                 </View>
                 <Switch
                   value={emailNotifications}
@@ -208,11 +194,11 @@ export default function SettingsScreen() {
                   thumbColor={emailNotifications ? '#fff' : '#f4f3f4'}
                 />
               </View>
-              
+
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Notificações Push</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Ativa notificações no navegador</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Ativa notificações no navegador</Text>
                 </View>
                 <Switch
                   value={pushNotifications}
@@ -221,11 +207,11 @@ export default function SettingsScreen() {
                   thumbColor={pushNotifications ? '#fff' : '#f4f3f4'}
                 />
               </View>
-              
+
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Conquistas</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Seja notificado quando ganhar novas conquistas</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Seja notificado quando ganhar novas conquistas</Text>
                 </View>
                 <Switch
                   value={achievementsNotifications}
@@ -234,11 +220,11 @@ export default function SettingsScreen() {
                   thumbColor={achievementsNotifications ? '#fff' : '#f4f3f4'}
                 />
               </View>
-              
+
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Novos Desafios</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Receba notificações sobre novos desafios disponíveis</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Receba notificações sobre novos desafios disponíveis</Text>
                 </View>
                 <Switch
                   value={challengesNotifications}
@@ -249,7 +235,7 @@ export default function SettingsScreen() {
               </View>
             </View>
           </View>
-          
+
           {/* Seção de Segurança */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -258,7 +244,7 @@ export default function SettingsScreen() {
               </View>
               <Text style={[commonStyles.text, styles.sectionTitle]}>Segurança</Text>
             </View>
-            
+
             <View style={styles.settingCard}>
               {biometricInfo?.isAvailable ? (
                 <View style={styles.settingItem}>
@@ -266,7 +252,7 @@ export default function SettingsScreen() {
                     <Text style={[commonStyles.text, styles.settingLabel]}>
                       {biometricInfo.biometricType}
                     </Text>
-                    <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>
+                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
                       Use {biometricInfo.biometricType} para fazer login rapidamente
                     </Text>
                   </View>
@@ -285,7 +271,7 @@ export default function SettingsScreen() {
                     <Text style={[commonStyles.text, styles.settingLabel]}>
                       Autenticação Biométrica
                     </Text>
-                    <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>
+                    <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
                       Seu dispositivo não suporta biometria ou não está configurada
                     </Text>
                   </View>
@@ -309,56 +295,67 @@ export default function SettingsScreen() {
               </View>
               <Text style={[commonStyles.text, styles.sectionTitle]}>Privacidade</Text>
             </View>
-            
+
             <View style={styles.settingCard}>
+
+              {/* --- Visibilidade do Perfil --- */}
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Visibilidade do Perfil</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Quem pode ver seu perfil</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                    Quem pode ver seu perfil
+                  </Text>
                 </View>
+
                 <View style={styles.pickerContainer}>
                   <Picker
                     selectedValue={selectedPrivacy}
-                    style={[styles.picker, {color: colors.text, backgroundColor: isDarkMode ? colors.card : 'transparent'}]}
+                    style={pickerFixedStyle}
                     dropdownIconColor={colors.primary}
                     onValueChange={(itemValue) => setSelectedPrivacy(itemValue)}
                     mode="dropdown"
                   >
-                    <Picker.Item label="Público" value="Público" />
-                    <Picker.Item label="Amigos" value="Amigos" />
-                    <Picker.Item label="Privado" value="Privado" />
+                    <Picker.Item label="Público" value="public" />
+                    <Picker.Item label="Amigos" value="friends" />
+                    <Picker.Item label="Privado" value="private" />
                   </Picker>
                 </View>
               </View>
-              
+
+              {/* --- Mostrar Email --- */}
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Mostrar Email</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Exibe seu email no perfil público</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                    Exibe seu email no perfil público
+                  </Text>
                 </View>
                 <Switch
                   value={showEmail}
                   onValueChange={setShowEmail}
-                  trackColor={{ false: '#767577', true: colors.primary }}
-                  thumbColor={showEmail ? '#fff' : '#f4f3f4'}
+                  trackColor={{ false: "#767577", true: colors.primary }}
+                  thumbColor={showEmail ? "#fff" : "#f4f3f4"}
                 />
               </View>
-              
+
+              {/* --- Mostrar Estatísticas --- */}
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Mostrar Estatísticas</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Exibe suas estatísticas de progresso</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>
+                    Exibe suas estatísticas de progresso
+                  </Text>
                 </View>
                 <Switch
                   value={showStats}
                   onValueChange={setShowStats}
-                  trackColor={{ false: '#767577', true: colors.primary }}
-                  thumbColor={showStats ? '#fff' : '#f4f3f4'}
+                  trackColor={{ false: "#767577", true: colors.primary }}
+                  thumbColor={showStats ? "#fff" : "#f4f3f4"}
                 />
               </View>
             </View>
           </View>
-          
+
           {/* Seção de Preferências */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -367,17 +364,17 @@ export default function SettingsScreen() {
               </View>
               <Text style={[commonStyles.text, styles.sectionTitle]}>Preferências</Text>
             </View>
-            
+
             <View style={styles.settingCard}>
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Idioma</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Idioma da interface</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Idioma da interface</Text>
                 </View>
                 <View style={styles.pickerContainer}>
                   <Picker
                     selectedValue={selectedLanguage}
-                    style={[styles.picker, {color: colors.text, backgroundColor: isDarkMode ? colors.card : 'transparent'}]}
+                    style={pickerFixedStyle}
                     dropdownIconColor={colors.primary}
                     onValueChange={(itemValue) => setSelectedLanguage(itemValue)}
                     mode="dropdown"
@@ -388,16 +385,16 @@ export default function SettingsScreen() {
                   </Picker>
                 </View>
               </View>
-              
+
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Fuso Horário</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Seu fuso horário local</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Seu fuso horário local</Text>
                 </View>
                 <View style={styles.pickerContainer}>
                   <Picker
                     selectedValue={selectedTimeZone}
-                    style={[styles.picker, {color: colors.text, backgroundColor: isDarkMode ? colors.card : 'transparent'}]}
+                    style={pickerFixedStyle}
                     dropdownIconColor={colors.primary}
                     onValueChange={(itemValue) => setSelectedTimeZone(itemValue)}
                     mode="dropdown"
@@ -408,16 +405,16 @@ export default function SettingsScreen() {
                   </Picker>
                 </View>
               </View>
-              
+
               <View style={styles.settingItem}>
                 <View>
                   <Text style={[commonStyles.text, styles.settingLabel]}>Formato de Data</Text>
-                  <Text style={[styles.settingDescription, {color: colors.textSecondary}]}>Como as datas são exibidas</Text>
+                  <Text style={[styles.settingDescription, { color: colors.textSecondary }]}>Como as datas são exibidas</Text>
                 </View>
                 <View style={styles.pickerContainer}>
                   <Picker
                     selectedValue={selectedDateFormat}
-                    style={[styles.picker, {color: colors.text, backgroundColor: isDarkMode ? colors.card : 'transparent'}]}
+                    style={pickerFixedStyle}
                     dropdownIconColor={colors.primary}
                     onValueChange={(itemValue) => setSelectedDateFormat(itemValue)}
                     mode="dropdown"
@@ -430,7 +427,7 @@ export default function SettingsScreen() {
               </View>
             </View>
           </View>
-          
+
           {/* Seção de Conta */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -439,18 +436,18 @@ export default function SettingsScreen() {
               </View>
               <Text style={[commonStyles.text, styles.sectionTitle]}>Conta</Text>
             </View>
-            
+
             <View style={styles.settingCard}>
               <TouchableOpacity style={styles.accountButton}>
-                <Text style={[styles.accountButtonText, {color: colors.primary}]}>Alterar Senha</Text>
+                <Text style={[styles.accountButtonText, { color: colors.primary }]}>Alterar Senha</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity style={styles.accountButton}>
-                <Text style={[styles.accountButtonText, {color: colors.primary}]}>Exportar Dados</Text>
+                <Text style={[styles.accountButtonText, { color: colors.primary }]}>Exportar Dados</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.accountButton, styles.logoutButton]} 
+
+              <TouchableOpacity
+                style={[styles.accountButton, styles.logoutButton]}
                 onPress={async () => {
                   Alert.alert(
                     "Sair da Conta",
@@ -473,15 +470,15 @@ export default function SettingsScreen() {
                 }}
               >
                 <Ionicons name="log-out-outline" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-                <Text style={[styles.logoutButtonText, {color: colors.primary}]}>Sair da Conta</Text>
+                <Text style={[styles.logoutButtonText, { color: colors.primary }]}>Sair da Conta</Text>
               </TouchableOpacity>
-              
+
               <TouchableOpacity style={styles.accountButton}>
                 <Text style={styles.deleteAccountText}>Excluir Conta</Text>
               </TouchableOpacity>
             </View>
           </View>
-          
+
           {/* Seção Sobre */}
           <View style={styles.section}>
             <View style={styles.sectionHeader}>
@@ -490,26 +487,26 @@ export default function SettingsScreen() {
               </View>
               <Text style={[commonStyles.text, styles.sectionTitle]}>Sobre</Text>
             </View>
-            
+
             <View style={styles.settingCard}>
               <View style={styles.aboutItem}>
                 <Text style={[commonStyles.text, styles.aboutLabel]}>Versão</Text>
-                <Text style={[styles.aboutValue, {color: colors.textSecondary}]}>1.0.0</Text>
+                <Text style={[styles.aboutValue, { color: colors.textSecondary }]}>1.0.0</Text>
               </View>
-              
+
               <View style={styles.aboutItem}>
                 <Text style={[commonStyles.text, styles.aboutLabel]}>Última Atualização</Text>
-                <Text style={[styles.aboutValue, {color: colors.textSecondary}]}>15 de Janeiro, 2024</Text>
+                <Text style={[styles.aboutValue, { color: colors.textSecondary }]}>15 de Janeiro, 2024</Text>
               </View>
-              
+
               <View style={styles.aboutItem}>
                 <Text style={[commonStyles.text, styles.aboutLabel]}>Suporte</Text>
-                <Text style={[styles.aboutValue, {color: colors.primary}]}>suporte@exemplo.com</Text>
+                <Text style={[styles.aboutValue, { color: colors.primary }]}>suporte@exemplo.com</Text>
               </View>
             </View>
           </View>
-          
-          <TouchableOpacity style={[styles.saveButton, {backgroundColor: colors.primary}]}>
+
+          <TouchableOpacity style={[styles.saveButton, { backgroundColor: colors.primary }]}>
             <Text style={styles.saveButtonText}>Salvar Configurações</Text>
           </TouchableOpacity>
         </View>

@@ -123,6 +123,17 @@ class ApiService {
     return response.tokens;
   }
 
+  async getRefreshToken(): Promise<string | null> {
+    const token = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    return token;
+  }
+
+  async getTokens(): Promise<{ accessToken?: string | null; refreshToken?: string | null }> {
+    const accessToken = await AsyncStorage.getItem(TOKEN_KEY);
+    const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    return { accessToken, refreshToken };
+  }
+
   async getMe() {
     return this.safeRequest(() => this.api.get('/users/me'));
   }
@@ -760,5 +771,3 @@ class ApiService {
 }
 
 export default new ApiService();
-
-
