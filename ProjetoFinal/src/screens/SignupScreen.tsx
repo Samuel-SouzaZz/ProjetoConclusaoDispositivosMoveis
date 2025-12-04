@@ -40,14 +40,26 @@ export default function SignupScreen() {
   const [handle, setHandle] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [college, setCollege] = useState<College | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [collegeModalVisible, setCollegeModalVisible] = useState(false);
 
   async function handleSignup() {
-    if (!firstName || !lastName || !handle || !email || !password || !college) {
+    if (!firstName || !lastName || !handle || !email || !password || !confirmPassword || !college) {
       Alert.alert("Erro", "Preencha todos os campos!");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      Alert.alert("Erro", "As senhas não coincidem!");
+      return;
+    }
+
+    if (password.length < 6) {
+      Alert.alert("Erro", "A senha deve ter pelo menos 6 caracteres.");
       return;
     }
 
@@ -78,7 +90,7 @@ export default function SignupScreen() {
         contentContainerStyle={[styles.scrollContent, { minHeight: height }]}
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.navigate("Home")}
           activeOpacity={0.7}
@@ -183,6 +195,33 @@ export default function SignupScreen() {
               </TouchableOpacity>
             </View>
 
+            <Text style={styles.label}>Confirmar Senha</Text>
+            <View style={styles.passwordContainerSignup}>
+              <TextInput
+                style={styles.passwordInput}
+                placeholder="Repita sua senha"
+                placeholderTextColor="#999"
+                secureTextEntry={!showConfirmPassword}
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                autoCapitalize="none"
+                accessibilityLabel="Confirmar senha"
+                accessibilityHint="Digite a mesma senha para confirmar"
+                textContentType="newPassword"
+                autoComplete="password-new"
+              />
+              <TouchableOpacity
+                style={styles.eyeIcon}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                  size={22}
+                  color="#999"
+                />
+              </TouchableOpacity>
+            </View>
+
             <Text style={styles.label}>Faculdade</Text>
             <TouchableOpacity
               style={styles.selectInput}
@@ -218,7 +257,7 @@ export default function SignupScreen() {
 
           <View style={styles.footer}>
             <Text style={styles.footerText}>Já tem conta? </Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => navigation.navigate("Login")}
               accessibilityRole="button"
               accessibilityLabel="Fazer login"
