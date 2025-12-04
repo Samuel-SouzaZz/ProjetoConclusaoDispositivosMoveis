@@ -1,8 +1,7 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, FlatList, Modal, TextInput, Alert } from "react-native";
-
 import { SafeAreaView } from "react-native-safe-area-context";
-import { RouteProp, useRoute, useNavigation } from "@react-navigation/native";
+import { RouteProp, useRoute, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
@@ -65,7 +64,7 @@ const styles = StyleSheet.create({
   memberItem: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 12, borderBottomWidth: 1 },
   avatar: { width: 34, height: 34, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
   avatarText: { fontWeight: '700' },
-  memberName: { fontSize: 14, fontWeight: '600' },
+  memberName: { fontSize: 14, fontWeight: '600', minWidth: 100, flexShrink: 1 },
   memberRole: { fontSize: 12 },
   joinedAt: { fontSize: 12 },
   challengeItem: { borderRadius: 12, padding: 12 },
@@ -73,9 +72,121 @@ const styles = StyleSheet.create({
   challengeMeta: { fontSize: 12 },
   editModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 16 },
   editModalCard: { width: '100%', maxWidth: 560, borderRadius: 16, padding: 16 },
+  roleBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+    marginLeft: 6,
+  },
+  roleBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
 });
 
 type GroupDetailsRoute = RouteProp<RootStackParamList, "GroupDetails">;
+
+// Função auxiliar para obter ID do membro
+function getMemberId(member: any): string | null {
+  const id = member?.id ?? member?.userId ?? member?.user?.id;
+  return id ? String(id) : null;
+}
+
+// Função para verificar se é dono (atualizada)
+function isOwner({ group, members, userId }: { group: any, members: any[], userId: string }) {
+  if (!userId) return false;
+  
+  // Primeiro verifica se é o dono pelo group.ownerId
+  if (group?.ownerId && String(group.ownerId) === String(userId)) return true;
+  
+  // Se não encontrar, procura nos membros
+  const me = members.find((m: any) => {
+    const mid = getMemberId(m);
+    return mid && String(mid) === String(userId);
+  });
+  
+  if (!me) return false;
+  
+  // Verifica o role do membro
+  const role = String(me?.role || '').toUpperCase();
+  return role === 'OWNER' || role === 'ADMIN' || role === 'MODERATOR';
+}
+
+// Função para obter role do membro
+function getMemberRole(member: any): string {
+  return String(member?.role || 'MEMBER').toUpperCase();
+}
+
+// Função para obter nome do membro
+function getMemberName(member: any): string {
+  // Tentar vários campos possíveis onde o nome pode estar
+  let name = 
+    member?.name || 
+    member?.user?.name || 
+    member?.userName ||
+    member?.handle || 
+    member?.user?.handle ||
+    member?.displayName ||
+    member?.user?.displayName ||
+    member?.fullName ||
+    member?.user?.fullName;
+  
+  // Se ainda não encontrou, tentar pegar do objeto user completo
+  if (!name && member?.user) {
+    const userObj = member.user;
+    name = userObj?.name || userObj?.handle || userObj?.email?.split('@')[0];
+  }
+  
+  // Se ainda não encontrou, tentar buscar em qualquer propriedade que contenha "name" ou "Name"
+  if (!name) {
+    for (const key in member) {
+      if (key.toLowerCase().includes('name') && typeof member[key] === 'string' && member[key]) {
+        name = member[key];
+        break;
+      }
+    }
+  }
+  
+  // Se ainda não encontrou, tentar no objeto user
+  if (!name && member?.user) {
+    for (const key in member.user) {
+      if (key.toLowerCase().includes('name') && typeof member.user[key] === 'string' && member.user[key]) {
+        name = member.user[key];
+        break;
+      }
+    }
+  }
+  
+  // Se ainda não encontrou, usar email como fallback
+  if (!name) {
+    const email = member?.email || member?.user?.email;
+    if (email && typeof email === 'string') {
+      name = email.split('@')[0];
+    }
+  }
+  
+  return name || "Membro";
+}
+
+// Função para obter label do role
+function getRoleLabel(role: string): string {
+  switch(role.toUpperCase()) {
+    case 'OWNER': return 'Dono';
+    case 'MODERATOR': return 'Moderador';
+    case 'ADMIN': return 'Admin';
+    default: return 'Membro';
+  }
+}
+
+// Função para obter cor do role
+function getRoleColor(role: string, colors: any): string {
+  switch(role.toUpperCase()) {
+    case 'OWNER': return "#E53E3E";
+    case 'MODERATOR': return "#3182CE";
+    case 'ADMIN': return "#805AD5";
+    default: return colors.textSecondary;
+  }
+}
 
 export default function GroupDetailsScreen() {
   const { colors, commonStyles, isDarkMode } = useTheme();
@@ -115,6 +226,7 @@ export default function GroupDetailsScreen() {
   ];
 
   const [inviteLink, setInviteLink] = useState<string | null>(null);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
   function copyInviteLink(text: string) {
     if (!text) return;
@@ -139,13 +251,29 @@ export default function GroupDetailsScreen() {
     return () => { mounted = false; };
   }, [groupId]);
 
-  async function loadData(mounted = true) {
+  // Recarregar dados quando a tela receber foco (ex: quando voltar de outra tela)
+  useFocusEffect(
+    useCallback(() => {
+      let mounted = true;
+      (async () => {
+        // Pequeno delay para garantir que a navegação foi completada
+        await new Promise(resolve => setTimeout(resolve, 100));
+        if (mounted) {
+          await loadData(mounted);
+        }
+      })();
+      return () => { mounted = false; };
+    }, [groupId])
+  );
 
+  async function loadData(mounted = true) {
     try {
       setLoading(true);
       const data = await ApiService.getGroup(groupId);
       if (!mounted) return;
       setGroup(data);
+      
+      // Configurar dados para edição
       try {
         const name = String(data?.name || data?.title || '');
         setEditName(name);
@@ -153,20 +281,84 @@ export default function GroupDetailsScreen() {
         const visibility = String(data?.visibility || '').toUpperCase();
         const isPublic = visibility ? visibility === 'PUBLIC' : Boolean(data?.isPublic ?? true);
         setEditIsPublic(isPublic);
-
       } catch {}
-      // membros
+      
+      // Carregar membros
       try {
         const mm = Array.isArray(data?.members) ? data.members : data?.items || [];
         const mItems = Array.isArray(mm) ? mm : [];
-        setMembers(mItems);
+        
+        // Tentar buscar nomes dos membros se não estiverem disponíveis
+        // Fazer de forma sequencial para não sobrecarregar a API
+        const membersWithNames = [];
+        for (const member of mItems) {
+          const memberId = getMemberId(member);
+          let currentName = getMemberName(member);
+          
+          // Se o nome não foi encontrado e temos um userId, tentar buscar o perfil público
+          if (currentName === "Membro" && memberId) {
+            try {
+              const profile = await ApiService.getPublicProfile(String(memberId));
+              if (profile?.name || profile?.handle) {
+                membersWithNames.push({
+                  ...member,
+                  name: profile.name || profile.handle,
+                  user: {
+                    ...(member.user || {}),
+                    name: profile.name || profile.handle,
+                    handle: profile.handle || member.user?.handle,
+                    id: memberId
+                  }
+                });
+                continue;
+              }
+            } catch (err: any) {
+              // Se falhar ao buscar perfil, usar o userId como identificador temporário
+              console.warn(`Não foi possível buscar perfil do membro ${memberId}:`, err?.message || err);
+              // Continuar com os dados originais, mas adicionar um nome baseado no ID
+              membersWithNames.push({
+                ...member,
+                name: `Usuário ${String(memberId).substring(0, 8)}`,
+                user: {
+                  ...(member.user || {}),
+                  id: memberId
+                }
+              });
+              continue;
+            }
+          }
+          
+          // Se já tem nome, apenas adicionar
+          membersWithNames.push(member);
+        }
+        
+        console.log("Membros carregados com nomes:", membersWithNames.map((m: any) => ({
+          id: getMemberId(m),
+          name: getMemberName(m)
+        })));
+        setMembers(membersWithNames);
+        
+        // Encontrar role do usuário atual
+        const currentMember = mItems.find((m: any) => {
+          const memberId = getMemberId(m);
+          return memberId && user?.id && String(memberId) === String(user.id);
+        });
+        
+        if (currentMember) {
+          const role = getMemberRole(currentMember);
+          setCurrentUserRole(role);
+        } else {
+          setCurrentUserRole(null);
+        }
       } catch {}
-      // desafios
+      
+      // Carregar desafios
       try {
         const cc = Array.isArray(data?.challenges) ? data.challenges : await ApiService.getGroupChallenges(groupId);
         const cItems = Array.isArray(cc) ? cc : cc?.items || [];
         setChallenges(cItems);
       } catch {}
+      
       setError(null);
     } catch (err: any) {
       if (!mounted) return;
@@ -179,21 +371,9 @@ export default function GroupDetailsScreen() {
   function isMember({ group, members, userId }: { group: any, members: any[], userId: string }) {
     if (!group || !members || !userId) return false;
     return members.some((member: any) => {
-      const mid = String(member?.id ?? member?.userId ?? member?.user?.id ?? '');
-      return mid && mid === userId;
+      const mid = getMemberId(member);
+      return mid && mid === String(userId);
     });
-  }
-
-  function isOwner({ group, members, userId }: { group: any, members: any[], userId: string }) {
-    if (!userId) return false;
-    if (group?.ownerId && String(group.ownerId) === userId) return true;
-    if (group?.owner?.id && String(group.owner.id) === userId) return true;
-    const me = members.find((m: any) => {
-      const mid = String(m?.id ?? m?.userId ?? m?.user?.id ?? '');
-      return mid && mid === userId;
-    });
-    const role = String(me?.role || '').toLowerCase();
-    return role === 'owner' || role === 'admin' || role === 'moderator';
   }
 
   async function handleCreateChallenge() {
@@ -264,9 +444,15 @@ export default function GroupDetailsScreen() {
     }
   }
 
+  const owner = isOwner({ group, members, userId: String(user?.id || '') });
+  const userIsMember = isMember({ group, members, userId: String(user?.id || '') });
+  const visibility = String(group?.visibility || '').toUpperCase();
+  const isPublicGroup = visibility ? visibility === 'PUBLIC' : Boolean(group?.isPublic ?? true);
+  const isPrivateGroup = !isPublicGroup;
+
   return (
     <SafeAreaView style={commonStyles.container}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]} > 
+      <View style={[styles.header, { borderBottomColor: colors.border }]}>
         <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={22} color={colors.text} />
         </TouchableOpacity>
@@ -274,89 +460,78 @@ export default function GroupDetailsScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.center}> 
+        <View style={styles.center}>
           <ActivityIndicator size="large" color={colors.primary} />
         </View>
       ) : error ? (
-        <View style={styles.center}> 
+        <View style={styles.center}>
           <Text style={{ color: colors.text }}>{error}</Text>
         </View>
       ) : !group ? (
-        <View style={styles.center}> 
+        <View style={styles.center}>
           <Text style={{ color: colors.textSecondary }}>Grupo não encontrado</Text>
         </View>
       ) : (
-        <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]} > 
-          <View style={[styles.card, { backgroundColor: colors.card }]} > 
-            <View style={styles.rowSpace}> 
-              <View style={{ flex: 1 }}> 
+        <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}>
+          <View style={[styles.card, { backgroundColor: colors.card }]}>
+            <View style={styles.rowSpace}>
+              <View style={{ flex: 1 }}>
                 <Text style={[styles.name, { color: colors.text }]}>{group.name || group.title}</Text>
-                {(() => {
-                  const visibility = String(group.visibility || '').toUpperCase();
-                  const isPublicGroup = visibility ? visibility === 'PUBLIC' : Boolean(group.isPublic);
-                  return (
-                    <View style={[styles.badge, { backgroundColor: isDarkMode ? "#2D3748" : "#EDF2F7" }]} > 
-                      <Ionicons name={isPublicGroup ? "earth" : "lock-closed"} size={14} color={colors.textSecondary} />
-                      <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{isPublicGroup ? "Público" : "Privado"}</Text>
-                    </View>
-                  );
-                })()}
+                <View style={[styles.badge, { backgroundColor: isDarkMode ? "#2D3748" : "#EDF2F7" }]}>
+                  <Ionicons name={isPublicGroup ? "earth" : "lock-closed"} size={14} color={colors.textSecondary} />
+                  <Text style={[styles.badgeText, { color: colors.textSecondary }]}>{isPublicGroup ? "Público" : "Privado"}</Text>
+                </View>
               </View>
 
-              {(() => {
-                const visibility = String(group.visibility || '').toUpperCase();
-                const isPrivateGroup = visibility ? visibility === 'PRIVATE' : !Boolean(group.isPublic);
-                const owner = isOwner({ group, members, userId: String(user?.id || '') });
-                if (!owner) return null;
-                return (
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => setShowEdit(true)}>
-                      <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Editar Grupo</Text>
+              {owner && (
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                  <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => setShowEdit(true)}>
+                    <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Editar Grupo</Text>
+                  </TouchableOpacity>
+                  {isPrivateGroup && (
+                    <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={handleGenerateInviteLink}>
+                      <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Gerar Convite</Text>
                     </TouchableOpacity>
-                    {isPrivateGroup && (
-                      <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={handleGenerateInviteLink}>
-                        <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Gerar Convite</Text>
-                      </TouchableOpacity>
-                    )}
-                    <TouchableOpacity
-                      style={[styles.secondaryButton, { borderColor: colors.primary }]}
-                      onPress={() =>
-                        navigation.navigate('GroupMembersManage', {
-                          groupId: String(groupId),
-                          groupName: group.name || group.title,
-                        })
-                      }
-                    >
-                      <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Gerenciar Membros</Text>
-                    </TouchableOpacity>
-                  </View>
-                );
-              })()}
+                  )}
+                  <TouchableOpacity
+                    style={[styles.secondaryButton, { borderColor: colors.primary }]}
+                    onPress={() =>
+                      navigation.navigate('GroupMembersManage', {
+                        groupId: String(groupId),
+                        groupName: group.name || group.title,
+                      })
+                    }
+                  >
+                    <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Gerenciar Membros</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
             </View>
 
             {group.description ? (
               <Text style={[styles.description, { color: colors.textSecondary }]}>{group.description}</Text>
             ) : null}
-            <View style={styles.metaRow}> 
-              <View style={styles.metaItem}> 
+            
+            <View style={styles.metaRow}>
+              <View style={styles.metaItem}>
                 <Ionicons name="people" size={18} color={colors.primary} />
-                <Text style={[styles.metaText, { color: colors.textSecondary }]}
-                >
-                  {(Array.isArray(members) ? members.length : (group.membersCount ?? 0))} membros
+                <Text style={[styles.metaText, { color: colors.textSecondary }]}>
+                  {members.length} membros
                 </Text>
               </View>
-              <View style={styles.metaItem}> 
+              <View style={styles.metaItem}>
                 <Ionicons name="calendar" size={18} color={colors.primary} />
-                <Text style={[styles.metaText, { color: colors.textSecondary }]}> 
+                <Text style={[styles.metaText, { color: colors.textSecondary }]}>
                   Criado em: {formatDate(group.createdAt)}
                 </Text>
               </View>
             </View>
-            <View style={styles.actions}> 
+            
+            <View style={styles.actions}>
               <TouchableOpacity
                 style={[styles.secondaryButton, { borderColor: colors.primary }]}
                 onPress={() => {
-                  (navigation as any).navigate('GroupChallenges', {
+                  navigation.navigate('GroupChallenges', {
                     groupId: String(group.id),
                     groupName: group.name || group.title,
                     groupDescription: group.description || '',
@@ -368,7 +543,7 @@ export default function GroupDetailsScreen() {
               <TouchableOpacity
                 style={[styles.secondaryButton, { borderColor: colors.primary }]}
                 onPress={() => {
-                  (navigation as any).navigate('GroupProgress', { groupId: String(group.id), groupName: group.name || group.title });
+                  navigation.navigate('GroupProgress', { groupId: String(group.id), groupName: group.name || group.title });
                 }}
               >
                 <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Meu Progresso</Text>
@@ -376,20 +551,26 @@ export default function GroupDetailsScreen() {
               <TouchableOpacity
                 style={[styles.secondaryButton, { borderColor: colors.primary }]}
                 onPress={() => {
-                  (navigation as any).navigate('GroupRanking', { groupId: String(group.id), groupName: group.name || group.title });
+                  navigation.navigate('GroupRanking', { groupId: String(group.id), groupName: group.name || group.title });
                 }}
               >
                 <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Ranking do Grupo</Text>
               </TouchableOpacity>
-              {isMember({ group, members, userId: String(user?.id || '') }) ? (
+              
+              {userIsMember ? (
                 <TouchableOpacity
                   style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: leaving ? 0.7 : 1 }]}
-                  onPress={async () => { 
-                    try { 
-                      setLeaving(true); 
-                      await ApiService.leaveGroup(String(group.id)); 
+                  onPress={async () => {
+                    try {
+                      setLeaving(true);
+                      await ApiService.leaveGroup(String(group.id));
                       await loadData();
-                    } catch {} finally { setLeaving(false); } }}
+                    } catch (err: any) {
+                      Alert.alert('Erro', ApiService.handleError(err));
+                    } finally {
+                      setLeaving(false);
+                    }
+                  }}
                   disabled={leaving}
                 >
                   <Text style={styles.primaryButtonText}>{leaving ? 'Saindo...' : 'Sair do Grupo'}</Text>
@@ -397,12 +578,17 @@ export default function GroupDetailsScreen() {
               ) : (
                 <TouchableOpacity
                   style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: joining ? 0.7 : 1 }]}
-                  onPress={async () => { 
-                    try { 
-                      setJoining(true); 
-                      await ApiService.joinGroup(String(group.id)); 
+                  onPress={async () => {
+                    try {
+                      setJoining(true);
+                      await ApiService.joinGroup(String(group.id));
                       await loadData();
-                    } catch {} finally { setJoining(false); } }}
+                    } catch (err: any) {
+                      Alert.alert('Erro', ApiService.handleError(err));
+                    } finally {
+                      setJoining(false);
+                    }
+                  }}
                   disabled={joining}
                 >
                   <Text style={styles.primaryButtonText}>{joining ? 'Entrando...' : 'Entrar no Grupo'}</Text>
@@ -411,90 +597,127 @@ export default function GroupDetailsScreen() {
             </View>
           </View>
 
-          {(() => {
-            const visibility = String(group.visibility || '').toUpperCase();
-            const isPrivateGroup = visibility ? visibility === 'PRIVATE' : !Boolean(group.isPublic);
-            if (!inviteLink || !isPrivateGroup) return null;
-            return (
-              <View style={[styles.section, { backgroundColor: colors.background }]}> 
-                <View style={[styles.card, { backgroundColor: colors.card }]}> 
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Link de Convite do Grupo</Text>
-                  <View style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10 }}> 
-                    <Text style={{ color: colors.textSecondary }} numberOfLines={2}>{inviteLink}</Text>
-                  </View>
-                  <View style={[styles.actions, { marginTop: 12 }]}> 
-                    <TouchableOpacity
-                      style={[styles.primaryButton, { backgroundColor: colors.primary }]}
-                      onPress={() => {
-                        if (inviteLink) {
-                          copyInviteLink(inviteLink);
-                        }
-                      }}
-                    >
-                      <Text style={styles.primaryButtonText}>Copiar Link</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[styles.secondaryButton, { borderColor: colors.primary }]}
-                      onPress={() => setInviteLink(null)}
-                    >
-                      <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Fechar</Text>
-                    </TouchableOpacity>
-                  </View>
+          {inviteLink && isPrivateGroup && (
+            <View style={[styles.section, { backgroundColor: colors.background }]}>
+              <View style={[styles.card, { backgroundColor: colors.card }]}>
+                <Text style={[styles.sectionTitle, { color: colors.text }]}>Link de Convite do Grupo</Text>
+                <View style={{ marginTop: 10, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10 }}>
+                  <Text style={{ color: colors.textSecondary }} numberOfLines={2}>{inviteLink}</Text>
+                </View>
+                <View style={[styles.actions, { marginTop: 12 }]}>
+                  <TouchableOpacity
+                    style={[styles.primaryButton, { backgroundColor: colors.primary }]}
+                    onPress={() => {
+                      if (inviteLink) {
+                        copyInviteLink(inviteLink);
+                      }
+                    }}
+                  >
+                    <Text style={styles.primaryButtonText}>Copiar Link</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.secondaryButton, { borderColor: colors.primary }]}
+                    onPress={() => setInviteLink(null)}
+                  >
+                    <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Fechar</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
-            );
-          })()}
+            </View>
+          )}
 
           {/* Membros do Grupo */}
-          <View style={[styles.section, { backgroundColor: colors.background }]} > 
-            <Text style={[styles.sectionTitle, { color: colors.text }]}>Membros do Grupo</Text>
+          <View style={[styles.section, { backgroundColor: colors.background }]}>
+            <View style={styles.rowSpace}>
+              <Text style={[styles.sectionTitle, { color: colors.text }]}>Membros do Grupo</Text>
+              {currentUserRole && (
+                <Text style={{ color: colors.textSecondary, fontSize: 12 }}>
+                  Seu papel: {getRoleLabel(currentUserRole)}
+                </Text>
+              )}
+            </View>
             {members.length === 0 ? (
-              <View style={[styles.emptyBox, { borderColor: colors.border }]}><Text style={{ color: colors.textSecondary }}>Nenhum membro encontrado</Text></View>
+              <View style={[styles.emptyBox, { borderColor: colors.border }]}>
+                <Text style={{ color: colors.textSecondary }}>Nenhum membro encontrado</Text>
+              </View>
             ) : (
               <FlatList
-                data={members}
-                keyExtractor={(item: any, index: number) => String(item.id ?? index)}
+                data={members.slice(0, 10)} // Mostra apenas os primeiros 10
+                keyExtractor={(item: any, index: number) => String(getMemberId(item) ?? index)}
                 renderItem={({ item }: { item: any }) => {
-                  const mid = String(item?.id ?? item?.userId ?? item?.user?.id ?? '');
-                  const isMe = mid && user?.id && String(user.id) === mid;
-                  const roleRaw = String(item.role || '').toUpperCase();
-                  const isOwnerHere = isMe || roleRaw === 'OWNER';
-                  const roleLabel = isOwnerHere ? 'Dono' : (item.role || 'Membro');
+                  const memberId = getMemberId(item);
+                  const isMe = memberId && user?.id && String(memberId) === String(user.id);
+                  const memberRole = getMemberRole(item);
+                  const memberName = getMemberName(item);
+                  const roleLabel = getRoleLabel(memberRole);
+                  const roleColor = getRoleColor(memberRole, colors);
 
+                  // Garantir que o nome não esteja vazio
+                  const displayName = memberName && memberName !== "Membro" ? memberName : 
+                    (memberId ? `Membro ${String(memberId).substring(0, 6)}` : "Membro");
+                  
                   return (
-                    <View style={[styles.memberItem, { borderBottomColor: colors.border }]}> 
-                      <View style={[styles.avatar, { backgroundColor: isDarkMode ? '#2D3748' : '#EDF2F7' }]}> 
-                        <Text style={[styles.avatarText, { color: colors.text }]}>{String(item.name || item.handle || 'U').charAt(0).toUpperCase()}</Text>
+                    <View style={[styles.memberItem, { borderBottomColor: colors.border }]}>
+                      <View style={[styles.avatar, { backgroundColor: isDarkMode ? '#2D3748' : '#EDF2F7' }]}>
+                        <Text style={[styles.avatarText, { color: colors.text }]}>
+                          {String(displayName).charAt(0).toUpperCase()}
+                        </Text>
                       </View>
-                      <View style={{ flex: 1 }}> 
-                        <Text style={[styles.memberName, { color: colors.text }]}>{item.name || item.handle} {isMe ? '(Você)' : ''}</Text>
-                        <Text style={[styles.memberRole, { color: colors.textSecondary }]}>{roleLabel}</Text>
+                      <View style={{ flex: 1 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6 }}>
+                          <Text style={[styles.memberName, { color: colors.text }]}>{displayName}</Text>
+                          {isMe && (
+                            <Text style={{ color: colors.textSecondary, fontSize: 12 }}>(Você)</Text>
+                          )}
+                          <View style={[styles.roleBadge, { backgroundColor: roleColor + '20' }]}>
+                            <Text style={[styles.roleBadgeText, { color: roleColor }]}>{roleLabel}</Text>
+                          </View>
+                        </View>
+                        {item.joinedAt && (
+                          <Text style={[styles.joinedAt, { color: colors.textSecondary }]}>
+                            Entrou em: {formatDate(item.joinedAt)}
+                          </Text>
+                        )}
                       </View>
-                      <Text style={[styles.joinedAt, { color: colors.textSecondary }]}>Entrou em: {formatDate(item.joinedAt)}</Text>
                     </View>
                   );
                 }}
               />
             )}
+            {members.length > 10 && (
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: colors.primary, alignSelf: 'center', marginTop: 12 }]}
+                onPress={() =>
+                  navigation.navigate('GroupMembersManage', {
+                    groupId: String(groupId),
+                    groupName: group.name || group.title,
+                  })
+                }
+              >
+                <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>
+                  Ver todos os {members.length} membros
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Desafios do Grupo */}
-          <View style={[styles.section, { backgroundColor: colors.background }]}> 
-            <View style={styles.rowSpace}> 
+          <View style={[styles.section, { backgroundColor: colors.background }]}>
+            <View style={styles.rowSpace}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Desafios do Grupo ({challenges.length || 0})</Text>
-              {isOwner({ group, members, userId: String(user?.id || '') }) && (
+              {owner && (
                 <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary }]} onPress={() => setShowCreate(true)}>
                   <Text style={styles.primaryButtonText}>Criar Desafio</Text>
                 </TouchableOpacity>
               )}
             </View>
             {challenges.length === 0 ? (
-              <View style={[styles.emptyBox, { borderColor: colors.border }]}> 
+              <View style={[styles.emptyBox, { borderColor: colors.border }]}>
                 <Text style={{ color: colors.textSecondary }}>Nenhum Desafio criado ainda</Text>
               </View>
             ) : (
-              <View style={{ gap: 8 }}> 
-                {challenges.map((ch: any, idx: number) => {
+              <View style={{ gap: 8 }}>
+                {challenges.slice(0, 5).map((ch: any, idx: number) => {
                   const diffNum = Number(ch.difficulty ?? 1);
                   const diffLabel = diffNum <= 1 ? 'Fácil' : diffNum === 2 ? 'Médio' : 'Difícil';
                   const xp = ch.xp ?? ch.baseXp ?? 0;
@@ -513,12 +736,28 @@ export default function GroupDetailsScreen() {
                 })}
               </View>
             )}
+            {challenges.length > 5 && (
+              <TouchableOpacity
+                style={[styles.secondaryButton, { borderColor: colors.primary, alignSelf: 'center', marginTop: 12 }]}
+                onPress={() => {
+                  navigation.navigate('GroupChallenges', {
+                    groupId: String(group.id),
+                    groupName: group.name || group.title,
+                    groupDescription: group.description || '',
+                  });
+                }}
+              >
+                <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>
+                  Ver todos os {challenges.length} desafios
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
 
           {/* Modal Criar Desafio */}
           <Modal visible={showCreate} animationType="slide" onRequestClose={() => setShowCreate(false)}>
             <SafeAreaView style={commonStyles.container}>
-              <View style={[commonStyles.header, styles.modalHeader, { borderBottomColor: colors.border }]}> 
+              <View style={[commonStyles.header, styles.modalHeader, { borderBottomColor: colors.border }]}>
                 <TouchableOpacity onPress={() => setShowCreate(false)}>
                   <Text style={{ color: colors.textSecondary, fontSize: 16 }}>Cancelar</Text>
                 </TouchableOpacity>
@@ -534,8 +773,8 @@ export default function GroupDetailsScreen() {
                 </TouchableOpacity>
               </View>
 
-              <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}> 
-                <View style={[styles.card, { backgroundColor: colors.card }]}> 
+              <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}>
+                <View style={[styles.card, { backgroundColor: colors.card }]}>
                   <Text style={[styles.sectionTitle, { color: colors.text }]}>Título *</Text>
                   <TextInput
                     style={[styles.input, { borderColor: colors.border, color: colors.text }]}
@@ -590,7 +829,7 @@ export default function GroupDetailsScreen() {
                     multiline
                   />
 
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 10 }}> 
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 10 }}>
                     <TouchableOpacity
                       style={[styles.checkbox, formData.isPublic && { backgroundColor: colors.primary, borderColor: colors.primary }]}
                       onPress={() => setFormData({ ...formData, isPublic: !formData.isPublic })}
@@ -608,7 +847,7 @@ export default function GroupDetailsScreen() {
           {/* Modal Editar Grupo */}
           <Modal visible={showEdit} transparent animationType="slide" onRequestClose={() => setShowEdit(false)}>
             <View style={styles.editModalOverlay}>
-              <View style={[styles.editModalCard, { backgroundColor: colors.card }]}> 
+              <View style={[styles.editModalCard, { backgroundColor: colors.card }]}>
                 <Text style={[styles.sectionTitle, { color: colors.text }]}>Editar Grupo</Text>
                 <TextInput
                   style={[styles.input, { borderColor: colors.border, color: colors.text, marginTop: 12 }]}
@@ -631,16 +870,20 @@ export default function GroupDetailsScreen() {
                     style={[styles.secondaryButton, { flex: 1, borderColor: editIsPublic ? colors.primary : colors.border }]}
                     onPress={() => setEditIsPublic(true)}
                   >
-                    <Text style={[styles.secondaryButtonText, { color: editIsPublic ? colors.primary : colors.textSecondary }]}>Público - Qualquer um pode entrar</Text>
+                    <Text style={[styles.secondaryButtonText, { color: editIsPublic ? colors.primary : colors.textSecondary }]}>
+                      Público - Qualquer um pode entrar
+                    </Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={[styles.secondaryButton, { flex: 1, borderColor: !editIsPublic ? colors.primary : colors.border }]}
                     onPress={() => setEditIsPublic(false)}
                   >
-                    <Text style={[styles.secondaryButtonText, { color: !editIsPublic ? colors.primary : colors.textSecondary }]}>Privado - Apenas com convite</Text>
+                    <Text style={[styles.secondaryButtonText, { color: !editIsPublic ? colors.primary : colors.textSecondary }]}>
+                      Privado - Apenas com convite
+                    </Text>
                   </TouchableOpacity>
                 </View>
-                <View style={[styles.actions, { marginTop: 20 }]}> 
+                <View style={[styles.actions, { marginTop: 20 }]}>
                   <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={() => setShowEdit(false)} disabled={updating}>
                     <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Cancelar</Text>
                   </TouchableOpacity>
@@ -659,14 +902,12 @@ export default function GroupDetailsScreen() {
       )}
     </SafeAreaView>
   );
-
 }
 
 function formatDate(date?: string) {
   if (!date) return "--/--/----";
   try {
     const d = new Date(date);
-
     return d.toLocaleDateString();
   } catch (error) {
     return String(date);

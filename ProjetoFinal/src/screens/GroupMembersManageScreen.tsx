@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Alert, StyleSheet } from "react-native";
+import React, { useEffect, useState, useMemo } from "react";
+import { View, Text, FlatList, ActivityIndicator, TouchableOpacity, Alert, StyleSheet, Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { RouteProp, useNavigation, useRoute } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
@@ -43,6 +43,7 @@ const styles = StyleSheet.create({
   },
   center: { flex: 1, alignItems: "center", justifyContent: "center" },
   cardContainer: {
+    flex: 1,
     marginTop: 24,
     borderRadius: 18,
     padding: 16,
@@ -123,6 +124,7 @@ export default function GroupMembersManageScreen() {
 
   const [loading, setLoading] = useState(true);
   const [members, setMembers] = useState<any[]>([]);
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
 
   async function loadMembers() {
     try {
@@ -130,6 +132,29 @@ export default function GroupMembersManageScreen() {
       const data = await ApiService.getGroup(String(groupId));
       const rawMembers = Array.isArray(data?.members) ? data.members : data?.items || [];
       setMembers(rawMembers);
+      
+      // Encontrar role do usuário atual
+      const currentMember = rawMembers.find((m: any) => {
+        const memberId = getMemberId(m);
+        return memberId && user?.id && String(memberId) === String(user.id);
+      });
+      
+      if (currentMember) {
+        // Tentar diferentes campos onde o role pode estar
+        const role = String(
+          currentMember.role || 
+          currentMember.roleName || 
+          currentMember.userRole ||
+          currentMember.memberRole ||
+          'MEMBER'
+        ).trim().toUpperCase();
+        console.log("Role do usuário atual detectado:", role, "Membro completo:", currentMember);
+        setCurrentUserRole(role);
+      } else {
+        const membersInfo = rawMembers.map((member: any) => ({ id: getMemberId(member), role: getMemberRole(member) }));
+        console.warn("Usuário atual não encontrado na lista de membros. User ID:", user?.id, "Membros:", membersInfo);
+        setCurrentUserRole(null);
+      }
     } catch (err: any) {
       Alert.alert("Erro", ApiService.handleError(err));
     } finally {
@@ -146,20 +171,146 @@ export default function GroupMembersManageScreen() {
     return id ? String(id) : null;
   }
 
+  function getMemberRole(member: any): string {
+    const role = String(member?.role || member?.roleName || 'MEMBER').trim().toUpperCase();
+    return role;
+  }
+
+  function getMemberName(member: any): string {
+    return member?.name || member?.user?.name || member?.handle || "Membro";
+  }
+
+  const canManageMembers = useMemo(() => {
+    if (!currentUserRole) return false;
+    const role = currentUserRole.toUpperCase();
+    return role === 'OWNER' || role === 'MODERATOR';
+  }, [currentUserRole]);
+
+  const isOwner = useMemo(() => {
+    const role = currentUserRole ? String(currentUserRole).trim().toUpperCase() : '';
+    const result = role === 'OWNER';
+    console.log("isOwner calculado:", { currentUserRole, role, result });
+    return result;
+  }, [currentUserRole]);
+
+  const isModerator = useMemo(() => {
+    const role = currentUserRole ? String(currentUserRole).trim().toUpperCase() : '';
+    return role === 'MODERATOR';
+  }, [currentUserRole]);
+
   async function handlePromote(member: any) {
     const memberId = getMemberId(member);
     if (!memberId) {
       Alert.alert("Erro", "Não foi possível identificar o membro.");
       return;
     }
+    
+    const memberRole = getMemberRole(member);
+    if (memberRole === 'OWNER') {
+      Alert.alert("Erro", "Não é possível alterar o papel do dono.");
+      return;
+    }
+    
+    if (memberRole === 'MODERATOR') {
+      Alert.alert("Info", "Este membro já é moderador.");
+      return;
+    }
 
     try {
       await ApiService.setGroupMemberRole(String(groupId), memberId, 'MODERATOR');
       await loadMembers();
-      Alert.alert("Sucesso", "Membro promovido com sucesso.");
+      Alert.alert("Sucesso", "Membro promovido a moderador.");
     } catch (err: any) {
       Alert.alert("Erro", ApiService.handleError(err));
     }
+  }
+
+  async function handleDemote(member: any) {
+    console.log("handleDemote chamado com:", member);
+    const memberId = getMemberId(member);
+    if (!memberId) {
+      console.error("Erro: não foi possível identificar o membro");
+      Alert.alert("Erro", "Não foi possível identificar o membro.");
+      return;
+    }
+    
+    const memberRole = getMemberRole(member);
+    console.log("Role do membro a ser rebaixado:", memberRole);
+    
+    if (memberRole === 'OWNER') {
+      Alert.alert("Erro", "Não é possível rebaixar o dono do grupo.");
+      return;
+    }
+    
+    if (memberRole === 'MEMBER') {
+      Alert.alert("Info", "Este membro já possui o papel mais baixo (Membro).");
+      return;
+    }
+
+    if (memberRole !== 'MODERATOR') {
+      console.warn("Role inesperado para rebaixamento:", memberRole);
+      Alert.alert("Erro", `Não é possível rebaixar um membro com papel: ${memberRole}`);
+      return;
+    }
+
+    console.log("Mostrando alerta de confirmação para rebaixar");
+    
+    // Função para executar o rebaixamento
+    const executeDemote = async () => {
+      console.log("Confirmado rebaixamento de:", memberId);
+      try {
+        console.log("Chamando API para rebaixar membro:", { groupId, memberId, role: 'MEMBER' });
+        await ApiService.setGroupMemberRole(String(groupId), memberId, 'MEMBER');
+        console.log("API chamada com sucesso, recarregando membros");
+        await loadMembers();
+        Alert.alert('Sucesso', 'Moderador rebaixado a membro.');
+      } catch (err: any) {
+        console.error("Erro ao rebaixar membro:", err);
+        Alert.alert('Erro', ApiService.handleError(err));
+      }
+    };
+
+    // No web, usar window.confirm como fallback
+    if (Platform.OS === 'web' && typeof window !== 'undefined' && window.confirm) {
+      const confirmed = window.confirm(`Tem certeza que deseja remover o cargo de moderador de ${getMemberName(member)}?`);
+      if (confirmed) {
+        console.log("Confirmado via window.confirm");
+        executeDemote().catch((err) => {
+          console.error("Erro não tratado em executeDemote:", err);
+          Alert.alert('Erro', 'Ocorreu um erro ao rebaixar o membro.');
+        });
+      } else {
+        console.log("Rebaixamento cancelado via window.confirm");
+      }
+      return;
+    }
+
+    Alert.alert(
+      'Rebaixar moderador',
+      `Tem certeza que deseja remover o cargo de moderador de ${getMemberName(member)}?`,
+      [
+        { 
+          text: 'Cancelar', 
+          style: 'cancel', 
+          onPress: () => {
+            console.log("Rebaixamento cancelado");
+          }
+        },
+        {
+          text: 'Rebaixar',
+          style: 'default',
+          onPress: () => {
+            console.log("Botão Rebaixar do alerta pressionado");
+            // Executar de forma assíncrona mas não bloquear
+            executeDemote().catch((err) => {
+              console.error("Erro não tratado em executeDemote:", err);
+              Alert.alert('Erro', 'Ocorreu um erro ao rebaixar o membro.');
+            });
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   }
 
   async function handleRemove(member: any) {
@@ -168,10 +319,16 @@ export default function GroupMembersManageScreen() {
       Alert.alert("Erro", "Não foi possível identificar o membro.");
       return;
     }
+    
+    const memberRole = getMemberRole(member);
+    if (memberRole === 'OWNER') {
+      Alert.alert("Erro", "Não é possível remover o dono do grupo.");
+      return;
+    }
 
     Alert.alert(
       'Remover membro',
-      'Tem certeza que deseja remover este membro do grupo?',
+      `Tem certeza que deseja remover ${getMemberName(member)} do grupo?`,
       [
         { text: 'Cancelar', style: 'cancel' },
         {
@@ -209,6 +366,23 @@ export default function GroupMembersManageScreen() {
           {groupName || groupId} - {members.length} {members.length === 1 ? "membro" : "membros"}
         </Text>
 
+        {!canManageMembers && currentUserRole && (
+          <View style={{ marginTop: 16, padding: 12, borderRadius: 10, backgroundColor: '#FFF3CD', borderColor: '#FFEEBA', borderWidth: 1 }}>
+            <Text style={{ color: '#856404', fontSize: 14 }}>
+              Atenção: Apenas donos e moderadores podem gerenciar membros.
+              Seu papel: {currentUserRole === 'OWNER' ? 'Dono' : currentUserRole === 'MODERATOR' ? 'Moderador' : 'Membro'}
+            </Text>
+          </View>
+        )}
+
+        {canManageMembers && (
+          <View style={{ marginTop: 16, padding: 12, borderRadius: 10, backgroundColor: '#D1ECF1', borderColor: '#BEE5EB', borderWidth: 1 }}>
+            <Text style={{ color: '#0C5460', fontSize: 14 }}>
+               Permissões: {isOwner ? 'Dono - Pode promover/rebaixar/remover qualquer membro (exceto você mesmo e outros donos)' : 'Moderador - Pode promover/rebaixar membros normais e moderadores, e remover membros normais e outros moderadores'}
+            </Text>
+          </View>
+        )}
+
         {loading ? (
           <View style={styles.center}>
             <ActivityIndicator size="large" color={colors.primary} />
@@ -230,13 +404,58 @@ export default function GroupMembersManageScreen() {
               <FlatList
                 data={members}
                 keyExtractor={(item: any, index) => String(item.id ?? item.userId ?? index)}
+                showsVerticalScrollIndicator={true}
+                contentContainerStyle={{ paddingBottom: 16 }}
                 renderItem={({ item }) => {
-                  const name = item.name || item.handle || "Membro";
-                  const firstLetter = String(name).charAt(0).toUpperCase();
                   const memberId = getMemberId(item);
+                  const memberName = getMemberName(item);
+                  const memberRole = getMemberRole(item);
                   const isYou = !!(memberId && user?.id && String(memberId) === String(user.id));
-                  // Consideramos que, nesta tela, o usuário logado (criador) é o Dono
-                  const isOwner = isYou;
+                  
+                  const firstLetter = String(memberName).charAt(0).toUpperCase();
+                  
+                  const getRoleLabel = (role: string) => {
+                    switch(role.toUpperCase()) {
+                      case 'OWNER': return 'Dono';
+                      case 'MODERATOR': return 'Moderador';
+                      default: return 'Membro';
+                    }
+                  };
+
+             // Lógica de permissões
+                const isMemberNormal = memberRole === 'MEMBER';
+                const isMemberModerator = memberRole === 'MODERATOR';
+                const isMemberOwner = memberRole === 'OWNER';
+
+            // Dono E Moderador podem promover membros normais para moderador
+                const canPromote = (isOwner || isModerator) && isMemberNormal && !isYou;
+                
+                // Debug: log para verificar por que o botão não aparece
+                if (isMemberNormal && !isYou) {
+                  console.log("DEBUG - Verificando botão Promover:", {
+                    isOwner,
+                    isMemberNormal,
+                    isYou,
+                    memberRole,
+                    currentUserRole,
+                    canPromote,
+                    isOwnerValue: isOwner,
+                    memberName: memberName
+                  });
+                }
+
+            // Dono E Moderador podem rebaixar moderadores para membro
+               const canDemote = (isOwner || isModerator) && isMemberModerator && !isYou;
+
+            // Dono pode remover QUALQUER membro (exceto ele mesmo e outros donos)
+               const ownerCanRemoveMember = isOwner && !isYou && !isMemberOwner;
+
+            // Moderador pode remover membros normais E outros moderadores (mas não donos)
+               const moderatorCanRemoveMember = isModerator && !isYou && !isMemberOwner && (isMemberNormal || isMemberModerator);
+
+            // Quem pode remover? (Dono pode remover qualquer um exceto donos, Moderador pode remover membros e moderadores)
+               const canRemoveThisMember = ownerCanRemoveMember || moderatorCanRemoveMember;
+
 
                   return (
                     <View
@@ -256,7 +475,7 @@ export default function GroupMembersManageScreen() {
 
                       <View style={styles.memberInfo}>
                         <View style={styles.memberNameRow}>
-                          <Text style={[styles.memberName, { color: colors.primary }]}>{name}</Text>
+                          <Text style={[styles.memberName, { color: colors.primary }]}>{memberName}</Text>
                           {isYou && (
                             <Text style={[styles.youTag, { color: colors.textSecondary }]}>
                               {' '}
@@ -270,41 +489,83 @@ export default function GroupMembersManageScreen() {
                       </View>
 
                       <View style={styles.rightActions}>
-                        {isOwner ? (
+                        {isYou ? (
                           <View
                             style={[
                               styles.ownerBadge,
-                              { backgroundColor: "#E53E3E" },
+                              { 
+                                backgroundColor: memberRole === 'OWNER' ? "#E53E3E" : 
+                                               memberRole === 'MODERATOR' ? "#3182CE" : colors.primary 
+                              },
                             ]}
                           >
-                            <Text style={[styles.ownerBadgeText, { color: "#fff" }]}>Dono</Text>
+                            <Text style={[styles.ownerBadgeText, { color: "#fff" }]}>
+                              {getRoleLabel(memberRole)}
+                            </Text>
                           </View>
-                        ) : (
+                        ) : canManageMembers ? (
                           <>
-                            <Text style={[styles.roleText, { color: colors.primary }]}>Membro</Text>
+                            <Text style={[styles.roleText, { 
+                              color: memberRole === 'OWNER' ? "#E53E3E" : 
+                                     memberRole === 'MODERATOR' ? "#3182CE" : colors.textSecondary 
+                            }]}>
+                              {getRoleLabel(memberRole)}
+                            </Text>
                             <View style={styles.actionsRow}>
-                              <TouchableOpacity
-                                style={[styles.outlineButton, { borderColor: colors.primary }]}
-                                onPress={() => handlePromote(item)}
-                              >
-                                <Text
-                                  style={[styles.outlineButtonText, { color: colors.primary }]}
+                              {/* Botão PROMOVER (dono para membros normais) */}
+                              {canPromote && (
+                                <TouchableOpacity
+                                  style={[styles.outlineButton, { borderColor: colors.primary }]}
+                                  onPress={() => handlePromote(item)}
                                 >
-                                  Promover
-                                </Text>
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                style={[styles.outlineButton, { borderColor: "#E53E3E" }]}
-                                onPress={() => handleRemove(item)}
-                              >
-                                <Text
-                                  style={[styles.outlineButtonText, { color: "#E53E3E" }]}
+                                  <Text
+                                    style={[styles.outlineButtonText, { color: colors.primary }]}
+                                  >
+                                    Promover
+                                  </Text>
+                                </TouchableOpacity>
+                              )}
+                              
+                              {/* Botão REBAIXAR (dono para moderadores) */}
+                              {canDemote && (
+                                <TouchableOpacity
+                                  style={[styles.outlineButton, { borderColor: "#F59E0B" }]}
+                                  onPress={() => {
+                                    console.log("Botão Rebaixar pressionado para:", getMemberName(item), getMemberRole(item));
+                                    handleDemote(item);
+                                  }}
+                                  activeOpacity={0.7}
                                 >
-                                  Remover
-                                </Text>
-                              </TouchableOpacity>
+                                  <Text
+                                    style={[styles.outlineButtonText, { color: "#F59E0B" }]}
+                                  >
+                                    Rebaixar
+                                  </Text>
+                                </TouchableOpacity>
+                              )}
+                              
+                              {/* Botão REMOVER */}
+                              {canRemoveThisMember && (
+                                <TouchableOpacity
+                                  style={[styles.outlineButton, { borderColor: "#E53E3E" }]}
+                                  onPress={() => handleRemove(item)}
+                                >
+                                  <Text
+                                    style={[styles.outlineButtonText, { color: "#E53E3E" }]}
+                                  >
+                                    Remover
+                                  </Text>
+                                </TouchableOpacity>
+                              )}
                             </View>
                           </>
+                        ) : (
+                          <Text style={[styles.roleText, { 
+                            color: memberRole === 'OWNER' ? "#E53E3E" : 
+                                   memberRole === 'MODERATOR' ? "#3182CE" : colors.textSecondary 
+                          }]}>
+                            {getRoleLabel(memberRole)}
+                          </Text>
                         )}
                       </View>
                     </View>
