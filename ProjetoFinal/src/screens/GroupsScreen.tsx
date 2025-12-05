@@ -9,12 +9,15 @@ import {
   ActivityIndicator,
   RefreshControl,
   useWindowDimensions,
+  Alert,
 } from 'react-native';
+
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import ApiService from '../services/ApiService';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useAuth } from '../contexts/AuthContext';
 
 type Group = {
   id: string;
@@ -31,7 +34,10 @@ export default function GroupsScreen() {
   const { colors, isDarkMode, commonStyles } = useTheme();
   const navigation = useNavigation<any>();
   const { width } = useWindowDimensions();
+  const { user } = useAuth();
   const isSmallScreen = width < 380;
+  const isWideScreen = width >= 900;
+
   const [tab, setTab] = useState<'public' | 'mine'>('public');
   const [publicGroups, setPublicGroups] = useState<Group[]>([]);
   const [myGroups, setMyGroups] = useState<Group[]>([]);
@@ -63,6 +69,13 @@ export default function GroupsScreen() {
     loadData(true);
   }, []);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      // Quando a tela volta a ganhar foco (por exemplo, após editar um grupo), recarrega os dados
+      loadData();
+    }, [])
+  );
+
   async function onRefresh() {
     setRefreshing(true);
     await loadData();
@@ -90,49 +103,99 @@ export default function GroupsScreen() {
     }
   }
 
+  function formatCreatedInfo(createdAt?: string) {
+    if (!createdAt) return '';
+    const createdDate = new Date(createdAt);
+    const now = new Date();
+    const diffMs = now.getTime() - createdDate.getTime();
+    const diffDays = Math.max(0, Math.floor(diffMs / (1000 * 60 * 60 * 24)));
+
+    if (diffDays === 0) return 'Criado hoje';
+    if (diffDays === 1) return 'Criado há 1 dia';
+    return `Criado há ${diffDays} dias`;
+  }
+
   function renderGroupItem({ item }: { item: Group }) {
     const memberCount = (item as any).memberCount ?? item.membersCount ?? (Array.isArray(item.members) ? item.members.length : 0);
-    const createdLabel = item.createdAt ? new Date(item.createdAt).toLocaleDateString() : '';
+    const createdInfo = formatCreatedInfo(item.createdAt);
+    const isMineTab = tab === 'mine';
+    const isOwner = isMineTab && user?.id && item.ownerId && String(item.ownerId) === String(user.id);
+
+    const isPublicGroup: boolean =
+      typeof item.isPublic === 'boolean'
+        ? item.isPublic
+        : (item as any).public ?? ((item as any).visibility === 'PUBLIC');
+
+    let isMember = isMineTab;
+    if (!isMember && user?.id && Array.isArray(item.members)) {
+      isMember = item.members.some((m: any) => {
+        const mid = m?.id ?? m?.userId ?? m?.user?.id;
+        return mid && String(mid) === String(user.id);
+      });
+    }
 
     return (
       <View
         style={{
-          backgroundColor: colors.card,
-          borderRadius: 12,
-          padding: 16,
+          flex: 1,
+          backgroundColor: isDarkMode ? '#020617' : colors.card,
+          borderRadius: 18,
+          paddingVertical: 18,
+          paddingHorizontal: 18,
           marginBottom: 16,
-          boxShadow: '0px 2px 8px rgba(0,0,0,0.08)',
-          elevation: 2,
+          marginHorizontal: isWideScreen ? 8 : 0,
+          borderWidth: 1,
+          borderColor: isDarkMode ? '#1f2937' : '#e5e7eb',
         }}
       >
-        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Text style={{ color: colors.text, fontSize: 18, fontWeight: '600' }}>{item.name}</Text>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-            {item.isPublic ? (
-              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Público</Text>
-            ) : (
-              <Text style={{ color: colors.textSecondary, fontSize: 12 }}>Privado</Text>
-            )}
-          </View>
-        </View>
-
-        {item.description ? (
-          <Text style={{ color: colors.textSecondary, marginTop: 8 }}>{item.description}</Text>
-        ) : null}
-
-        <View style={{ flexDirection: 'row', gap: 16, marginTop: 12 }}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-            <Ionicons name="people" size={16} color={colors.textSecondary} />
-            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>
-              {memberCount} {memberCount === 1 ? 'membro' : 'membros'}
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10, columnGap: 8, rowGap: 8, flexWrap: 'wrap' }}>
+          <View
+            style={{
+              paddingHorizontal: 10,
+              paddingVertical: 4,
+              borderRadius: 999,
+              backgroundColor: isPublicGroup ? '#1d4ed8' : '#b91c1c',
+            }}
+          >
+            <Text style={{ color: '#E5E7EB', fontSize: 11, fontWeight: '600', textTransform: 'uppercase' }}>
+              {isPublicGroup ? 'Grupo Público' : 'Grupo Privado'}
             </Text>
           </View>
-          {createdLabel ? (
-            <Text style={{ color: colors.textSecondary, fontSize: 13 }}>Criado em: {createdLabel}</Text>
-          ) : null}
+
+          {isOwner && (
+            <View
+              style={{
+                paddingHorizontal: 10,
+                paddingVertical: 4,
+                borderRadius: 999,
+                backgroundColor: '#b91c1c',
+              }}
+            >
+              <Text style={{ color: '#FEE2E2', fontSize: 11, fontWeight: '600', textTransform: 'uppercase' }}>Dono</Text>
+            </View>
+          )}
         </View>
 
-        <View style={{ flexDirection: isSmallScreen ? 'column' : 'row', marginTop: 16 }}>
+        <Text style={{ color: colors.text, fontSize: 18, fontWeight: '700' }}>{item.name}</Text>
+
+        {item.description ? (
+          <Text style={{ color: colors.textSecondary, marginTop: 6 }}>{item.description}</Text>
+        ) : null}
+
+        <Text style={{ color: colors.textSecondary, fontSize: 13, marginTop: item.description ? 10 : 6 }}>
+          {'•'} {createdInfo}
+          {memberCount != null && ` • ${memberCount} ${memberCount === 1 ? 'Membro' : 'Membros'}`}
+        </Text>
+
+        <View
+          style={{
+            height: 1,
+            backgroundColor: isDarkMode ? '#111827' : '#E5E7EB',
+            marginTop: 12,
+          }}
+        />
+
+        <View style={{ flexDirection: isSmallScreen ? 'column' : 'row', marginTop: 4 }}>
           <TouchableOpacity
             onPress={() => {
               (navigation as any).navigate('GroupDetails', { groupId: String(item.id) });
@@ -140,45 +203,68 @@ export default function GroupsScreen() {
             style={{
               minHeight: 44,
               paddingVertical: 10,
-              paddingHorizontal: 14,
-              borderRadius: 8,
-              backgroundColor: isDarkMode ? '#2A2A2A' : '#EFEFEF',
+              paddingHorizontal: 16,
+              borderRadius: 999,
+              borderWidth: 1,
+              borderColor: isDarkMode ? '#4B5563' : '#D1D5DB',
+              backgroundColor: isDarkMode ? 'transparent' : '#F9FAFB',
               flex: 1,
               justifyContent: 'center',
               alignItems: 'center',
               ...(isSmallScreen ? { marginBottom: 8 } : { marginRight: 12 }),
+              flexDirection: 'row',
+              columnGap: 6,
             }}
           >
-            <Text style={{ color: colors.text }}>Ver Detalhes</Text>
+            <Text style={{ color: colors.text, fontWeight: '500' }}>Ver Detalhes</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            onPress={async () => {
-              try {
-                await ApiService.joinGroup(item.id);
-                await loadData();
-                (navigation as any).navigate('GroupDetails', { groupId: String(item.id) });
-              } catch (err) {
-                Alert.alert('Erro', 'Não foi possível entrar no grupo');
-              }
-            }}
-            style={{
-              minHeight: 44,
-              paddingVertical: 10,
-              paddingHorizontal: 14,
-              borderRadius: 8,
-              backgroundColor: colors.primary,
-              flexDirection: 'row',
-              alignItems: 'center',
-              justifyContent: 'center',
-              flex: 1,
-              ...(isSmallScreen ? {} : { }),
-              gap: 6,
-            }}
-          >
-            <Text style={{ color: isDarkMode ? '#1A1A1A' : '#fff', fontWeight: '600' }}>Acessar</Text>
-            <Ionicons name="arrow-forward" size={16} color={isDarkMode ? '#1A1A1A' : '#fff'} />
-          </TouchableOpacity>
+          {isMember ? (
+            <View
+              style={{
+                minHeight: 44,
+                paddingVertical: 10,
+                paddingHorizontal: 16,
+                borderRadius: 999,
+                backgroundColor: '#16a34a',
+                flex: 1,
+                justifyContent: 'center',
+                alignItems: 'center',
+                flexDirection: 'row',
+                columnGap: 8,
+              }}
+            >
+              <Ionicons name="checkmark" size={16} color="#ECFDF3" />
+              <Text style={{ color: '#ECFDF3', fontWeight: '600' }}>Membro</Text>
+            </View>
+          ) : (
+            <TouchableOpacity
+              onPress={async () => {
+                try {
+                  await ApiService.joinGroup(item.id);
+                  await loadData();
+                  // (navigation as any).navigate('GroupDetails', { groupId: String(item.id) });
+                } catch (err) {
+                  Alert.alert('Erro', 'Não foi possível entrar no grupo');
+                }
+              }}
+              style={{
+                minHeight: 44,
+                paddingVertical: 10,
+                paddingHorizontal: 16,
+                borderRadius: 999,
+                backgroundColor: colors.primary,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'center',
+                flex: 1,
+                columnGap: 6,
+              }}
+            >
+              <Text style={{ color: isDarkMode ? '#1A1A1A' : '#fff', fontWeight: '600' }}>Acessar</Text>
+              <Ionicons name="arrow-forward" size={16} color={isDarkMode ? '#1A1A1A' : '#fff'} />
+            </TouchableOpacity>
+          )}
         </View>
       </View>
     );
@@ -244,7 +330,9 @@ export default function GroupsScreen() {
       <FlatList
         data={data}
         keyExtractor={(item) => String(item.id)}
-        contentContainerStyle={{ padding: 16, paddingBottom: 40 }}
+        numColumns={isWideScreen ? 2 : 1}
+        columnWrapperStyle={isWideScreen ? { justifyContent: 'space-between' } : undefined}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 16, paddingBottom: 40 }}
         renderItem={renderGroupItem}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={

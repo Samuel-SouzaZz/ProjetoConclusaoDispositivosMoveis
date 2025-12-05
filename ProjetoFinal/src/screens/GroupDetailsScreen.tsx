@@ -8,6 +8,7 @@ import ApiService from "../services/ApiService";
 import { RootStackParamList } from "../navigation/AppNavigator";
 import { useAuth } from "../contexts/AuthContext";
 import DetailedChallengeCard from "../components/DetailedChallengeCard";
+import CreateChallengeModal from "../components/CreateChallengeModal";
 
 const styles = StyleSheet.create({
   header: {
@@ -203,27 +204,11 @@ export default function GroupDetailsScreen() {
   const [leaving, setLeaving] = useState(false);
   const [joining, setJoining] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const [creating, setCreating] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
   const [updating, setUpdating] = useState(false);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editIsPublic, setEditIsPublic] = useState(true);
-
-  const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    difficulty: 1,
-    xp: 100,
-    isPublic: true,
-    codeTemplate: '// Seu código aqui\n'
-  });
-
-  const difficultyOptions = [
-    { value: 1, label: 'Fácil', color: '#4CAF50' },
-    { value: 2, label: 'Médio', color: '#FF9800' },
-    { value: 3, label: 'Difícil', color: '#F44336' },
-  ];
 
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
@@ -287,51 +272,54 @@ export default function GroupDetailsScreen() {
       try {
         const mm = Array.isArray(data?.members) ? data.members : data?.items || [];
         const mItems = Array.isArray(mm) ? mm : [];
-        
-        // Tentar buscar nomes dos membros se não estiverem disponíveis
+
+        console.log("DEBUG GroupDetailsScreen - members brutos:", JSON.stringify(mItems, null, 2));
+
+        // Buscar nomes dos membros usando o perfil público sempre que possível
         // Fazer de forma sequencial para não sobrecarregar a API
-        const membersWithNames = [];
+        const membersWithNames: any[] = [];
         for (const member of mItems) {
           const memberId = getMemberId(member);
-          let currentName = getMemberName(member);
-          
-          // Se o nome não foi encontrado e temos um userId, tentar buscar o perfil público
-          if (currentName === "Membro" && memberId) {
+
+          if (memberId) {
             try {
-              const profile = await ApiService.getPublicProfile(String(memberId));
-              if (profile?.name || profile?.handle) {
+              const profile: any = await ApiService.getPublicProfile(String(memberId));
+
+              const userObj = profile?.user || profile;
+
+              const profileName =
+                (userObj && (userObj.name || userObj.handle)) ||
+                (userObj?.email && typeof userObj.email === 'string' && userObj.email.includes('@')
+                  ? userObj.email.split('@')[0]
+                  : undefined);
+
+              if (profileName) {
                 membersWithNames.push({
                   ...member,
-                  name: profile.name || profile.handle,
+                  name: profileName,
                   user: {
                     ...(member.user || {}),
-                    name: profile.name || profile.handle,
-                    handle: profile.handle || member.user?.handle,
-                    id: memberId
-                  }
+                    name: userObj.name || profileName,
+                    handle: userObj.handle || member.user?.handle,
+                    email: userObj.email || member.user?.email,
+                    id: memberId,
+                  },
                 });
                 continue;
               }
             } catch (err: any) {
-              // Se falhar ao buscar perfil, usar o userId como identificador temporário
               console.warn(`Não foi possível buscar perfil do membro ${memberId}:`, err?.message || err);
-              // Continuar com os dados originais, mas adicionar um nome baseado no ID
-              membersWithNames.push({
-                ...member,
-                name: `Usuário ${String(memberId).substring(0, 8)}`,
-                user: {
-                  ...(member.user || {}),
-                  id: memberId
-                }
-              });
-              continue;
             }
           }
-          
-          // Se já tem nome, apenas adicionar
-          membersWithNames.push(member);
+
+          // Fallback: usar a lógica atual de nome (getMemberName)
+          const fallbackName = getMemberName(member);
+          membersWithNames.push({
+            ...member,
+            name: fallbackName,
+          });
         }
-        
+
         console.log("Membros carregados com nomes:", membersWithNames.map((m: any) => ({
           id: getMemberId(m),
           name: getMemberName(m)
@@ -376,30 +364,9 @@ export default function GroupDetailsScreen() {
     });
   }
 
-  async function handleCreateChallenge() {
-    if (!formData.title.trim()) {
-      Alert.alert('Erro', 'Título é obrigatório');
-      return;
-    }
-    try {
-      setCreating(true);
-      await ApiService.createGroupChallenge(String(groupId), {
-        title: formData.title,
-        description: formData.description,
-        difficulty: formData.difficulty,
-        xp: formData.xp,
-        isPublic: formData.isPublic,
-        codeTemplate: formData.codeTemplate,
-      });
-      setShowCreate(false);
-      setFormData({ title: '', description: '', difficulty: 1, xp: 100, isPublic: true, codeTemplate: '// Seu código aqui\n' });
-      await loadData();
-      Alert.alert('Sucesso', 'Desafio criado com sucesso');
-    } catch (err: any) {
-      Alert.alert('Erro', ApiService.handleError(err));
-    } finally {
-      setCreating(false);
-    }
+  async function handleChallengeCreated() {
+    setShowCreate(false);
+    await loadData();
   }
 
   async function handleUpdateGroup() {
@@ -711,6 +678,7 @@ export default function GroupDetailsScreen() {
                 </TouchableOpacity>
               )}
             </View>
+            
             {challenges.length === 0 ? (
               <View style={[styles.emptyBox, { borderColor: colors.border }]}>
                 <Text style={{ color: colors.textSecondary }}>Nenhum Desafio criado ainda</Text>
@@ -754,95 +722,13 @@ export default function GroupDetailsScreen() {
             )}
           </View>
 
-          {/* Modal Criar Desafio */}
-          <Modal visible={showCreate} animationType="slide" onRequestClose={() => setShowCreate(false)}>
-            <SafeAreaView style={commonStyles.container}>
-              <View style={[commonStyles.header, styles.modalHeader, { borderBottomColor: colors.border }]}>
-                <TouchableOpacity onPress={() => setShowCreate(false)}>
-                  <Text style={{ color: colors.textSecondary, fontSize: 16 }}>Cancelar</Text>
-                </TouchableOpacity>
-                <Text style={[styles.title, { color: colors.text }]}>
-                  {creating ? 'Criando...' : 'Criar Desafio'}
-                </Text>
-                <TouchableOpacity onPress={handleCreateChallenge} disabled={creating}>
-                  {creating ? (
-                    <ActivityIndicator size="small" color={colors.primary} />
-                  ) : (
-                    <Text style={{ color: colors.primary, fontSize: 16, fontWeight: '600' }}>Salvar</Text>
-                  )}
-                </TouchableOpacity>
-              </View>
-
-              <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}>
-                <View style={[styles.card, { backgroundColor: colors.card }]}>
-                  <Text style={[styles.sectionTitle, { color: colors.text }]}>Título *</Text>
-                  <TextInput
-                    style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                    value={formData.title}
-                    onChangeText={(t) => setFormData({ ...formData, title: t })}
-                    placeholder="Digite o título do desafio"
-                    placeholderTextColor={colors.textSecondary}
-                  />
-
-                  <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 12 }]}>Descrição</Text>
-                  <TextInput
-                    style={[styles.input, { borderColor: colors.border, color: colors.text, height: 90 }]}
-                    value={formData.description}
-                    onChangeText={(t) => setFormData({ ...formData, description: t })}
-                    placeholder="Descrição do desafio"
-                    placeholderTextColor={colors.textSecondary}
-                    multiline
-                  />
-
-                  <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 12 }]}>Dificuldade</Text>
-                  <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {difficultyOptions.map((option) => (
-                      <TouchableOpacity
-                        key={option.value}
-                        style={[
-                          { flex: 1, paddingVertical: 12, paddingHorizontal: 16, borderRadius: 8, borderWidth: 2, alignItems: 'center' },
-                          formData.difficulty === option.value && { backgroundColor: '#F0F8FF' },
-                          { borderColor: option.color },
-                        ]}
-                        onPress={() => setFormData({ ...formData, difficulty: option.value })}
-                      >
-                        <Text style={[{ fontSize: 14, fontWeight: '600' }, formData.difficulty === option.value && { color: option.color }]}>
-                          {option.label}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-
-                  <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 12 }]}>XP Base</Text>
-                  <TextInput
-                    style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                    value={String(formData.xp)}
-                    onChangeText={(t) => setFormData({ ...formData, xp: parseInt(t) || 0 })}
-                    keyboardType="numeric"
-                  />
-
-                  <Text style={[styles.sectionTitle, { color: colors.text, marginTop: 12 }]}>Template de Código</Text>
-                  <TextInput
-                    style={[styles.input, { borderColor: colors.border, color: colors.text, height: 120 }]}
-                    value={formData.codeTemplate}
-                    onChangeText={(t) => setFormData({ ...formData, codeTemplate: t })}
-                    multiline
-                  />
-
-                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12, gap: 10 }}>
-                    <TouchableOpacity
-                      style={[styles.checkbox, formData.isPublic && { backgroundColor: colors.primary, borderColor: colors.primary }]}
-                      onPress={() => setFormData({ ...formData, isPublic: !formData.isPublic })}
-                    >
-                      {formData.isPublic && <Text style={{ color: '#fff', fontWeight: '700' }}>✓</Text>}
-                    </TouchableOpacity>
-                    <Text style={{ color: colors.text }}>Desafio público (visível para todos)</Text>
-                  </View>
-                  <View style={{ height: 8 }} />
-                </View>
-              </ScrollView>
-            </SafeAreaView>
-          </Modal>
+          {/* Modal Criar Desafio (reutilizando CreateChallengeModal) */}
+          <CreateChallengeModal
+            visible={showCreate}
+            onClose={() => setShowCreate(false)}
+            onSuccess={handleChallengeCreated}
+            groupId={String(groupId)}
+          />
 
           {/* Modal Editar Grupo */}
           <Modal visible={showEdit} transparent animationType="slide" onRequestClose={() => setShowEdit(false)}>

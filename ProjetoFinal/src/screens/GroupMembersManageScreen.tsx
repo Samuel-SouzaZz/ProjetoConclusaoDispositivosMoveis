@@ -131,19 +131,69 @@ export default function GroupMembersManageScreen() {
       setLoading(true);
       const data = await ApiService.getGroup(String(groupId));
       const rawMembers = Array.isArray(data?.members) ? data.members : data?.items || [];
-      setMembers(rawMembers);
-      
+      console.log("DEBUG GroupMembersManageScreen - members brutos:", JSON.stringify(rawMembers, null, 2));
+
+      // Enriquecer membros com nomes vindos do perfil público, semelhante à versão web
+      const enrichedMembers: any[] = [];
+      for (const member of rawMembers) {
+        const memberId = getMemberId(member);
+
+        if (memberId) {
+          try {
+            const profile: any = await ApiService.getPublicProfile(String(memberId));
+            const userObj = profile?.user || profile;
+
+            const profileName =
+              (userObj && (userObj.name || userObj.handle)) ||
+              (userObj?.email && typeof userObj.email === 'string' && userObj.email.includes('@')
+                ? userObj.email.split('@')[0]
+                : undefined);
+
+            if (profileName) {
+              enrichedMembers.push({
+                ...member,
+                name: profileName,
+                user: {
+                  ...(member.user || {}),
+                  name: userObj.name || profileName,
+                  handle: userObj.handle || member.user?.handle,
+                  email: userObj.email || member.user?.email,
+                  id: memberId,
+                },
+              });
+              continue;
+            }
+          } catch (err: any) {
+            console.warn(`Não foi possível buscar perfil do membro ${memberId}:`, err?.message || err);
+          }
+        }
+
+        // Fallback: usar getMemberName para tentar montar um nome legível
+        const fallbackName = getMemberName(member);
+        enrichedMembers.push({
+          ...member,
+          name: fallbackName,
+        });
+      }
+
+      console.log(
+        "GroupMembersManageScreen - membros enriquecidos:",
+        enrichedMembers.map((m: any) => ({ id: getMemberId(m), name: getMemberName(m), role: getMemberRole(m) }))
+      );
+
+      setMembers(enrichedMembers);
+
       // Encontrar role do usuário atual
       const currentMember = rawMembers.find((m: any) => {
         const memberId = getMemberId(m);
         return memberId && user?.id && String(memberId) === String(user.id);
       });
-      
+
       if (currentMember) {
         // Tentar diferentes campos onde o role pode estar
         const role = String(
-          currentMember.role || 
-          currentMember.roleName || 
+          currentMember.role ||
+          currentMember.roleName ||
           currentMember.userRole ||
           currentMember.memberRole ||
           'MEMBER'
@@ -151,7 +201,7 @@ export default function GroupMembersManageScreen() {
         console.log("Role do usuário atual detectado:", role, "Membro completo:", currentMember);
         setCurrentUserRole(role);
       } else {
-        const membersInfo = rawMembers.map((member: any) => ({ id: getMemberId(member), role: getMemberRole(member) }));
+        const membersInfo = rawMembers.map((member: any) => ({ id: getMemberId(member), role: getMemberRole(member), name: getMemberName(member) }));
         console.warn("Usuário atual não encontrado na lista de membros. User ID:", user?.id, "Membros:", membersInfo);
         setCurrentUserRole(null);
       }
@@ -177,7 +227,42 @@ export default function GroupMembersManageScreen() {
   }
 
   function getMemberName(member: any): string {
-    return member?.name || member?.user?.name || member?.handle || "Membro";
+    const rawId = getMemberId(member);
+
+    // tentar campos mais comuns de nome
+    let name =
+      member?.name ||
+      member?.user?.name ||
+      member?.handle ||
+      member?.user?.handle ||
+      member?.displayName ||
+      member?.user?.displayName ||
+      member?.fullName ||
+      member?.user?.fullName ||
+      "";
+
+    // se ainda não encontrou, tentar usar prefixo do e-mail
+    if (!name) {
+      const email = member?.email || member?.user?.email;
+      if (typeof email === "string" && email.includes("@")) {
+        name = email.split("@")[0];
+      }
+    }
+
+    // se o "nome" for exatamente igual ao ID, provavelmente é só o ID
+    if (name && rawId && String(name) === String(rawId)) {
+      name = "";
+    }
+
+    // evitar mostrar algo que claramente parece um ID/UUID muito longo
+    if (name && typeof name === "string" && name.length > 24) {
+      const looksLikeId = /^[a-f0-9\-]+$/i.test(name);
+      if (looksLikeId) {
+        name = "";
+      }
+    }
+
+    return name || "Membro";
   }
 
   const canManageMembers = useMemo(() => {
