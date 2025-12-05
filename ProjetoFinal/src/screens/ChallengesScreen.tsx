@@ -5,55 +5,63 @@ import {
   StyleSheet, 
   ScrollView, 
   TouchableOpacity, 
-  Modal, 
   Alert,
   ActivityIndicator, 
-  Platform
+  Platform,
+  useWindowDimensions
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
+import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import ApiService from "../services/ApiService";
 import ChallengeService from "../services/ChallengeService";
 import { useFocusEffect } from '@react-navigation/native';
-import DetailedChallengeCard from "../components/DetailedChallengeCard";
+import CompactChallengeCard from "../components/CompactChallengeCard";
 import CreateChallengeModal from "../components/CreateChallengeModal";
-
-const difficultyOptions = [
-  { value: 1, label: "Fácil" },
-  { value: 2, label: "Médio" },
-  { value: 3, label: "Difícil" },
-  { value: 4, label: "Expert" },
-  { value: 5, label: "Master" },
-];
+import ConfirmationModal from "../components/ConfirmationModal";
 
 const ScreenHeader = ({ title, onAddPress }: { title: string; onAddPress: () => void }) => {
-  const { colors, commonStyles } = useTheme();
+  const { colors } = useTheme();
   
   return (
-    <View style={[commonStyles.header, styles.header]}>
-      <Text style={[commonStyles.text, styles.title]}>{title}</Text>
+    <View
+      style={[styles.header, { borderBottomColor: colors.border }]}
+      accessible={true}
+      accessibilityRole="header"
+    >
+      <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
       <TouchableOpacity 
         style={[styles.addButton, { backgroundColor: colors.primary }]} 
         onPress={onAddPress}
+        accessible={true}
+        accessibilityRole="button"
+        accessibilityLabel="Criar novo desafio"
+        accessibilityHint="Toque duas vezes para abrir o formulário de criação de desafio"
       >
-        <Text style={styles.addButtonText}>+ Criar</Text>
+        <Ionicons name="add-circle-outline" size={18} color="#fff" />
+        <Text style={styles.addButtonText}>Criar</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
 export default function ChallengesScreen() {
-  const { commonStyles, colors } = useTheme();
+  const { colors } = useTheme();
   const { user } = useAuth();
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProp<Record<string, { openCreate?: boolean }>, string>>();
+  const { width } = useWindowDimensions();
+  
   const [challenges, setChallenges] = useState<any[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [deletingChallenge, setDeletingChallenge] = useState<any>(null);
   const [initialLoading, setInitialLoading] = useState(true);
+  const [deleting, setDeleting] = useState(false);
+  
+  const isSmallScreen = width < 360;
 
   const handleAddPress = () => {
     setShowCreateModal(true);
@@ -101,18 +109,19 @@ export default function ChallengesScreen() {
 
   const confirmDelete = async () => {
     if (!deletingChallenge) return;
+    setDeleting(true);
     try {
       const challengeId = deletingChallenge.id || deletingChallenge._id;
       await ApiService.deleteChallenge(String(challengeId));
       try { await ChallengeService.deleteChallenge(String(challengeId)); } catch {}
-      setShowDeleteModal(false);
-      setDeletingChallenge(null);
       await loadChallenges();
       Alert.alert('Sucesso', 'Desafio excluído com sucesso!');
     } catch (error: any) {
+      Alert.alert('Erro', ApiService.handleError(error));
+    } finally {
+      setDeleting(false);
       setShowDeleteModal(false);
       setDeletingChallenge(null);
-      Alert.alert('Erro', ApiService.handleError(error));
     }
   };
 
@@ -132,8 +141,15 @@ export default function ChallengesScreen() {
 
   if (initialLoading) {
     return (
-      <SafeAreaView style={commonStyles.container}>
-        <View style={styles.loadingContainer}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        <ScreenHeader title="Meus Desafios" onAddPress={handleAddPress} />
+        <View
+          style={styles.loadingContainer}
+          accessible={true}
+          accessibilityRole="progressbar"
+          accessibilityLabel="Carregando desafios"
+          accessibilityLiveRegion="polite"
+        >
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
             Carregando desafios...
@@ -144,33 +160,58 @@ export default function ChallengesScreen() {
   }
 
   return (
-    <SafeAreaView style={commonStyles.container}>
+    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
       <ScreenHeader title="Meus Desafios" onAddPress={handleAddPress} />
       
-      <ScrollView style={[commonStyles.scrollView, styles.scrollView]}>
+      <ScrollView
+        style={styles.scrollView}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        accessible={true}
+        accessibilityRole="list"
+        accessibilityLabel={challenges.length > 0 ? `Lista com ${challenges.length} desafios criados` : 'Lista vazia de desafios'}
+      >
         {challenges.length === 0 ? (
-          <View style={styles.emptyContainer}>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              Nenhum desafio criado ainda. Clique em "+ Criar" para começar!
+          <View
+            style={styles.emptyContainer}
+            accessible={true}
+            accessibilityRole="text"
+            accessibilityLabel="Nenhum desafio criado ainda"
+          >
+            <Ionicons name="rocket-outline" size={64} color={colors.textSecondary} />
+            <Text style={[styles.emptyTitle, { color: colors.text }]}>
+              Comece a Criar!
             </Text>
+            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+              Você ainda não criou nenhum desafio.{'\n'}
+              Toque em "Criar" para começar!
+            </Text>
+            <TouchableOpacity
+              style={[styles.emptyButton, { backgroundColor: colors.primary }]}
+              onPress={handleAddPress}
+              accessible={true}
+              accessibilityRole="button"
+              accessibilityLabel="Criar primeiro desafio"
+              accessibilityHint="Toque duas vezes para abrir o formulário de criação"
+            >
+              <Ionicons name="add-circle-outline" size={20} color="#fff" />
+              <Text style={styles.emptyButtonText}>Criar Primeiro Desafio</Text>
+            </TouchableOpacity>
           </View>
         ) : (
           challenges.map((challenge, idx) => {
             const diffNum = Number(challenge.difficulty ?? 1);
-            const diffOption = difficultyOptions.find(d => d.value === diffNum);
-            const diffLabel = diffOption?.label || 'Fácil';
             const xp = challenge.baseXp || challenge.xp || 0;
             const code = challenge.publicCode || challenge.public_code || challenge.code;
             return (
-              <DetailedChallengeCard
+              <CompactChallengeCard
                 key={String(challenge.id || challenge._id || idx)}
                 title={challenge.title}
                 description={challenge.description}
-                difficulty={diffLabel}
-                progress={challenge.progress}
-                isPublic={challenge.isPublic}
+                difficulty={diffNum}
                 xp={xp}
                 code={code}
+                isPublic={challenge.isPublic ?? true}
                 onPress={() => handleChallengePress(challenge)}
                 onEdit={() => handleChallengePress(challenge)}
                 onDelete={() => handleDeletePress(challenge)}
@@ -187,96 +228,107 @@ export default function ChallengesScreen() {
         onSuccess={() => loadChallenges()}
       />
 
-      <Modal visible={showDeleteModal} animationType="fade" transparent>
-        <View style={styles.overlay}> 
-          <View style={[styles.confirmBox, { backgroundColor: colors.card, borderColor: colors.border }]}> 
-            <Text style={[styles.confirmTitle, { color: colors.text }]}>Excluir Desafio</Text>
-            <Text style={[styles.confirmDesc, { color: colors.textSecondary }]}>
-              Tem certeza que deseja excluir {deletingChallenge?.title ? `"${deletingChallenge.title}"` : 'este desafio'}?
-            </Text>
-            <View style={styles.confirmActions}> 
-              <TouchableOpacity 
-                style={styles.cancelBtn} 
-                onPress={() => { setShowDeleteModal(false); setDeletingChallenge(null); }}
-              >
-                <Text style={[styles.cancelText, { color: colors.textSecondary }]}>Cancelar</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.deleteBtn} onPress={confirmDelete}>
-                <Text style={styles.deleteText}>Excluir</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <ConfirmationModal
+        visible={showDeleteModal}
+        onClose={() => {
+          setShowDeleteModal(false);
+          setDeletingChallenge(null);
+        }}
+        onConfirm={confirmDelete}
+        title="Excluir Desafio"
+        message={`Tem certeza que deseja excluir ${deletingChallenge?.title ? `"${deletingChallenge.title}"` : 'este desafio'}? Esta ação não pode ser desfeita.`}
+        confirmText="Excluir"
+        cancelText="Cancelar"
+        confirmButtonColor="#F44336"
+        cancelButtonColor={colors.textSecondary}
+        loading={deleting}
+        icon="trash-outline"
+        iconColor="#F44336"
+        backgroundColor={colors.card}
+        textColor={colors.text}
+        borderColor={colors.border}
+      />
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 15,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: 22,
+    fontWeight: 'bold',
   },
   addButton: {
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
+    gap: 4,
   },
   addButtonText: {
-    color: "#fff",
+    color: '#fff',
     fontSize: 14,
-    fontWeight: "600",
+    fontWeight: '600',
   },
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    alignItems: 'center',
-    justifyContent: 'center'
-  },
-  confirmBox: {
-    width: '86%',
-    borderWidth: 1,
-    borderRadius: 16,
-    padding: 16,
-  },
-  confirmTitle: { fontSize: 18, fontWeight: '800' },
-  confirmDesc: { marginTop: 8, fontSize: 13 },
-  confirmActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 16, marginTop: 16 },
-  cancelBtn: { paddingHorizontal: 12, paddingVertical: 8 },
-  deleteBtn: { paddingHorizontal: 12, paddingVertical: 8, backgroundColor: '#F44336', borderRadius: 8 },
-  cancelText: { fontWeight: '700' },
-  deleteText: { color: '#fff', fontWeight: '700' },
   scrollView: {
-    paddingHorizontal: 20,
-    paddingTop: 20,
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 16,
+    paddingBottom: 32,
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
+    justifyContent: 'center',
+    alignItems: 'center',
     gap: 16,
+    paddingHorizontal: 20,
   },
   loadingText: {
     fontSize: 16,
   },
   emptyContainer: {
     flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingVertical: 60,
-    paddingHorizontal: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 80,
+    paddingHorizontal: 32,
+    gap: 16,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginTop: 8,
   },
   emptyText: {
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 24,
+    fontSize: 15,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  emptyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 24,
+    gap: 8,
+    marginTop: 16,
+  },
+  emptyButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
