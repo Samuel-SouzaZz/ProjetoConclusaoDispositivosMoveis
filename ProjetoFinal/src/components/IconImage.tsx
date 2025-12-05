@@ -27,7 +27,7 @@ const iconUrls: Record<IconImageType, string> = {
   trophy: 'https://img.icons8.com/?size=100&id=11997&format=png&color=000000',
   puzzle: 'https://img.icons8.com/?size=100&id=P9lRIVRzfyTU&format=png&color=000000',
   star: 'https://img.icons8.com/?size=100&id=8ggStxqyboK5&format=png&color=000000',
-  error: 'https://img.icons8.com/?size=100&id=11997&format=png&color=000000',
+  error: 'https://img.icons8.com/?size=100&id=108634&format=png&color=000000',
   bulb: 'https://img.icons8.com/?size=100&id=mlgyCrKCW0fI&format=png&color=000000',
   input: 'https://img.icons8.com/?size=100&id=zexuQUcm590L&format=png&color=000000',
   output: 'https://img.icons8.com/?size=100&id=FWJYa8vdduXB&format=png&color=000000',

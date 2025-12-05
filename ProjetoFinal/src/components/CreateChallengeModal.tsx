@@ -145,6 +145,7 @@ export default function CreateChallengeModal({
   const [formError, setFormError] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [successCode, setSuccessCode] = useState<string | null>(null);
+  const [createdExercise, setCreatedExercise] = useState<any | null>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -187,6 +188,9 @@ export default function CreateChallengeModal({
     setTestError(null);
     setTestInput('');
     setActiveTab('info');
+    setShowSuccessModal(false);
+    setSuccessCode(null);
+    setCreatedExercise(null);
     onClose();
   }, [groupId, onClose]);
 
@@ -348,6 +352,7 @@ export default function CreateChallengeModal({
       const exercise = created?.exercise || created;
       const code = exercise?.publicCode || exercise?.public_code || exercise?.code;
 
+      setCreatedExercise(exercise);
       setSuccessCode(code);
       setShowSuccessModal(true);
     } catch (error: any) {
@@ -915,13 +920,13 @@ export default function CreateChallengeModal({
       animationType="fade"
       onRequestClose={() => {
         setShowSuccessModal(false);
-        onSuccess({ publicCode: successCode } as any);
+        onSuccess(createdExercise || { publicCode: successCode });
         handleClose();
       }}
     >
       <TouchableWithoutFeedback onPress={() => {
         setShowSuccessModal(false);
-        onSuccess({ publicCode: successCode } as any);
+        onSuccess(createdExercise || { publicCode: successCode });
         handleClose();
       }}>
         <View style={styles.successModalOverlay}>
@@ -940,7 +945,7 @@ export default function CreateChallengeModal({
                 style={[styles.successButton, { backgroundColor: colors.primary }]}
                 onPress={() => {
                   setShowSuccessModal(false);
-                  onSuccess({ publicCode: successCode } as any);
+                  onSuccess(createdExercise || { publicCode: successCode });
                   handleClose();
                 }}
               >

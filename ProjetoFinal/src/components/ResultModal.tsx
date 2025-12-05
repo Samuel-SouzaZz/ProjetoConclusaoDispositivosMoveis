@@ -92,7 +92,7 @@ export default function ResultModal({
                       </>
                     )}
 
-                    {complexityScore !== undefined && (
+                    {complexityScore !== undefined && complexityScore !== null && typeof complexityScore === 'number' && (
                       <View style={styles.infoRow}>
                         <IconImage type="puzzle" size={20} />
                         <Text style={[styles.infoText, { color: colors.text }]}>
