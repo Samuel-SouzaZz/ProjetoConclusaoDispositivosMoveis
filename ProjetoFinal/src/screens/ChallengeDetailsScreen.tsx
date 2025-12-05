@@ -126,21 +126,42 @@ export default function ChallengeDetailsScreen() {
         exerciseId: challenge.id || challenge._id || challenge.publicCode,
         code: code,
         languageId: challenge.languageId || '1',
+        timeSpentMs: timeSpentMs,
       });
 
       const status = result.status || result.data?.status;
       const score = result.score || result.data?.score || 0;
+      const finalScore = result.finalScore || result.data?.finalScore || score;
+      const complexityScore = result.complexityScore || result.data?.complexityScore;
+      const bonusPoints = result.bonusPoints || result.data?.bonusPoints || 0;
       const xpAwarded = result.xpAwarded || result.data?.xpAwarded || 0;
 
       // Fecha o modal de confirmação
       setShowConfirmModal(false);
 
       // Mostra o resultado
+      let message = '';
+      if (status === 'ACCEPTED' || status === 'Accepted') {
+        message = `Sua solução foi aceita! 🎉\n\n`;
+        message += `📊 Score dos Testes: ${Math.round(score)}%\n`;
+        if (bonusPoints > 0) {
+          message += `✨ Bônus de Complexidade: +${bonusPoints.toFixed(1)} pontos\n`;
+          message += `🏆 Score Final: ${Math.round(finalScore)}%\n`;
+        }
+        if (complexityScore !== undefined) {
+          message += `🧩 Qualidade do Código: ${Math.round(complexityScore)}%\n`;
+        }
+        message += `\n⭐ XP Ganho: ${xpAwarded}`;
+      } else {
+        message = `Sua solução não passou em todos os testes.\n\n`;
+        message += `📊 Score: ${Math.round(score)}%\n`;
+        message += `❌ Necessário: 60% para aprovação\n\n`;
+        message += `💡 Revise seu código e tente novamente!`;
+      }
+
       Alert.alert(
-        status === 'ACCEPTED' || status === 'Accepted' ? 'Parabéns! 🎉' : 'Tente Novamente',
-        status === 'ACCEPTED' || status === 'Accepted'
-          ? `Sua solução foi aceita!\nPontuação: ${score}%\nXP Ganho: ${xpAwarded}`
-          : `Sua solução não passou em todos os testes.\nPontuação: ${score}%`,
+        status === 'ACCEPTED' || status === 'Accepted' ? 'Parabéns! 🎉' : 'Tente Novamente ❌',
+        message,
         [
           { text: 'OK', onPress: () => navigation.goBack() }
         ]

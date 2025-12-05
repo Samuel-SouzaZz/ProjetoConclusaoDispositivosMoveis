@@ -271,6 +271,43 @@ class ApiService {
     return this.safeRequest(() => this.api.get('/submissions/me', { params }));
   }
 
+  async getAllSubmissions(params?: {
+    page?: number;
+    limit?: number;
+    exerciseId?: string;
+    status?: string;
+  }) {
+    return this.safeRequest(() => this.api.get('/submissions', { params }));
+  }
+
+  async getExerciseRanking(exerciseId: string) {
+    // Tenta múltiplos endpoints possíveis
+    try {
+      // Tenta endpoint de ranking específico
+      return await this.safeRequest(() => this.api.get(`/exercises/${exerciseId}/ranking`));
+    } catch (error: any) {
+      if (error?.message?.includes('404') || error?.response?.status === 404) {
+        try {
+          // Fallback: tenta buscar todas as submissões aceitas do exercício
+          return await this.safeRequest(() => 
+            this.api.get('/submissions', { 
+              params: { 
+                exerciseId, 
+                status: 'ACCEPTED',
+                limit: 100 
+              } 
+            })
+          );
+        } catch (fallbackError) {
+          // Último fallback: retorna array vazio
+          console.warn('Nenhum endpoint de ranking disponível, retornando vazio');
+          return [];
+        }
+      }
+      throw error;
+    }
+  }
+
   async getColleges() {
     return this.safeRequest(() => this.api.get('/colleges'));
   }
@@ -308,6 +345,7 @@ class ApiService {
     exerciseId: string;
     code: string;
     languageId: string;
+    timeSpentMs?: number;
   }) {
     return this.safeRequest(() => this.api.post('/submissions', data));
   }

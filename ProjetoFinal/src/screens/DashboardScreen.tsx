@@ -5,10 +5,8 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  TextInput,
   ActivityIndicator,
   useWindowDimensions,
-  Image,
   Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -21,6 +19,12 @@ import { Ionicons } from "@expo/vector-icons";
 import ApiService from "../services/ApiService";
 import { deriveLevelFromXp } from "../utils/levels";
 import type { RootStackParamList } from "../navigation/AppNavigator";
+import UserProfileButton from "../components/UserProfileButton";
+import SearchBar from "../components/SearchBar";
+import HeroSection from "../components/HeroSection";
+import DashboardCard from "../components/DashboardCard";
+import ExerciseCard from "../components/ExerciseCard";
+import RankingModal from "../components/RankingModal";
 
 // Tipo para navegação entre tabs
 type TabParamList = {
@@ -78,6 +82,8 @@ export default function DashboardScreen() {
   const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [avatarError, setAvatarError] = useState(false);
+  const [rankingModalVisible, setRankingModalVisible] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState<{id: string; title: string} | null>(null);
 
   // Responsive layout metrics
   const layout = useMemo(() => {
@@ -177,7 +183,14 @@ export default function DashboardScreen() {
   if (authLoading || loading) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <View style={styles.loadingContainer}>
+        <View
+          style={styles.loadingContainer}
+          accessible={true}
+          accessibilityRole="progressbar"
+          accessibilityLabel="Carregando dashboard"
+          accessibilityValue={{ text: "Carregando dados do usuário e desafios" }}
+          accessibilityLiveRegion="polite"
+        >
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Carregando...</Text>
         </View>
@@ -188,24 +201,44 @@ export default function DashboardScreen() {
   if (!user) {
     return (
       <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <View style={styles.loginContainer}>
-          <Text style={[styles.welcomeTitle, { color: colors.text }]}>Bem-vindo!</Text>
-          <Text style={[styles.welcomeSubtitle, { color: colors.textSecondary }]}>
+        <View
+          style={styles.loginContainer}
+          accessible={true}
+          accessibilityRole="group"
+          accessibilityLabel="Tela de boas-vindas"
+        >
+          <Ionicons name="code-slash" size={64} color={colors.primary} style={{ marginBottom: 20 }} />
+          <Text
+            style={[styles.welcomeTitle, { color: colors.text }]}
+            accessible={true}
+            accessibilityRole="header"
+          >
+            Bem-vindo!
+          </Text>
+          <Text
+            style={[styles.welcomeSubtitle, { color: colors.textSecondary }]}
+            accessible={true}
+            accessibilityRole="text"
+          >
             Faça login para continuar
           </Text>
           <TouchableOpacity 
             style={[styles.loginButton, { backgroundColor: colors.primary }]}
             onPress={() => navigation.navigate("Login")}
-            accessibilityLabel="Fazer login"
+            accessible={true}
             accessibilityRole="button"
+            accessibilityLabel="Fazer login"
+            accessibilityHint="Toque duas vezes para ir para a tela de login"
           >
             <Text style={styles.loginButtonText}>Fazer Login</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.signupButton, { borderColor: colors.primary }]}
             onPress={() => navigation.navigate("Signup")}
-            accessibilityLabel="Criar conta"
+            accessible={true}
             accessibilityRole="button"
+            accessibilityLabel="Criar conta"
+            accessibilityHint="Toque duas vezes para ir para a tela de cadastro"
           >
             <Text style={[styles.signupButtonText, { color: colors.primary }]}>Criar Conta</Text>
           </TouchableOpacity>
@@ -216,127 +249,82 @@ export default function DashboardScreen() {
 
   const completedIdsSet = new Set(completedExerciseIds);
 
+  const handleOpenRanking = (exerciseId: string, exerciseTitle: string) => {
+    setSelectedExercise({ id: exerciseId, title: exerciseTitle });
+    setRankingModalVisible(true);
+  };
+
+  const handleCloseRanking = () => {
+    setRankingModalVisible(false);
+    setSelectedExercise(null);
+  };
+
   return (
     <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-      {/* Header com Perfil e Barra de Pesquisa */}
-      <View style={[styles.topHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        {/* Perfil no canto superior direito */}
-        <TouchableOpacity
-          style={styles.profileButton}
+      {/* Header com Perfil */}
+      <View
+        style={[styles.topHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+        accessible={true}
+        accessibilityRole="header"
+      >
+        <UserProfileButton
+          avatarUrl={avatarUrl}
+          avatarError={avatarError}
+          userName={user?.name || 'Usuário'}
+          userLevel={currentLevel}
           onPress={() => navigation.navigate("ProfileTab")}
-          accessibilityLabel={`Perfil de ${user?.name || 'usuário'}`}
-          accessibilityRole="button"
-        >
-          {avatarUrl && !avatarError ? (
-            <Image
-              source={{ uri: avatarUrl }}
-              style={styles.profileAvatar}
-              onError={() => {
-                setAvatarError(true);
-              }}
-              onLoad={() => {
-                setAvatarError(false);
-              }}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={[styles.profileAvatarPlaceholder, { backgroundColor: colors.primary }]}>
-              <Ionicons name="person" size={24} color="#fff" />
-            </View>
-          )}
-          <View style={styles.profileInfo}>
-            <Text style={[styles.profileName, { color: colors.text }]} numberOfLines={1}>
-              {user?.name || 'Usuário'}
-            </Text>
-            <Text style={[styles.profileLevel, { color: colors.textSecondary }]}>
-              Level {currentLevel}
-            </Text>
-          </View>
-          <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
-        </TouchableOpacity>
+          onAvatarError={() => setAvatarError(true)}
+          onAvatarLoad={() => setAvatarError(false)}
+          primaryColor={colors.primary}
+          textColor={colors.text}
+          secondaryTextColor={colors.textSecondary}
+        />
       </View>
 
-      {/* Barra de Pesquisa Minimalista e Centralizada */}
-      <View style={[styles.searchBarContainer, { backgroundColor: colors.background }]}>
-        <View style={[styles.searchInputContainer, { backgroundColor: isDarkMode ? colors.cardSecondary : "#F0F0F0", borderColor: colors.border }]}>
-          <Ionicons name="search" size={14} color={colors.textSecondary} style={styles.searchIcon} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Buscar..."
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            accessibilityLabel="Campo de busca de desafios"
-            accessibilityRole="search"
-            returnKeyType="search"
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity
-              onPress={() => setSearchQuery("")}
-              style={styles.clearButton}
-              accessibilityLabel="Limpar busca"
-              accessibilityRole="button"
-            >
-              <Ionicons name="close-circle" size={14} color={colors.textSecondary} />
-            </TouchableOpacity>
-          )}
-        </View>
-      </View>
+      {/* Barra de Pesquisa */}
+      <SearchBar
+        value={searchQuery}
+        onChangeText={setSearchQuery}
+        onClear={() => setSearchQuery("")}
+        placeholder="Buscar..."
+        backgroundColor={isDarkMode ? colors.cardSecondary : "#F0F0F0"}
+        borderColor={colors.border}
+        textColor={colors.text}
+        iconColor={colors.textSecondary}
+      />
 
       <ScrollView
         style={[styles.scrollView, { backgroundColor: colors.background }]}
         showsVerticalScrollIndicator={false}
       >
         {/* Hero Section */}
-        <View style={[styles.heroSection, { backgroundColor: colors.primary }]}>
-          <View style={styles.heroContent}>
-            <Text style={styles.heroTitle}>
-              <Text style={styles.bracket}>{"{"}</Text>
-              Hello World!
-              <Text style={styles.bracket}>{"}"}</Text>
-            </Text>
-            <Text style={styles.heroDescription}>
-              Bem-vindo de volta, <Text style={styles.heroName}>{user?.name}</Text>! Continue sua
-              jornada de aprendizado e conquiste novos desafios. Você está indo muito bem!
-          </Text>
-            <TouchableOpacity
-              style={[styles.actionButton, { backgroundColor: colors.card }]}
-              onPress={() => navigation.navigate("ChallengesTab", { openCreate: true })}
-              accessibilityLabel="Criar novo desafio"
-              accessibilityRole="button"
-            >
-              <Ionicons name="add-circle" size={18} color={colors.primary} />
-              <Text style={[styles.actionButtonText, { color: colors.primary }]}>Criar Desafio</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.heroStats}>
-            <View style={[styles.statCard, { backgroundColor: "rgba(255, 255, 255, 0.2)" }]}>
-              <Ionicons name="trophy" size={24} color="#FFD700" />
-              <View style={styles.statCardContent}>
-                <Text style={styles.statValue}>Level {currentLevel}</Text>
-                <Text style={styles.statLabel}>Seu Nível</Text>
-              </View>
-            </View>
-            <View style={[styles.statCard, { backgroundColor: "rgba(255, 255, 255, 0.2)" }]}>
-              <Ionicons name="star" size={24} color="#FFD700" />
-              <View style={styles.statCardContent}>
-                <Text style={styles.statValue}>{currentXpTotal} XP</Text>
-                <Text style={styles.statLabel}>Experiência</Text>
-              </View>
-            </View>
-          </View>
-          </View>
+        <HeroSection
+          userName={user?.name || 'Usuário'}
+          userLevel={currentLevel}
+          userXp={currentXpTotal}
+          onCreateChallenge={() => navigation.navigate("ChallengesTab", { openCreate: true })}
+          primaryColor={colors.primary}
+          cardColor={colors.card}
+        />
 
         {error && (
-          <View style={[styles.errorAlert, { backgroundColor: colors.card }]}>
+          <View
+            style={[styles.errorAlert, { backgroundColor: colors.card }]}
+            accessible={true}
+            accessibilityRole="alert"
+            accessibilityLabel={`Erro ao carregar dados: ${error}`}
+            accessibilityLiveRegion="polite"
+          >
             <Text style={[styles.errorText, { color: "#F44336" }]}>
               <Text style={styles.errorBold}>Erro ao carregar dados:</Text> {error}
             </Text>
             <TouchableOpacity 
               style={[styles.refreshButton, { backgroundColor: colors.primary }]}
               onPress={loadDashboardData}
-              accessibilityLabel="Tentar novamente"
+              accessible={true}
               accessibilityRole="button"
+              accessibilityLabel="Tentar novamente"
+              accessibilityHint="Toque duas vezes para recarregar os dados do dashboard"
             >
               <Text style={styles.refreshButtonText}>Tentar novamente</Text>
             </TouchableOpacity>
@@ -344,103 +332,112 @@ export default function DashboardScreen() {
         )}
 
         {/* Seção Em Andamento */}
-        <View style={styles.section}>
+        <View
+          style={styles.section}
+          accessible={true}
+          accessibilityRole="group"
+          accessibilityLabel="Seção Em Andamento"
+        >
           <View style={styles.sectionHeader}>
             <Ionicons name="flame" size={20} color={colors.primary} />
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Em Andamento</Text>
           </View>
           <View style={styles.progressGrid}>
-            <TouchableOpacity
-              style={[styles.progressCard, { backgroundColor: colors.card, flex: 1 }]}
+            <DashboardCard
+              icon="code-slash"
+              iconColor="#fff"
+              iconBackgroundColor="#667eea"
+              title={loading ? "..." : stats.languages.toString()}
+              subtitle="Linguagens"
               onPress={() => navigation.navigate("ChallengesTab")}
-              accessibilityLabel="Ver linguagens utilizadas"
-              accessibilityRole="button"
-              activeOpacity={0.7}
-            >
-              <View style={[styles.progressIcon, { backgroundColor: "#667eea" }]}>
-                <Ionicons name="code-slash" size={20} color="#fff" />
-              </View>
-              <View style={styles.progressInfo}>
-                <Text style={[styles.progressValue, { color: colors.text }]}>
-                  {loading ? "..." : stats.languages}
-                </Text>
-                <Text style={[styles.progressLabel, { color: colors.textSecondary }]} numberOfLines={1}>Linguagens</Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.progressCard, { backgroundColor: colors.card, flex: 1, marginLeft: 12 }]}
+              backgroundColor={colors.card}
+              textColor={colors.text}
+              subtitleColor={colors.textSecondary}
+              accessibilityLabel={`${stats.languages} linguagens utilizadas`}
+              accessibilityHint="Toque duas vezes para ver a lista de desafios"
+            />
+            <DashboardCard
+              icon="trophy"
+              iconColor="#fff"
+              iconBackgroundColor="#3b82f6"
+              title={loading ? "..." : stats.challenges.toString()}
+              subtitle="Desafios Publicados"
               onPress={() => navigation.navigate("ChallengesTab")}
-              accessibilityLabel="Ver desafios publicados"
-              accessibilityRole="button"
-              activeOpacity={0.7}
-            >
-              <View style={[styles.progressIcon, { backgroundColor: "#3b82f6" }]}>
-                <Ionicons name="trophy" size={20} color="#fff" />
-              </View>
-              <View style={styles.progressInfo}>
-                <Text style={[styles.progressValue, { color: colors.text }]}>
-                  {loading ? "..." : stats.challenges}
-                </Text>
-                <Text style={[styles.progressLabel, { color: colors.textSecondary }]} numberOfLines={2}>
-                  Desafios Publicados
-                </Text>
-              </View>
-            </TouchableOpacity>
+              backgroundColor={colors.card}
+              textColor={colors.text}
+              subtitleColor={colors.textSecondary}
+              accessibilityLabel={`${stats.challenges} desafios publicados`}
+              accessibilityHint="Toque duas vezes para ver seus desafios"
+              style={{ marginLeft: 12 }}
+            />
           </View>
         </View>
 
         {/* Seção Comunidade */}
-        <View style={styles.section}>
+        <View
+          style={styles.section}
+          accessible={true}
+          accessibilityRole="group"
+          accessibilityLabel="Seção Comunidade"
+        >
           <View style={styles.sectionHeader}>
             <Ionicons name="people" size={20} color={colors.primary} />
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Comunidade</Text>
           </View>
-          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.sectionDescription, { color: colors.textSecondary }]}
+            accessible={true}
+            accessibilityRole="text"
+          >
             Participe de grupos de estudo e fóruns de discussão
           </Text>
           <View style={styles.progressGrid}>
-            <TouchableOpacity
-              style={[styles.progressCard, { backgroundColor: colors.card, flex: 1 }]}
+            <DashboardCard
+              icon="people"
+              iconColor="#fff"
+              iconBackgroundColor="#10b981"
+              title="Grupos"
+              subtitle="Estude em grupo e compartilhe conhecimento"
               onPress={() => navigation.navigate("GroupsTab")}
-              accessibilityLabel="Ver grupos"
-              accessibilityRole="button"
-            >
-              <View style={[styles.progressIcon, { backgroundColor: "#10b981" }]}>
-                <Ionicons name="people" size={20} color="#fff" />
-              </View>
-              <View style={styles.progressInfo}>
-                <Text style={[styles.progressValue, { color: colors.text }]}>Grupos</Text>
-                <Text style={[styles.progressLabel, { color: colors.textSecondary }]} numberOfLines={2}>
-                  Estude em grupo e compartilhe conhecimento
-                </Text>
-              </View>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.progressCard, { backgroundColor: colors.card, flex: 1, marginLeft: 12 }]}
+              backgroundColor={colors.card}
+              textColor={colors.text}
+              subtitleColor={colors.textSecondary}
+              accessibilityLabel="Acessar grupos de estudo"
+              accessibilityHint="Toque duas vezes para ver e participar de grupos"
+            />
+            <DashboardCard
+              icon="chatbubbles"
+              iconColor="#fff"
+              iconBackgroundColor="#667eea"
+              title={loading ? "..." : stats.forumsCreated.toString()}
+              subtitle="Fóruns Criados"
               onPress={() => navigation.navigate("ForumTab")}
-              accessibilityLabel="Ver fóruns"
-              accessibilityRole="button"
-            >
-              <View style={[styles.progressIcon, { backgroundColor: "#667eea" }]}>
-                <Ionicons name="chatbubbles" size={20} color="#fff" />
-              </View>
-              <View style={styles.progressInfo}>
-                <Text style={[styles.progressValue, { color: colors.text }]}>
-                  {loading ? "..." : stats.forumsCreated}
-                </Text>
-                <Text style={[styles.progressLabel, { color: colors.textSecondary }]} numberOfLines={1}>Fóruns Criados</Text>
-              </View>
-            </TouchableOpacity>
+              backgroundColor={colors.card}
+              textColor={colors.text}
+              subtitleColor={colors.textSecondary}
+              accessibilityLabel={`${stats.forumsCreated} fóruns criados por você`}
+              accessibilityHint="Toque duas vezes para acessar fóruns de discussão"
+              style={{ marginLeft: 12 }}
+            />
           </View>
         </View>
 
         {/* Seção Desafios Publicados */}
-        <View style={[styles.section, { marginBottom: 100 }]}>
+        <View
+          style={[styles.section, { marginBottom: 100 }]}
+          accessible={true}
+          accessibilityRole="group"
+          accessibilityLabel="Seção Desafios Publicados"
+        >
           <View style={styles.sectionHeader}>
             <Ionicons name="code-slash" size={24} color={colors.primary} />
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Desafios Publicados</Text>
           </View>
-          <Text style={[styles.sectionDescription, { color: colors.textSecondary }]}>
+          <Text
+            style={[styles.sectionDescription, { color: colors.textSecondary }]}
+            accessible={true}
+            accessibilityRole="text"
+          >
             Todos os desafios disponíveis na plataforma
           </Text>
           {loading ? (
@@ -449,9 +446,17 @@ export default function DashboardScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.carouselContainer}
               style={styles.carouselScrollView}
+              accessible={true}
+              accessibilityRole="list"
+              accessibilityLabel="Carregando desafios"
             >
               {[1, 2, 3, 4].map((i) => (
-                <View key={i} style={[styles.exerciseCardSkeleton, { backgroundColor: colors.card, marginRight: 12, width: layout.cardWidth }]}>
+                <View
+                  key={i}
+                  style={[styles.exerciseCardSkeleton, { backgroundColor: colors.card, marginRight: 12, width: layout.cardWidth }]}
+                  accessible={true}
+                  accessibilityLabel={`Carregando desafio ${i} de 4`}
+                >
                   <ActivityIndicator size="small" color={colors.primary} />
                 </View>
               ))}
@@ -462,120 +467,82 @@ export default function DashboardScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.carouselContainer}
               style={styles.carouselScrollView}
+              accessible={true}
+              accessibilityRole="list"
+              accessibilityLabel={`Lista de ${exercises.length} desafios disponíveis`}
             >
               {exercises.map((exercise) => {
                 const exerciseId = exercise.id || exercise._id || exercise.publicCode;
                 const isCompleted = completedIdsSet.has(String(exerciseId)) || exercise.isCompleted === true;
-                const difficultyMap: Record<number, string> = {
-                  1: "Fácil",
-                  2: "Médio",
-                  3: "Difícil",
-                  4: "Expert",
-                  5: "Master",
-                };
-                const difficultyText = difficultyMap[exercise.difficulty] || "Médio";
-                const difficultyColor =
-                  difficultyText === "Fácil"
-                    ? "#4CAF50"
-                    : difficultyText === "Médio"
-                    ? "#FF9800"
-                    : "#F44336";
 
                 return (
-                  <View
+                  <ExerciseCard
                     key={exerciseId || exercise.publicCode || `exercise-${Math.random()}`}
-                    style={[
-                      styles.exerciseCard,
-                      {
-                        backgroundColor: colors.card,
-                        borderColor: isCompleted ? "#10b981" : colors.border,
-                        borderWidth: isCompleted ? 2 : 1,
-                        marginRight: 12,
-                        width: layout.cardWidth,
-                      },
-                    ]}
-                  >
-                    {isCompleted && (
-                      <View style={styles.completedBadge}>
-                        <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                        <Text style={styles.completedBadgeText}>Concluído</Text>
-                      </View>
-                    )}
-                    <View style={[styles.difficultyBadge, { backgroundColor: difficultyColor }]}>
-                      <Text style={styles.difficultyBadgeText}>{difficultyText}</Text>
-                    </View>
-                    {exercise.language && (
-                      <View style={styles.languageBadge}>
-                        <Text style={styles.languageBadgeText}>{exercise.language.name}</Text>
-                      </View>
-                    )}
-                    <View style={[styles.cardHeader, { backgroundColor: colors.cardSecondary }]}>
-                      <View style={styles.xpBadge}>
-                        <Ionicons name="trophy" size={14} color={colors.primary} />
-                        <Text style={[styles.xpBadgeText, { color: colors.primary }]}>
-                          {exercise.baseXp || exercise.xp || 0} XP
-                        </Text>
-                      </View>
-                    </View>
-                    <View style={styles.cardBody}>
-                      <Text style={[styles.cardTitle, { color: colors.text }]} numberOfLines={2}>
-                        {exercise.title}
-                      </Text>
-                      <Text
-                        style={[styles.cardDescription, { color: colors.textSecondary }]}
-                        numberOfLines={2}
-                      >
-                        {exercise.description || "Resolva este desafio e ganhe experiência"}
-                      </Text>
-                    </View>
-                    <View style={styles.cardFooter}>
-                      {isCompleted ? (
-                        <View style={[styles.completedButton, { backgroundColor: "#10b981" }]}>
-                          <Ionicons name="checkmark-circle" size={16} color="#fff" />
-                          <Text style={styles.completedButtonText}>Concluído</Text>
-              </View>
-                      ) : (
-                        <TouchableOpacity
-                          style={[styles.startButton, { backgroundColor: colors.primary }]}
-                          onPress={() => {
-                            if (exerciseId) {
-                              try {
-                                navigation.navigate("ChallengeDetails", { exerciseId: String(exerciseId) });
-                              } catch (navError) {
-                                Alert.alert('Erro', 'Não foi possível abrir o desafio. Tente novamente.');
-                              }
-                            } else {
-                              Alert.alert('Erro', 'ID do desafio não encontrado.');
-                            }
-                          }}
-                          accessibilityLabel={`Iniciar desafio: ${exercise.title}`}
-                          accessibilityRole="button"
-                        >
-                          <Text style={styles.startButtonText}>Iniciar Desafio</Text>
-                        </TouchableOpacity>
-                      )}
-                    </View>
-                  </View>
+                    title={exercise.title}
+                    description={exercise.description}
+                    difficulty={exercise.difficulty}
+                    xp={exercise.baseXp || exercise.xp || 0}
+                    language={exercise.language?.name}
+                    isCompleted={isCompleted}
+                    onPress={() => {
+                      if (exerciseId) {
+                        try {
+                          navigation.navigate("ChallengeDetails", { exerciseId: String(exerciseId) });
+                        } catch (navError) {
+                          Alert.alert('Erro', 'Não foi possível abrir o desafio. Tente novamente.');
+                        }
+                      } else {
+                        Alert.alert('Erro', 'ID do desafio não encontrado.');
+                      }
+                    }}
+                    onRankingPress={() => handleOpenRanking(String(exerciseId), exercise.title)}
+                    width={layout.cardWidth}
+                    backgroundColor={colors.card}
+                    textColor={colors.text}
+                    secondaryTextColor={colors.textSecondary}
+                    primaryColor={colors.primary}
+                    borderColor={colors.border}
+                    cardSecondaryColor={colors.cardSecondary}
+                  />
                 );
               })}
             </ScrollView>
           ) : (
-            <View style={[styles.noExercises, { backgroundColor: colors.card }]}>
+            <View
+              style={[styles.noExercises, { backgroundColor: colors.card }]}
+              accessible={true}
+              accessibilityRole="alert"
+              accessibilityLabel="Nenhum desafio disponível no momento"
+            >
+              <Ionicons name="folder-open-outline" size={48} color={colors.textSecondary} />
               <Text style={[styles.noExercisesText, { color: colors.textSecondary }]}>
                 Nenhum desafio disponível no momento.
               </Text>
               <TouchableOpacity
                 style={[styles.refreshButton, { backgroundColor: colors.primary }]}
                 onPress={loadDashboardData}
-                accessibilityLabel="Recarregar desafios"
+                accessible={true}
                 accessibilityRole="button"
+                accessibilityLabel="Recarregar desafios"
+                accessibilityHint="Toque duas vezes para tentar carregar os desafios novamente"
               >
+                <Ionicons name="refresh" size={18} color="#fff" />
                 <Text style={styles.refreshButtonText}>Recarregar</Text>
             </TouchableOpacity>
           </View>
           )}
         </View>
       </ScrollView>
+
+      {/* Modal de Ranking */}
+      {selectedExercise && (
+        <RankingModal
+          visible={rankingModalVisible}
+          onClose={handleCloseRanking}
+          exerciseId={selectedExercise.id}
+          exerciseTitle={selectedExercise.title}
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -587,75 +554,12 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
   },
-  // Top Header com Perfil
+  // Top Header
   topHeader: {
     paddingHorizontal: 20,
     paddingVertical: 12,
     borderBottomWidth: 1,
     zIndex: 10,
-  },
-  profileButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 8,
-  },
-  profileAvatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: 12,
-    backgroundColor: "#E0E0E0",
-  },
-  profileAvatarPlaceholder: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    marginRight: 12,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  profileInfo: {
-    flex: 1,
-  },
-  profileName: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 2,
-  },
-  profileLevel: {
-    fontSize: 13,
-  },
-  // Search Bar Minimalista e Centralizada
-  searchBarContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 6,
-    zIndex: 9,
-    alignItems: "center",
-  },
-  searchInputContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    minHeight: 36,
-    maxWidth: 300,
-    width: "auto",
-    borderWidth: 1,
-    alignSelf: "center",
-  },
-  searchIcon: {
-    marginRight: 6,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
-    padding: 0,
-    margin: 0,
-  },
-  clearButton: {
-    marginLeft: 6,
-    padding: 2,
   },
   loadingContainer: {
     flex: 1,
@@ -710,77 +614,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: "600",
   },
-  // Hero Section
-  heroSection: {
-    margin: 16,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
-  },
-  heroContent: {
-    marginBottom: 16,
-    flex: 1,
-  },
-  heroTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    color: "#fff",
-    marginBottom: 10,
-  },
-  bracket: {
-    color: "#FFD700",
-  },
-  heroDescription: {
-    fontSize: 14,
-    color: "#fff",
-    lineHeight: 20,
-    marginBottom: 16,
-    opacity: 0.95,
-  },
-  heroName: {
-    fontWeight: "bold",
-  },
-  actionButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-    alignSelf: "flex-start",
-    gap: 6,
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  heroStats: {
-    gap: 10,
-    flex: 1,
-  },
-  statCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 6,
-    borderWidth: 1,
-    borderColor: "rgba(255, 255, 255, 0.3)",
-    flex: 1,
-  },
-  statCardContent: {
-    flex: 1,
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#fff",
-  },
-  statLabel: {
-    fontSize: 11,
-    color: "#fff",
-    opacity: 0.9,
-    marginTop: 2,
-  },
   // Sections
   section: {
     paddingHorizontal: 16,
@@ -809,41 +642,6 @@ const styles = StyleSheet.create({
     alignItems: "stretch",
     justifyContent: "space-between",
   },
-  progressCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    borderRadius: 12,
-    padding: 14,
-    minHeight: 80,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 2,
-    flex: 1,
-  },
-  progressIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 12,
-    justifyContent: "center",
-    alignItems: "center",
-    marginRight: 12,
-    flexShrink: 0,
-  },
-  progressInfo: {
-    flex: 1,
-    minWidth: 0,
-  },
-  progressValue: {
-    fontSize: 20,
-    fontWeight: "bold",
-    marginBottom: 4,
-  },
-  progressLabel: {
-    fontSize: 11,
-    lineHeight: 14,
-  },
   // Exercises Carousel
   carouselScrollView: {
     marginHorizontal: -20,
@@ -861,134 +659,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     flexShrink: 0,
   },
-  exerciseCard: {
-    width: 280,
-    borderRadius: 16,
-    overflow: "visible",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 3,
-    position: "relative",
-    flexShrink: 0,
-  },
-  completedBadge: {
-    position: "absolute",
-    top: 12,
-    right: 12,
-    backgroundColor: "#10b981",
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    zIndex: 10,
-    gap: 4,
-  },
-  completedBadgeText: {
-    color: "#fff",
-    fontSize: 11,
-    fontWeight: "bold",
-  },
-  difficultyBadge: {
-    position: "absolute",
-    top: 12,
-    left: 12,
-    paddingVertical: 4,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    zIndex: 10,
-  },
-  difficultyBadgeText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "bold",
-    textTransform: "uppercase",
-  },
-  languageBadge: {
-    position: "absolute",
-    top: 12,
-    right: 100,
-    backgroundColor: "#3b82f6",
-    paddingVertical: 4,
-    paddingHorizontal: 8,
-    borderRadius: 20,
-    zIndex: 10,
-  },
-  languageBadgeText: {
-    color: "#fff",
-    fontSize: 10,
-    fontWeight: "600",
-  },
-  cardHeader: {
-    padding: 12,
-    paddingTop: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: "rgba(0,0,0,0.1)",
-  },
-  xpBadge: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-end",
-    gap: 4,
-  },
-  xpBadgeText: {
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  cardBody: {
-    padding: 16,
-    flex: 1,
-  },
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: "600",
-    marginBottom: 8,
-    lineHeight: 20,
-  },
-  cardDescription: {
-    fontSize: 13,
-    lineHeight: 18,
-  },
-  cardFooter: {
-    padding: 16,
-    paddingTop: 0,
-  },
-  startButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  startButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  completedButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    justifyContent: "center",
-    gap: 6,
-    opacity: 0.9,
-  },
-  completedButtonText: {
-    color: "#fff",
-    fontSize: 14,
-    fontWeight: "600",
-  },
   noExercises: {
     padding: 32,
     borderRadius: 16,
     alignItems: "center",
+    gap: 12,
   },
   noExercisesText: {
     fontSize: 16,
-    marginBottom: 16,
     textAlign: "center",
   },
   errorAlert: {
@@ -1006,10 +684,13 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
   },
   refreshButton: {
+    flexDirection: "row",
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
     alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
   },
   refreshButtonText: {
     color: "#fff",
