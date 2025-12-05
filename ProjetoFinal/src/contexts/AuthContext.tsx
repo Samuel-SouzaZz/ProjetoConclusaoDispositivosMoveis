@@ -37,7 +37,8 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
-const USER_ID_KEY = "@app:user_id";
+// SecureStore exige chaves alfanuméricas (sem @, :, etc)
+const USER_ID_KEY = "app_user_id";
 const BIOMETRIC_TOKEN_KEY = "app_biometric_token";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -52,13 +53,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   async function initializeAuth() {
     try {
       await DatabaseService.initDatabase();
-
-      // Não fazer login biométrico automático no AuthContext
-      // Deixar o LoginScreen fazer isso para ter melhor controle
-      // Isso evita conflitos e garante que o Face ID seja solicitado corretamente
-
-      // Não fazer login automático baseado apenas em token
-      // O usuário deve fazer login manualmente ou via Face ID no LoginScreen
 
       const biometricEnabled = await isBiometricEnabled();
       if (biometricEnabled) {
@@ -157,7 +151,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         await AsyncStorage.setItem(BIOMETRIC_TOKEN_KEY, tokenToSave);
       }
 
-      await AsyncStorage.setItem("@biometric_enabled", "true");
+      await AsyncStorage.setItem("app_biometric_enabled", "true");
       return true;
     } catch (error) {
       console.warn("enableBiometricAuth error:", error);

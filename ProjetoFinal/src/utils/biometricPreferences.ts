@@ -2,8 +2,9 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as LocalAuthentication from "expo-local-authentication";
 import { Platform } from "react-native";
 
-const BIOMETRIC_ENABLED_KEY = "@app:biometric_enabled";
-const BIOMETRIC_ASKED_KEY = "@app:biometric_asked"; // Se já foi perguntado ao usuário
+// SecureStore exige chaves alfanuméricas (sem @, :, etc)
+const BIOMETRIC_ENABLED_KEY = "app_biometric_enabled";
+const BIOMETRIC_ASKED_KEY = "app_biometric_asked"; // Se já foi perguntado ao usuário
 
 export interface BiometricInfo {
   isAvailable: boolean;

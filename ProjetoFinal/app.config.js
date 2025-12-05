@@ -19,7 +19,10 @@ export default {
       apiPath: process.env.API_PATH
     },
     ios: {
-      supportsTablet: true
+      supportsTablet: true,
+      infoPlist: {
+        NSFaceIDUsageDescription: "Usamos o Face ID para permitir que você faça login de forma rápida e segura no aplicativo."
+      }
     },
     android: {
       adaptiveIcon: {
@@ -33,6 +36,14 @@ export default {
     web: {
       favicon: "./assets/favicon.png"
     },
-    plugins: ["expo-font"]
+    plugins: [
+      "expo-font",
+      [
+        "expo-local-authentication",
+        {
+          faceIDPermission: "Permitir que $(PRODUCT_NAME) use Face ID para autenticação rápida e segura."
+        }
+      ]
+    ]
   }
 };

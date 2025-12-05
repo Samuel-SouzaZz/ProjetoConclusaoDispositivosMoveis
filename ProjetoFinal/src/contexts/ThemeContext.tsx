@@ -31,7 +31,8 @@ interface ThemeContextData {
 
 const ThemeContext = createContext<ThemeContextData>({} as ThemeContextData);
 
-const THEME_STORAGE_KEY = '@app_theme';
+// SecureStore exige chaves alfanuméricas (sem @, :, etc)
+const THEME_STORAGE_KEY = 'app_theme';
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [theme, setTheme] = useState<"light" | "dark">("light");

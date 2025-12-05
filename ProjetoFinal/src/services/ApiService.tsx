@@ -1,5 +1,6 @@
 import axios, { AxiosInstance, AxiosError, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import { Platform } from 'react-native';
 import Constants from "expo-constants";
 
@@ -14,11 +15,47 @@ if (!extra?.apiUrl || !extra?.apiPath) {
 
 export const BASE_URL = `${apiUrl}${apiPath}`;
 
-const TOKEN_KEY = '@app:access_token';
-const REFRESH_TOKEN_KEY = '@app:refresh_token';
+// SecureStore exige chaves alfanuméricas (sem @, :, etc)
+const TOKEN_KEY = 'app_access_token';
+const REFRESH_TOKEN_KEY = 'app_refresh_token';
+
+// Helper para armazenamento seguro
+class SecureStorage {
+  static async setItem(key: string, value: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      // Web: usa AsyncStorage (menos seguro, mas necessário)
+      await AsyncStorage.setItem(key, value);
+    } else {
+      // Mobile: usa SecureStore (criptografado)
+      await SecureStore.setItemAsync(key, value);
+    }
+  }
+
+  static async getItem(key: string): Promise<string | null> {
+    try {
+      if (Platform.OS === 'web') {
+        return await AsyncStorage.getItem(key);
+      } else {
+        return await SecureStore.getItemAsync(key);
+      }
+    } catch (error) {
+      console.error(`Erro ao ler ${key}:`, error);
+      return null;
+    }
+  }
+
+  static async removeItem(key: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      await AsyncStorage.removeItem(key);
+    } else {
+      await SecureStore.deleteItemAsync(key);
+    }
+  }
+}
 
 class ApiService {
   private api: AxiosInstance;
+  private refreshTokenPromise: Promise<any> | null = null; // Previne múltiplos refreshs simultâneos
 
   private async safeRequest<T = any>(
     request: () => Promise<{ data: T } | AxiosResponse<T>>
@@ -43,7 +80,7 @@ class ApiService {
 
     this.api.interceptors.request.use(
       async (config: InternalAxiosRequestConfig) => {
-        const token = await AsyncStorage.getItem(TOKEN_KEY);
+        const token = await SecureStorage.getItem(TOKEN_KEY);
         if (token) {
           config.headers.Authorization = `Bearer ${token}`;
         }
@@ -55,33 +92,57 @@ class ApiService {
     this.api.interceptors.response.use(
       (response: AxiosResponse) => response,
       async (error: AxiosError) => {
-        if (error.response?.status === 401) {
-          const url = error.config?.url || '';
-          const isValidationRequest = url.includes('/users/me') ||
+        const originalRequest = error.config;
+        
+        if (error.response?.status === 401 && originalRequest && !(originalRequest as any)._retry) {
+          const url = originalRequest.url || '';
+          const isAuthRequest = url.includes('/users/me') ||
             url.includes('/auth/refresh') ||
             url.includes('/auth/login') ||
             url.includes('/auth/signup');
 
-          if (!isValidationRequest) {
-            const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
-            if (refreshToken) {
-              try {
-                const newTokens = await this.refreshTokens(refreshToken);
-                await this.saveTokens(newTokens.accessToken, newTokens.refreshToken);
-                if (error.config) {
-                  error.config.headers.Authorization = `Bearer ${newTokens.accessToken}`;
-                  return this.api.request(error.config);
-                }
-              } catch {
-                await this.clearTokens();
-              }
-            } else {
-              await this.clearTokens();
-            }
-          } else {
+          // Não tenta refresh em requisições de autenticação
+          if (isAuthRequest) {
             await this.clearTokens();
+            return Promise.reject(error);
+          }
+
+          // Marca que já tentou fazer refresh (evita loop infinito)
+          (originalRequest as any)._retry = true;
+
+          try {
+            // Usa promise única para múltiplas requisições simultâneas
+            if (!this.refreshTokenPromise) {
+              const refreshToken = await SecureStorage.getItem(REFRESH_TOKEN_KEY);
+              
+              if (!refreshToken) {
+                await this.clearTokens();
+                return Promise.reject(error);
+              }
+
+              this.refreshTokenPromise = this.refreshTokens(refreshToken)
+                .then(async (newTokens) => {
+                  await this.saveTokens(newTokens.accessToken, newTokens.refreshToken);
+                  this.refreshTokenPromise = null;
+                  return newTokens;
+                })
+                .catch(async (refreshError) => {
+                  this.refreshTokenPromise = null;
+                  await this.clearTokens();
+                  throw refreshError;
+                });
+            }
+
+            const newTokens = await this.refreshTokenPromise;
+            originalRequest.headers.Authorization = `Bearer ${newTokens.accessToken}`;
+            return this.api.request(originalRequest);
+            
+          } catch (refreshError) {
+            await this.clearTokens();
+            return Promise.reject(refreshError);
           }
         }
+
         return Promise.reject(error);
       }
     );
@@ -102,12 +163,12 @@ class ApiService {
 
 
   async getToken(): Promise<string | null> {
-    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    const token = await SecureStorage.getItem(TOKEN_KEY);
     return token;
   }
 
   async setToken(token: string): Promise<void> {
-    await AsyncStorage.setItem(TOKEN_KEY, token);
+    await SecureStorage.setItem(TOKEN_KEY, token);
     this.api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
@@ -124,13 +185,13 @@ class ApiService {
   }
 
   async getRefreshToken(): Promise<string | null> {
-    const token = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    const token = await SecureStorage.getItem(REFRESH_TOKEN_KEY);
     return token;
   }
 
   async getTokens(): Promise<{ accessToken?: string | null; refreshToken?: string | null }> {
-    const accessToken = await AsyncStorage.getItem(TOKEN_KEY);
-    const refreshToken = await AsyncStorage.getItem(REFRESH_TOKEN_KEY);
+    const accessToken = await SecureStorage.getItem(TOKEN_KEY);
+    const refreshToken = await SecureStorage.getItem(REFRESH_TOKEN_KEY);
     return { accessToken, refreshToken };
   }
 
@@ -207,7 +268,7 @@ class ApiService {
     page?: number;
     limit?: number;
   }) {
-    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    const token = await SecureStorage.getItem(TOKEN_KEY);
     if (!token) {
       throw new Error('Não autenticado. Faça login novamente.');
     }
@@ -744,17 +805,29 @@ class ApiService {
   }
 
   private async saveTokens(accessToken: string, refreshToken: string) {
-    await AsyncStorage.setItem(TOKEN_KEY, accessToken);
-    await AsyncStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    await SecureStorage.setItem(TOKEN_KEY, accessToken);
+    await SecureStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
   }
 
   async clearTokens() {
-    await AsyncStorage.removeItem(TOKEN_KEY);
-    await AsyncStorage.removeItem(REFRESH_TOKEN_KEY);
+    try {
+      // Remove tokens com chaves novas (alfanuméricas)
+      await SecureStorage.removeItem(TOKEN_KEY);
+      await SecureStorage.removeItem(REFRESH_TOKEN_KEY);
+      
+      // Remove tokens com chaves antigas (para limpar cache antigo)
+      await AsyncStorage.removeItem('@app:access_token');
+      await AsyncStorage.removeItem('@app:refresh_token');
+      await AsyncStorage.removeItem('@app:user_id');
+      
+      this.refreshTokenPromise = null;
+    } catch (error) {
+      console.error('Erro ao limpar tokens:', error);
+    }
   }
 
   async isAuthenticated(): Promise<boolean> {
-    const token = await AsyncStorage.getItem(TOKEN_KEY);
+    const token = await SecureStorage.getItem(TOKEN_KEY);
     if (!token) {
       return false;
     }
