@@ -7,7 +7,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Alert,
-  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -15,7 +14,14 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import ApiService from '../services/ApiService';
+import Judge0Service, { LANGUAGE_JUDGE0_MAP, DEFAULT_LANGUAGE_ID } from '../services/Judge0Service';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import TabButton from '../components/TabButton';
+import BadgeChip from '../components/BadgeChip';
+import SectionCard from '../components/SectionCard';
+import CodeEditorPanel from '../components/CodeEditorPanel';
+import TestPanel from '../components/TestPanel';
+import ConfirmationModal from '../components/ConfirmationModal';
 
 type ChallengeDetailsRoute = RouteProp<RootStackParamList, 'ChallengeDetails'>;
 
@@ -28,13 +34,16 @@ export default function ChallengeDetailsScreen() {
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [challenge, setChallenge] = useState<any | null>(null);
   const [code, setCode] = useState('');
-  const [timeLeft, setTimeLeft] = useState(0); // em segundos
-  const [isRunning, setIsRunning] = useState(false);
-  const intervalRef = React.useRef<NodeJS.Timeout | null>(null);
-  const startTimeRef = React.useRef<number | null>(null);
+  const [testInput, setTestInput] = useState('');
+  const [testOutput, setTestOutput] = useState('');
+  const [testError, setTestError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'description' | 'code' | 'test'>('description');
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const startTimeRef = React.useRef<number>(Date.now());
 
   useEffect(() => {
     let mounted = true;
@@ -46,10 +55,6 @@ export default function ChallengeDetailsScreen() {
         if (!mounted) return;
         setChallenge(challengeData);
         setCode(challengeData.codeTemplate || '// Seu código aqui\n');
-        
-        const timeLimitMinutes = 60;
-        setTimeLeft(timeLimitMinutes * 60);
-        setIsRunning(true);
         startTimeRef.current = Date.now();
       } catch (err: any) {
         if (!mounted) return;
@@ -61,38 +66,43 @@ export default function ChallengeDetailsScreen() {
     return () => { mounted = false; };
   }, [exerciseId]);
 
-  // Timer countdown
-  useEffect(() => {
-    if (!isRunning || timeLeft <= 0) return;
+  const handleTest = async () => {
+    if (!code.trim()) {
+      Alert.alert('Erro', 'Por favor, escreva seu código antes de testar.');
+      return;
+    }
 
-    intervalRef.current = setInterval(() => {
-      setTimeLeft((prev) => {
-        if (prev <= 1) {
-          setIsRunning(false);
-          if (intervalRef.current) {
-            clearInterval(intervalRef.current);
-          }
-          Alert.alert('Tempo Esgotado!', 'O tempo limite foi atingido.');
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
+    setTesting(true);
+    setTestError(null);
+    setTestOutput('');
 
-    return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
+    try {
+      // Determinar o languageId do Judge0
+      const languageSlug = challenge?.language?.slug || 'java';
+      const languageId = LANGUAGE_JUDGE0_MAP[languageSlug] || DEFAULT_LANGUAGE_ID;
+
+      const result = await Judge0Service.executeCode(
+        code,
+        languageId,
+        testInput.trim() || undefined
+      );
+
+      if (result.sucesso) {
+        setTestOutput(result.resultado);
+        setActiveTab('test'); // Mudar para a aba de teste automaticamente
+      } else {
+        setTestError(result.resultado);
+        setActiveTab('test');
       }
-    };
-  }, [isRunning, timeLeft]);
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+    } catch (error: any) {
+      setTestError(ApiService.handleError(error));
+      setActiveTab('test');
+    } finally {
+      setTesting(false);
+    }
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = () => {
     if (!code.trim()) {
       Alert.alert('Erro', 'Por favor, escreva seu código antes de submeter.');
       return;
@@ -103,6 +113,13 @@ export default function ChallengeDetailsScreen() {
       return;
     }
 
+    // Abre o modal de confirmação
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmSubmit = async () => {
+    const timeSpentMs = Date.now() - startTimeRef.current;
+
     setSubmitting(true);
     try {
       const result = await ApiService.submitChallenge({
@@ -111,16 +128,14 @@ export default function ChallengeDetailsScreen() {
         languageId: challenge.languageId || '1',
       });
 
-      // Parar o timer
-      setIsRunning(false);
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-      }
-
       const status = result.status || result.data?.status;
       const score = result.score || result.data?.score || 0;
       const xpAwarded = result.xpAwarded || result.data?.xpAwarded || 0;
 
+      // Fecha o modal de confirmação
+      setShowConfirmModal(false);
+
+      // Mostra o resultado
       Alert.alert(
         status === 'ACCEPTED' || status === 'Accepted' ? 'Parabéns! 🎉' : 'Tente Novamente',
         status === 'ACCEPTED' || status === 'Accepted'
@@ -131,6 +146,7 @@ export default function ChallengeDetailsScreen() {
         ]
       );
     } catch (error: any) {
+      setShowConfirmModal(false);
       Alert.alert('Erro', ApiService.handleError(error));
     } finally {
       setSubmitting(false);
@@ -169,8 +185,6 @@ export default function ChallengeDetailsScreen() {
     );
   }
 
-  const timeLimitMinutes = 60;
-  const timePercentage = (timeLeft / (timeLimitMinutes * 60)) * 100;
   const difficultyMap: Record<number, string> = {
     1: "Fácil",
     2: "Médio",
@@ -189,114 +203,263 @@ export default function ChallengeDetailsScreen() {
   return (
     <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
-      <View style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+      <View
+        style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+        accessible={true}
+        accessibilityRole="header"
+      >
+        <TouchableOpacity
+          onPress={() => navigation.goBack()}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Voltar"
+          accessibilityHint="Retorna para a tela anterior"
+        >
           <Ionicons name="arrow-back" size={24} color={colors.text} />
         </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: colors.text }]}>Detalhes do Desafio</Text>
+        <Text
+          style={[styles.headerTitle, { color: colors.text }]}
+          numberOfLines={1}
+          accessible={true}
+          accessibilityRole="header"
+          accessibilityLabel={`Desafio: ${challenge.title}`}
+        >
+          {challenge.title}
+        </Text>
         <View style={{ width: 24 }} />
       </View>
 
-      <ScrollView style={commonStyles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Timer */}
-        <View style={[styles.timerContainer, { backgroundColor: colors.card }]}>
-          <View style={styles.timerHeader}>
-            <Text style={[styles.timerLabel, { color: colors.text }]}>Tempo Restante</Text>
-            <Text style={[
-              styles.timerText,
-              { color: timeLeft < 300 ? '#F44336' : colors.primary }
-            ]}>
-              {formatTime(timeLeft)}
-            </Text>
-          </View>
-          <View style={[styles.timerBar, { backgroundColor: colors.border }]}>
-            <View
-              style={[
-                styles.timerBarFill,
-                {
-                  width: `${timePercentage}%`,
-                  backgroundColor: timeLeft < 300 ? '#F44336' : colors.primary
-                }
-              ]}
-            />
-          </View>
-        </View>
+      {/* Tabs */}
+      <View
+        style={[styles.tabsContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
+        accessible={true}
+        accessibilityRole="tablist"
+        accessibilityLabel="Navegação por abas do desafio"
+      >
+        <TabButton
+          icon="document-text-outline"
+          label="Descrição"
+          active={activeTab === 'description'}
+          onPress={() => setActiveTab('description')}
+          activeColor={colors.primary}
+          inactiveColor={colors.textSecondary}
+          accessibilityLabel="Aba de Descrição do Desafio"
+          accessibilityHint="Mostra informações, objetivo e dicas sobre o desafio"
+        />
+        <TabButton
+          icon="code-slash-outline"
+          label="Código"
+          active={activeTab === 'code'}
+          onPress={() => setActiveTab('code')}
+          activeColor={colors.primary}
+          inactiveColor={colors.textSecondary}
+          accessibilityLabel="Aba de Editor de Código"
+          accessibilityHint="Editor onde você escreve sua solução"
+        />
+        <TabButton
+          icon="play-circle-outline"
+          label="Teste"
+          active={activeTab === 'test'}
+          onPress={() => setActiveTab('test')}
+          activeColor={colors.primary}
+          inactiveColor={colors.textSecondary}
+          accessibilityLabel="Aba de Teste de Código"
+          accessibilityHint="Teste sua solução com entradas personalizadas antes de submeter"
+        />
+      </View>
 
-        {/* Informações do Desafio */}
-        <View style={[styles.challengeInfo, { backgroundColor: colors.card }]}>
-          <Text style={[styles.challengeTitle, { color: colors.text }]}>{challenge.title}</Text>
-          
-          <View style={styles.challengeMeta}>
-            <View style={[styles.difficultyBadge, { backgroundColor: difficultyColor }]}>
-              <Text style={styles.difficultyBadgeText}>{difficultyText}</Text>
+      {/* Tab Content */}
+      <ScrollView style={commonStyles.scrollView} showsVerticalScrollIndicator={false}>
+        {activeTab === 'description' ? (
+          /* Aba de Descrição */
+          <View style={styles.tabContent}>
+            {/* Badges */}
+            <View
+              style={styles.challengeMeta}
+              accessible={true}
+              accessibilityRole="summary"
+              accessibilityLabel={`Desafio com dificuldade ${difficultyText}, ${challenge.baseXp || challenge.xp || 0} pontos de experiência${challenge.language ? `, linguagem ${challenge.language.name}` : ''}`}
+            >
+              <BadgeChip
+                label={difficultyText}
+                backgroundColor={difficultyColor}
+                accessibilityLabel={`Dificuldade: ${difficultyText}`}
+              />
+              <BadgeChip
+                label={`${challenge.baseXp || challenge.xp || 0} XP`}
+                backgroundColor="rgba(255, 215, 0, 0.1)"
+                textColor={colors.text}
+                icon="trophy"
+                iconColor="#FFD700"
+                accessibilityLabel={`Recompensa de ${challenge.baseXp || challenge.xp || 0} pontos de experiência`}
+              />
+              {challenge.language && (
+                <BadgeChip
+                  label={challenge.language.name}
+                  backgroundColor={colors.primary}
+                  accessibilityLabel={`Linguagem de programação: ${challenge.language.name}`}
+                />
+              )}
             </View>
-            <View style={styles.xpBadge}>
-              <Ionicons name="trophy" size={16} color={colors.primary} />
-              <Text style={[styles.xpBadgeText, { color: colors.primary }]}>
-                {challenge.baseXp || challenge.xp || 0} XP
+
+            {/* Objetivo */}
+            <SectionCard
+              icon="flag-outline"
+              title="Objetivo"
+              iconColor={colors.primary}
+              titleColor={colors.text}
+              backgroundColor={colors.card}
+              accessibilityLabel="Seção de Objetivo: Resolva o desafio implementando uma solução eficiente e bem estruturada"
+            >
+              <Text style={[styles.sectionContent, { color: colors.textSecondary }]}>
+                Resolva o desafio implementando uma solução eficiente e bem estruturada.
               </Text>
-            </View>
-            {challenge.language && (
-              <View style={[styles.languageBadge, { backgroundColor: colors.cardSecondary }]}>
-                <Text style={[styles.languageBadgeText, { color: colors.text }]}>
-                  {challenge.language.name}
+            </SectionCard>
+
+            {/* Descrição */}
+            {challenge.description && (
+              <SectionCard
+                icon="document-text-outline"
+                title="Descrição"
+                iconColor={colors.primary}
+                titleColor={colors.text}
+                backgroundColor={colors.card}
+                accessibilityLabel={`Descrição do desafio: ${challenge.description.substring(0, 100)}${challenge.description.length > 100 ? '...' : ''}`}
+              >
+                <Text style={[styles.sectionContent, { color: colors.textSecondary }]}>
+                  {challenge.description}
+                </Text>
+              </SectionCard>
+            )}
+
+            {/* Recompensa */}
+            <SectionCard
+              icon="gift-outline"
+              title="Recompensa"
+              iconColor={colors.primary}
+              titleColor={colors.text}
+              backgroundColor={colors.card}
+              accessibilityLabel={`Recompensa: ${challenge.baseXp || challenge.xp || 100} pontos de experiência base mais bônus por performance`}
+            >
+              <Text style={[styles.sectionContent, { color: colors.textSecondary }]}>
+                {challenge.baseXp || challenge.xp || 100} XP base + bônus por performance
+              </Text>
+            </SectionCard>
+
+            {/* Dicas */}
+            <SectionCard
+              icon="bulb-outline"
+              title="Dicas"
+              iconColor={colors.primary}
+              titleColor={colors.text}
+              backgroundColor={colors.card}
+              accessibilityLabel="Dicas para resolver o desafio: Leia com atenção, pense antes de codificar, teste com diferentes entradas e otimize seu código"
+            >
+              <View style={styles.tipsContainer}>
+                <Text style={[styles.tipItem, { color: colors.textSecondary }]}>
+                  • Leia o enunciado com atenção
+                </Text>
+                <Text style={[styles.tipItem, { color: colors.textSecondary }]}>
+                  • Pense na solução antes de começar a codificar
+                </Text>
+                <Text style={[styles.tipItem, { color: colors.textSecondary }]}>
+                  • Teste seu código com diferentes entradas
+                </Text>
+                <Text style={[styles.tipItem, { color: colors.textSecondary }]}>
+                  • Otimize para eficiência e legibilidade
                 </Text>
               </View>
-            )}
+            </SectionCard>
           </View>
-
-          {challenge.description && (
-            <View style={styles.descriptionContainer}>
-              <Text style={[styles.descriptionTitle, { color: colors.text }]}>Descrição</Text>
-              <Text style={[styles.descriptionText, { color: colors.textSecondary }]}>
-                {challenge.description}
-              </Text>
-            </View>
-          )}
-        </View>
-
-        {/* Editor de Código */}
-        <View style={[styles.codeEditorContainer, { backgroundColor: colors.card }]}>
-          <Text style={[styles.codeEditorLabel, { color: colors.text }]}>Seu Código</Text>
-          <TextInput
-            style={[styles.codeEditor, {
-              backgroundColor: colors.background,
-              color: colors.text,
-              borderColor: colors.border
-            }]}
-            value={code}
-            onChangeText={setCode}
-            placeholder="// Escreva sua solução aqui"
-            placeholderTextColor={colors.textSecondary}
-            multiline
-            textAlignVertical="top"
-            editable={isRunning && timeLeft > 0}
-          />
-        </View>
+        ) : activeTab === 'code' ? (
+          /* Aba de Código */
+          <View style={styles.tabContent}>
+            <CodeEditorPanel
+              value={code}
+              onChangeText={setCode}
+              placeholder="// Escreva sua solução aqui"
+              backgroundColor={colors.background}
+              textColor={colors.text}
+              borderColor={colors.border}
+              iconColor={colors.primary}
+              toolbarButtonColor={colors.card}
+              placeholderColor={colors.textSecondary}
+              editable={true}
+            />
+          </View>
+        ) : (
+          /* Aba de Teste */
+          <View style={styles.tabContent}>
+            <TestPanel
+              input={testInput}
+              onInputChange={setTestInput}
+              output={testOutput}
+              error={testError}
+              testing={testing}
+              onTest={handleTest}
+              backgroundColor={colors.background}
+              textColor={colors.text}
+              borderColorInput="#3b82f6"
+              borderColorOutput="#10b981"
+              primaryColor={colors.primary}
+              placeholderColor={colors.textSecondary}
+            />
+          </View>
+        )}
       </ScrollView>
 
-      {/* Botão de Submeter */}
-      <View style={[styles.submitContainer, { backgroundColor: colors.card, borderTopColor: colors.border }]}>
+      {/* Botões de Ação - Sempre visíveis */}
+      <View
+        style={[styles.submitContainer, { backgroundColor: colors.card, borderTopColor: colors.border }]}
+        accessible={true}
+        accessibilityRole="toolbar"
+        accessibilityLabel="Barra de ações"
+      >
         <TouchableOpacity
           style={[
             styles.submitButton,
             {
-              backgroundColor: isRunning && timeLeft > 0 ? colors.primary : colors.textSecondary,
-              opacity: (isRunning && timeLeft > 0 && !submitting) ? 1 : 0.5
+              backgroundColor: colors.primary,
+              opacity: submitting ? 0.7 : 1
             }
           ]}
           onPress={handleSubmit}
-          disabled={!isRunning || timeLeft === 0 || submitting}
+          disabled={submitting}
+          accessible={true}
+          accessibilityRole="button"
+          accessibilityLabel="Submeter Solução"
+          accessibilityHint="Envia sua solução final para avaliação e recebe pontos de experiência"
+          accessibilityState={{ disabled: submitting, busy: submitting }}
         >
           {submitting ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.submitButtonText}>
-              {timeLeft === 0 ? 'Tempo Esgotado' : 'Submeter Solução'}
-            </Text>
+            <>
+              <Ionicons name="checkmark-circle-outline" size={20} color="#fff" />
+              <Text style={styles.submitButtonText}>Submeter Solução</Text>
+            </>
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Modal de Confirmação */}
+      <ConfirmationModal
+        visible={showConfirmModal}
+        onClose={() => setShowConfirmModal(false)}
+        onConfirm={handleConfirmSubmit}
+        title="Confirmar Submissão"
+        message={`Tem certeza que deseja submeter sua solução? Após a submissão, ela será avaliada e você receberá pontos de experiência baseados no seu desempenho.`}
+        confirmText="Submeter"
+        cancelText="Revisar"
+        confirmButtonColor={colors.primary}
+        cancelButtonColor={colors.textSecondary}
+        loading={submitting}
+        icon="send-outline"
+        iconColor={colors.primary}
+        backgroundColor={colors.card}
+        textColor={colors.text}
+        borderColor={colors.border}
+      />
     </SafeAreaView>
   );
 }
@@ -338,142 +501,56 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingVertical: 16,
     borderBottomWidth: 1,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
+    flex: 1,
+    textAlign: 'center',
+    paddingHorizontal: 8,
   },
-  timerContainer: {
-    padding: 16,
-    borderRadius: 8,
-    margin: 16,
-    marginBottom: 12,
-  },
-  timerHeader: {
+  tabsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 8,
+    borderBottomWidth: 1,
   },
-  timerLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  timerText: {
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  timerBar: {
-    height: 8,
-    borderRadius: 4,
-    overflow: 'hidden',
-  },
-  timerBarFill: {
-    height: '100%',
-    borderRadius: 4,
-  },
-  challengeInfo: {
+  tabContent: {
     padding: 16,
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginBottom: 12,
-  },
-  challengeTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    marginBottom: 12,
   },
   challengeMeta: {
     flexDirection: 'row',
     alignItems: 'center',
     flexWrap: 'wrap',
-    marginBottom: 12,
+    marginBottom: 16,
   },
-  difficultyBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginRight: 8,
-    marginBottom: 8,
+  sectionContent: {
+    fontSize: 14,
+    lineHeight: 22,
   },
-  difficultyBadgeText: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
+  tipsContainer: {
+    gap: 8,
   },
-  xpBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    backgroundColor: 'rgba(74, 144, 226, 0.1)',
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  xpBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 4,
-  },
-  languageBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 12,
-    marginRight: 8,
-    marginBottom: 8,
-  },
-  languageBadgeText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  descriptionContainer: {
-    marginTop: 8,
-  },
-  descriptionTitle: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  descriptionText: {
+  tipItem: {
     fontSize: 14,
     lineHeight: 20,
-  },
-  codeEditorContainer: {
-    padding: 16,
-    borderRadius: 8,
-    marginHorizontal: 16,
-    marginBottom: 12,
-  },
-  codeEditorLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    marginBottom: 8,
-  },
-  codeEditor: {
-    minHeight: 300,
-    padding: 12,
-    borderRadius: 8,
-    borderWidth: 1,
-    fontFamily: 'monospace',
-    fontSize: 14,
   },
   submitContainer: {
     padding: 16,
     borderTopWidth: 1,
   },
   submitButton: {
-    paddingVertical: 14,
+    flexDirection: 'row',
+    paddingVertical: 16,
     paddingHorizontal: 24,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
+    gap: 8,
   },
   submitButtonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: 'bold',
   },
 });
