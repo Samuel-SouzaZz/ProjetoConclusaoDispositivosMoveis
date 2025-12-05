@@ -11,11 +11,13 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import ApiService from '../services/ApiService';
+import IconImage from './IconImage';
 import Judge0Service, { LANGUAGE_JUDGE0_MAP, DEFAULT_LANGUAGE_ID } from '../services/Judge0Service';
 
 interface ITest {
@@ -141,6 +143,8 @@ export default function CreateChallengeModal({
   const [testError, setTestError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'info' | 'code' | 'tests'>('info');
   const [formError, setFormError] = useState('');
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successCode, setSuccessCode] = useState<string | null>(null);
 
   useEffect(() => {
     if (!visible) return;
@@ -344,16 +348,8 @@ export default function CreateChallengeModal({
       const exercise = created?.exercise || created;
       const code = exercise?.publicCode || exercise?.public_code || exercise?.code;
 
-      Alert.alert(
-        'Sucesso! 🎉',
-        code
-          ? `Desafio criado com sucesso!\n\nCódigo: ${code}`
-          : 'Desafio criado com sucesso!',
-        [{ text: 'OK', onPress: () => {
-          onSuccess(exercise);
-          handleClose();
-        }}]
-      );
+      setSuccessCode(code);
+      setShowSuccessModal(true);
     } catch (error: any) {
       Alert.alert('Erro', ApiService.handleError(error));
     } finally {
@@ -368,6 +364,7 @@ export default function CreateChallengeModal({
   const selectedDifficulty = difficultyOptions.find(d => d.value === formData.difficulty);
 
   return (
+    <>
     <Modal
       visible={visible}
       animationType="slide"
@@ -757,9 +754,12 @@ export default function CreateChallengeModal({
                             {testResult}
                           </Text>
                         ) : testError ? (
-                          <Text style={[styles.consoleOutputText, { color: '#ef4444' }]}>
-                            ❌ {testError}
-                          </Text>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                            <IconImage type="error" size={16} />
+                            <Text style={[styles.consoleOutputText, { color: '#ef4444' }]}>
+                              {testError}
+                            </Text>
+                          </View>
                         ) : (
                           <Text style={[styles.consoleOutputText, { color: colors.textSecondary }]}>
                             Execute para ver o resultado...
@@ -907,6 +907,51 @@ export default function CreateChallengeModal({
         </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
+
+    {/* Modal de Sucesso */}
+    <Modal
+      visible={showSuccessModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => {
+        setShowSuccessModal(false);
+        onSuccess({ publicCode: successCode } as any);
+        handleClose();
+      }}
+    >
+      <TouchableWithoutFeedback onPress={() => {
+        setShowSuccessModal(false);
+        onSuccess({ publicCode: successCode } as any);
+        handleClose();
+      }}>
+        <View style={styles.successModalOverlay}>
+          <TouchableWithoutFeedback>
+            <View style={[styles.successModalContainer, { backgroundColor: colors.card, borderColor: colors.border }]}>
+              <View style={[styles.successIconContainer, { backgroundColor: `${colors.primary}15` }]}>
+                <IconImage type="celebration" size={60} />
+              </View>
+              <Text style={[styles.successTitle, { color: colors.text }]}>Sucesso!</Text>
+              <Text style={[styles.successMessage, { color: colors.textSecondary }]}>
+                {successCode
+                  ? `Desafio criado com sucesso!\n\nCódigo: ${successCode}`
+                  : 'Desafio criado com sucesso!'}
+              </Text>
+              <TouchableOpacity
+                style={[styles.successButton, { backgroundColor: colors.primary }]}
+                onPress={() => {
+                  setShowSuccessModal(false);
+                  onSuccess({ publicCode: successCode } as any);
+                  handleClose();
+                }}
+              >
+                <Text style={styles.successButtonText}>OK</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableWithoutFeedback>
+        </View>
+      </TouchableWithoutFeedback>
+    </Modal>
+    </>
   );
 }
 
@@ -1209,6 +1254,59 @@ const styles = StyleSheet.create({
   addTestButtonText: {
     fontSize: 15,
     fontWeight: '600',
+  },
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  successModalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    borderRadius: 16,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  successIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  successTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  successMessage: {
+    fontSize: 14,
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  successButton: {
+    paddingVertical: 14,
+    paddingHorizontal: 32,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 120,
+  },
+  successButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
   },
 });
 

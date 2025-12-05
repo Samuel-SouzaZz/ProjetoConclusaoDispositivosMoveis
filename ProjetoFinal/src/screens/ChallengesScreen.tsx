@@ -4,48 +4,23 @@ import {
   Text, 
   StyleSheet, 
   ScrollView, 
-  TouchableOpacity, 
   Alert,
-  ActivityIndicator, 
   Platform,
   useWindowDimensions
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useRoute, RouteProp, useNavigation } from "@react-navigation/native";
-import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../contexts/ThemeContext";
 import { useAuth } from "../contexts/AuthContext";
 import ApiService from "../services/ApiService";
 import ChallengeService from "../services/ChallengeService";
 import { useFocusEffect } from '@react-navigation/native';
+import SafeScreen from "../components/SafeScreen";
+import ScreenHeaderWithAction from "../components/ScreenHeaderWithAction";
+import LoadingScreen from "../components/LoadingScreen";
+import EmptyState from "../components/EmptyState";
 import CompactChallengeCard from "../components/CompactChallengeCard";
 import CreateChallengeModal from "../components/CreateChallengeModal";
 import ConfirmationModal from "../components/ConfirmationModal";
-
-const ScreenHeader = ({ title, onAddPress }: { title: string; onAddPress: () => void }) => {
-  const { colors } = useTheme();
-  
-  return (
-    <View
-      style={[styles.header, { borderBottomColor: colors.border }]}
-      accessible={true}
-      accessibilityRole="header"
-    >
-      <Text style={[styles.title, { color: colors.text }]}>{title}</Text>
-      <TouchableOpacity 
-        style={[styles.addButton, { backgroundColor: colors.primary }]} 
-        onPress={onAddPress}
-        accessible={true}
-        accessibilityRole="button"
-        accessibilityLabel="Criar novo desafio"
-        accessibilityHint="Toque duas vezes para abrir o formulário de criação de desafio"
-      >
-        <Ionicons name="add-circle-outline" size={18} color="#fff" />
-        <Text style={styles.addButtonText}>Criar</Text>
-      </TouchableOpacity>
-    </View>
-  );
-};
 
 export default function ChallengesScreen() {
   const { colors } = useTheme();
@@ -141,27 +116,24 @@ export default function ChallengesScreen() {
 
   if (initialLoading) {
     return (
-      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-        <ScreenHeader title="Meus Desafios" onAddPress={handleAddPress} />
-        <View
-          style={styles.loadingContainer}
-          accessible={true}
-          accessibilityRole="progressbar"
-          accessibilityLabel="Carregando desafios"
-          accessibilityLiveRegion="polite"
-        >
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Carregando desafios...
-          </Text>
-        </View>
-      </SafeAreaView>
+      <SafeScreen edges={['top']}>
+        <ScreenHeaderWithAction
+          title="Meus Desafios"
+          actionLabel="Criar"
+          onAction={handleAddPress}
+        />
+        <LoadingScreen message="Carregando desafios..." fullScreen={false} />
+      </SafeScreen>
     );
   }
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      <ScreenHeader title="Meus Desafios" onAddPress={handleAddPress} />
+    <SafeScreen edges={['top']}>
+      <ScreenHeaderWithAction
+        title="Meus Desafios"
+        actionLabel="Criar"
+        onAction={handleAddPress}
+      />
       
       <ScrollView
         style={styles.scrollView}
@@ -172,32 +144,13 @@ export default function ChallengesScreen() {
         accessibilityLabel={challenges.length > 0 ? `Lista com ${challenges.length} desafios criados` : 'Lista vazia de desafios'}
       >
         {challenges.length === 0 ? (
-          <View
-            style={styles.emptyContainer}
-            accessible={true}
-            accessibilityRole="text"
-            accessibilityLabel="Nenhum desafio criado ainda"
-          >
-            <Ionicons name="rocket-outline" size={64} color={colors.textSecondary} />
-            <Text style={[styles.emptyTitle, { color: colors.text }]}>
-              Comece a Criar!
-            </Text>
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              Você ainda não criou nenhum desafio.{'\n'}
-              Toque em "Criar" para começar!
-            </Text>
-            <TouchableOpacity
-              style={[styles.emptyButton, { backgroundColor: colors.primary }]}
-              onPress={handleAddPress}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel="Criar primeiro desafio"
-              accessibilityHint="Toque duas vezes para abrir o formulário de criação"
-            >
-              <Ionicons name="add-circle-outline" size={20} color="#fff" />
-              <Text style={styles.emptyButtonText}>Criar Primeiro Desafio</Text>
-            </TouchableOpacity>
-          </View>
+          <EmptyState
+            icon="rocket-outline"
+            title="Comece a Criar!"
+            message="Você ainda não criou nenhum desafio.\nToque em 'Criar' para começar!"
+            actionLabel="Criar Primeiro Desafio"
+            onAction={handleAddPress}
+          />
         ) : (
           challenges.map((challenge, idx) => {
             const diffNum = Number(challenge.difficulty ?? 1);
@@ -248,87 +201,16 @@ export default function ChallengesScreen() {
         textColor={colors.text}
         borderColor={colors.border}
       />
-    </SafeAreaView>
+    </SafeScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-  },
-  addButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 4,
-  },
-  addButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
     padding: 16,
     paddingBottom: 32,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 16,
-    paddingHorizontal: 20,
-  },
-  loadingText: {
-    fontSize: 16,
-  },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 80,
-    paddingHorizontal: 32,
-    gap: 16,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginTop: 8,
-  },
-  emptyText: {
-    fontSize: 15,
-    textAlign: 'center',
-    lineHeight: 22,
-  },
-  emptyButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 24,
-    gap: 8,
-    marginTop: 16,
-  },
-  emptyButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: '600',
   },
 });

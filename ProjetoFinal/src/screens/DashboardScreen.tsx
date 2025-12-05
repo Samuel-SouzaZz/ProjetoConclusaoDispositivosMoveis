@@ -5,11 +5,9 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  ActivityIndicator,
   useWindowDimensions,
   Alert,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation, CompositeNavigationProp } from "@react-navigation/native";
 import { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useAuth } from "../contexts/AuthContext";
@@ -19,6 +17,9 @@ import { Ionicons } from "@expo/vector-icons";
 import ApiService from "../services/ApiService";
 import { deriveLevelFromXp } from "../utils/levels";
 import type { RootStackParamList } from "../navigation/AppNavigator";
+import SafeScreen from "../components/SafeScreen";
+import LoadingScreen from "../components/LoadingScreen";
+import EmptyState from "../components/EmptyState";
 import UserProfileButton from "../components/UserProfileButton";
 import SearchBar from "../components/SearchBar";
 import HeroSection from "../components/HeroSection";
@@ -181,69 +182,20 @@ export default function DashboardScreen() {
   };
 
   if (authLoading || loading) {
-    return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <View
-          style={styles.loadingContainer}
-          accessible={true}
-          accessibilityRole="progressbar"
-          accessibilityLabel="Carregando dashboard"
-          accessibilityValue={{ text: "Carregando dados do usuário e desafios" }}
-          accessibilityLiveRegion="polite"
-        >
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>Carregando...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <LoadingScreen message="Carregando dashboard..." />;
   }
 
   if (!user) {
     return (
-      <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
-        <View
-          style={styles.loginContainer}
-          accessible={true}
-          accessibilityRole="group"
-          accessibilityLabel="Tela de boas-vindas"
-        >
-          <Ionicons name="code-slash" size={64} color={colors.primary} style={{ marginBottom: 20 }} />
-          <Text
-            style={[styles.welcomeTitle, { color: colors.text }]}
-            accessible={true}
-            accessibilityRole="header"
-          >
-            Bem-vindo!
-          </Text>
-          <Text
-            style={[styles.welcomeSubtitle, { color: colors.textSecondary }]}
-            accessible={true}
-            accessibilityRole="text"
-          >
-            Faça login para continuar
-          </Text>
-          <TouchableOpacity 
-            style={[styles.loginButton, { backgroundColor: colors.primary }]}
-            onPress={() => navigation.navigate("Login")}
-            accessible={true}
-            accessibilityRole="button"
-            accessibilityLabel="Fazer login"
-            accessibilityHint="Toque duas vezes para ir para a tela de login"
-          >
-            <Text style={styles.loginButtonText}>Fazer Login</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.signupButton, { borderColor: colors.primary }]}
-            onPress={() => navigation.navigate("Signup")}
-            accessible={true}
-            accessibilityRole="button"
-            accessibilityLabel="Criar conta"
-            accessibilityHint="Toque duas vezes para ir para a tela de cadastro"
-          >
-            <Text style={[styles.signupButtonText, { color: colors.primary }]}>Criar Conta</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <SafeScreen>
+        <EmptyState
+          icon="code-slash"
+          title="Bem-vindo!"
+          message="Faça login para continuar e acessar todos os recursos da plataforma."
+          actionLabel="Fazer Login"
+          onAction={() => navigation.navigate("Login")}
+        />
+      </SafeScreen>
     );
   }
 
@@ -260,7 +212,7 @@ export default function DashboardScreen() {
   };
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}>
+    <SafeScreen edges={['top']}>
       {/* Header com Perfil */}
       <View
         style={[styles.topHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
@@ -543,14 +495,11 @@ export default function DashboardScreen() {
           exerciseTitle={selectedExercise.title}
         />
       )}
-    </SafeAreaView>
+    </SafeScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-  },
   scrollView: {
     flex: 1,
   },
@@ -560,59 +509,6 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderBottomWidth: 1,
     zIndex: 10,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  loadingText: {
-    fontSize: 16,
-    marginTop: 16,
-  },
-  loginContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    paddingHorizontal: 40,
-  },
-  welcomeTitle: {
-    fontSize: 28,
-    fontWeight: "bold",
-    textAlign: "center",
-    marginBottom: 8,
-  },
-  welcomeSubtitle: {
-    fontSize: 16,
-    textAlign: "center",
-    lineHeight: 24,
-    marginBottom: 16,
-  },
-  loginButton: {
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 25,
-    width: "100%",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  loginButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  signupButton: {
-    backgroundColor: "transparent",
-    paddingHorizontal: 32,
-    paddingVertical: 12,
-    borderRadius: 25,
-    width: "100%",
-    alignItems: "center",
-    borderWidth: 2,
-  },
-  signupButtonText: {
-    fontSize: 16,
-    fontWeight: "600",
   },
   // Sections
   section: {

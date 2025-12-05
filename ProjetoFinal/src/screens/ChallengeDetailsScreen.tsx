@@ -8,7 +8,10 @@ import {
   TouchableOpacity,
   Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import SafeScreen from '../components/SafeScreen';
+import ScreenHeader from '../components/ScreenHeader';
+import LoadingScreen from '../components/LoadingScreen';
+import ErrorScreen from '../components/ErrorScreen';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,6 +25,7 @@ import SectionCard from '../components/SectionCard';
 import CodeEditorPanel from '../components/CodeEditorPanel';
 import TestPanel from '../components/TestPanel';
 import ConfirmationModal from '../components/ConfirmationModal';
+import ResultModal from '../components/ResultModal';
 
 type ChallengeDetailsRoute = RouteProp<RootStackParamList, 'ChallengeDetails'>;
 
@@ -43,6 +47,16 @@ export default function ChallengeDetailsScreen() {
   const [testError, setTestError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'description' | 'code' | 'test'>('description');
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showResultModal, setShowResultModal] = useState(false);
+  const [resultData, setResultData] = useState<{
+    isSuccess: boolean;
+    score: number;
+    bonusPoints: number;
+    finalScore: number;
+    complexityScore?: number;
+    xpAwarded: number;
+    requiredScore?: number;
+  } | null>(null);
   const startTimeRef = React.useRef<number>(Date.now());
 
   useEffect(() => {
@@ -139,33 +153,18 @@ export default function ChallengeDetailsScreen() {
       // Fecha o modal de confirmação
       setShowConfirmModal(false);
 
-      // Mostra o resultado
-      let message = '';
-      if (status === 'ACCEPTED' || status === 'Accepted') {
-        message = `Sua solução foi aceita! 🎉\n\n`;
-        message += `📊 Score dos Testes: ${Math.round(score)}%\n`;
-        if (bonusPoints > 0) {
-          message += `✨ Bônus de Complexidade: +${bonusPoints.toFixed(1)} pontos\n`;
-          message += `🏆 Score Final: ${Math.round(finalScore)}%\n`;
-        }
-        if (complexityScore !== undefined) {
-          message += `🧩 Qualidade do Código: ${Math.round(complexityScore)}%\n`;
-        }
-        message += `\n⭐ XP Ganho: ${xpAwarded}`;
-      } else {
-        message = `Sua solução não passou em todos os testes.\n\n`;
-        message += `📊 Score: ${Math.round(score)}%\n`;
-        message += `❌ Necessário: 60% para aprovação\n\n`;
-        message += `💡 Revise seu código e tente novamente!`;
-      }
-
-      Alert.alert(
-        status === 'ACCEPTED' || status === 'Accepted' ? 'Parabéns! 🎉' : 'Tente Novamente ❌',
-        message,
-        [
-          { text: 'OK', onPress: () => navigation.goBack() }
-        ]
-      );
+      // Define os dados do resultado para o modal
+      const isAccepted = status === 'ACCEPTED' || status === 'Accepted';
+      setResultData({
+        isSuccess: isAccepted,
+        score,
+        bonusPoints,
+        finalScore,
+        complexityScore,
+        xpAwarded,
+        requiredScore: 60,
+      });
+      setShowResultModal(true);
     } catch (error: any) {
       setShowConfirmModal(false);
       Alert.alert('Erro', ApiService.handleError(error));
@@ -175,34 +174,16 @@ export default function ChallengeDetailsScreen() {
   };
 
   if (loading) {
-    return (
-      <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Carregando desafio...
-          </Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <LoadingScreen message="Carregando desafio..." />;
   }
 
   if (error || !challenge) {
     return (
-      <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]}>
-        <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle" size={48} color={colors.textSecondary} />
-          <Text style={[styles.errorText, { color: colors.text }]}>
-            {error || 'Desafio não encontrado'}
-          </Text>
-          <TouchableOpacity
-            style={[styles.backButton, { backgroundColor: colors.primary }]}
-            onPress={() => navigation.goBack()}
-          >
-            <Text style={styles.backButtonText}>Voltar</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
+      <ErrorScreen
+        message={error || 'Desafio não encontrado'}
+        onRetry={() => navigation.goBack()}
+        retryLabel="Voltar"
+      />
     );
   }
 
@@ -222,33 +203,12 @@ export default function ChallengeDetailsScreen() {
       : "#F44336";
 
   return (
-    <SafeAreaView style={[commonStyles.container, { backgroundColor: colors.background }]}>
-      {/* Header */}
-      <View
-        style={[styles.header, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
-        accessible={true}
-        accessibilityRole="header"
-      >
-        <TouchableOpacity
-          onPress={() => navigation.goBack()}
-          accessible={true}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-          accessibilityHint="Retorna para a tela anterior"
-        >
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
-        </TouchableOpacity>
-        <Text
-          style={[styles.headerTitle, { color: colors.text }]}
-          numberOfLines={1}
-          accessible={true}
-          accessibilityRole="header"
-          accessibilityLabel={`Desafio: ${challenge.title}`}
-        >
-          {challenge.title}
-        </Text>
-        <View style={{ width: 24 }} />
-      </View>
+    <SafeScreen edges={['top', 'bottom']}>
+      <ScreenHeader
+        title={challenge.title}
+        showBackButton={true}
+        backgroundColor={colors.card}
+      />
 
       {/* Tabs */}
       <View
@@ -481,57 +441,29 @@ export default function ChallengeDetailsScreen() {
         textColor={colors.text}
         borderColor={colors.border}
       />
-    </SafeAreaView>
+
+      {/* Modal de Resultado */}
+      {resultData && (
+        <ResultModal
+          visible={showResultModal}
+          onClose={() => {
+            setShowResultModal(false);
+            navigation.goBack();
+          }}
+          isSuccess={resultData.isSuccess}
+          score={resultData.score}
+          bonusPoints={resultData.bonusPoints}
+          finalScore={resultData.finalScore}
+          complexityScore={resultData.complexityScore}
+          xpAwarded={resultData.xpAwarded}
+          requiredScore={resultData.requiredScore}
+        />
+      )}
+    </SafeScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  loadingText: {
-    marginTop: 16,
-    fontSize: 16,
-  },
-  errorContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  backButton: {
-    paddingHorizontal: 24,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  backButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    flex: 1,
-    textAlign: 'center',
-    paddingHorizontal: 8,
-  },
   tabsContainer: {
     flexDirection: 'row',
     borderBottomWidth: 1,

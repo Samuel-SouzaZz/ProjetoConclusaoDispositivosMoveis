@@ -6,18 +6,18 @@ import {
   FlatList,
   TextInput,
   Modal,
-  ActivityIndicator,
   RefreshControl,
   useWindowDimensions,
   Alert,
 } from 'react-native';
-
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import ApiService from '../services/ApiService';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../contexts/AuthContext';
+import SafeScreen from '../components/SafeScreen';
+import LoadingScreen from '../components/LoadingScreen';
+import EmptyState from '../components/EmptyState';
 
 type Group = {
   id: string;
@@ -272,8 +272,12 @@ export default function GroupsScreen() {
 
   const data = tab === 'public' ? publicGroups : myGroups;
 
+  if (loading && data.length === 0) {
+    return <LoadingScreen message="Carregando grupos..." />;
+  }
+
   return (
-    <SafeAreaView style={commonStyles.container}>
+    <SafeScreen edges={['top']}>
       <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
         <Text style={{ color: colors.text, fontSize: 22, fontWeight: '700' }}>{'{'} Grupos de Estudo {'}'}</Text>
 
@@ -321,12 +325,6 @@ export default function GroupsScreen() {
         </View>
       </View>
 
-      {loading && (
-        <View style={{ padding: 16 }}>
-          <ActivityIndicator color={colors.primary} />
-        </View>
-      )}
-
       <FlatList
         data={data}
         keyExtractor={(item) => String(item.id)}
@@ -336,13 +334,15 @@ export default function GroupsScreen() {
         renderItem={renderGroupItem}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
-          !loading ? (
-            <View style={{ padding: 16 }}>
-              <Text style={{ color: colors.textSecondary }}>
-                {tab === 'public' ? 'Nenhum grupo público encontrado.' : 'Você ainda não participa de nenhum grupo.'}
-              </Text>
-            </View>
-          ) : null
+          !loading && (
+            <EmptyState
+              icon="people-outline"
+              title={tab === 'public' ? 'Nenhum grupo público encontrado' : 'Nenhum grupo ainda'}
+              message={tab === 'public' ? 'Não há grupos públicos disponíveis no momento.' : 'Você ainda não participa de nenhum grupo. Crie ou entre em um grupo para começar!'}
+              actionLabel={tab === 'public' ? undefined : 'Criar Grupo'}
+              onAction={tab === 'public' ? undefined : () => setCreateOpen(true)}
+            />
+          )
         }
       />
 
@@ -462,6 +462,6 @@ export default function GroupsScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </SafeScreen>
   );
 }

@@ -408,7 +408,6 @@ export default function ProfileScreen() {
                   <Text style={styles.userTitle}>[{titleName.trim()}]</Text>
                 )}
               </View>
-              
               {/* Nível e Progresso */}
               <View style={styles.levelInfo}>
                 <View style={styles.levelItem}>
@@ -1236,9 +1235,21 @@ const TitleCard = ({ title, earned, percent, label, colors, isDarkMode }: {
             ]}
           />
         </View>
-        <Text style={[styles.titleLabel, { color: earned ? '#4CAF50' : colors.textSecondary }]}>
-          {earned ? '✅' : '🔒'} {label || ''}
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          {earned ? (
+            <Text>✅ </Text>
+          ) : (
+            <Image
+              source={{ uri: 'https://img.icons8.com/?size=100&id=SxREtE5iZLQg&format=png&color=000000' }}
+              style={{ width: 16, height: 16 }}
+              resizeMode="contain"
+              onError={() => console.log('Erro ao carregar ícone de cadeado')}
+            />
+          )}
+          <Text style={[styles.titleLabel, { color: earned ? '#4CAF50' : colors.textSecondary }]}>
+            {label || ''}
+          </Text>
+        </View>
       </View>
     </View>
   );

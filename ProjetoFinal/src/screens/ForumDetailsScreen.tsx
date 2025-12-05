@@ -1,14 +1,15 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, FlatList, TouchableOpacity, TextInput, ScrollView, Modal } from 'react-native';
-
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView, Modal } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
-
 import { Ionicons } from '@expo/vector-icons';
 import ApiService from '../services/ApiService';
 import { RootStackParamList } from '../navigation/AppNavigator';
+import SafeScreen from '../components/SafeScreen';
+import ScreenHeader from '../components/ScreenHeader';
+import LoadingScreen from '../components/LoadingScreen';
+import ErrorScreen from '../components/ErrorScreen';
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -249,22 +250,13 @@ export default function ForumDetailsScreen() {
   }
 
   if (loading) {
-    return (
-      <SafeAreaView style={commonStyles.container}>
-        <View style={styles.center}><ActivityIndicator size="large" color={colors.primary} /></View>
-      </SafeAreaView>
-    );
+    return <LoadingScreen message="Carregando fórum..." />;
   }
 
   return (
-    <SafeAreaView style={commonStyles.container}>
+    <SafeScreen edges={['top']}>
+      <ScreenHeader title="Detalhes do Fórum" />
       <ScrollView contentContainerStyle={{ padding: 16 }}>
-        <View style={[styles.headerRow]}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={20} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.text }]}>Detalhes do Fórum</Text>
-        </View>
 
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <View style={styles.cardHeader}>
@@ -610,6 +602,6 @@ export default function ForumDetailsScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </SafeScreen>
   );
 }

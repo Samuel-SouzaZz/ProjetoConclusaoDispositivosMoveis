@@ -1,7 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import {
-  ActivityIndicator,
   FlatList,
   ScrollView,
   StyleSheet,
@@ -16,6 +14,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import ApiService from '../services/ApiService';
+import SafeScreen from '../components/SafeScreen';
+import ScreenHeader from '../components/ScreenHeader';
+import LoadingScreen from '../components/LoadingScreen';
+import EmptyState from '../components/EmptyState';
 
 
 type TopicDetailsRoute = RouteProp<RootStackParamList, 'TopicDetails'>;
@@ -87,26 +89,13 @@ export default function TopicDetailsScreen() {
   }
 
   if (loading) {
-    return (
-      <SafeAreaView style={commonStyles.container}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      </SafeAreaView>
-    );
+    return <LoadingScreen message="Carregando tópico..." />;
   }
 
   return (
-    <SafeAreaView style={commonStyles.container}>
+    <SafeScreen edges={['top']}>
+      <ScreenHeader title={topic?.titulo || topic?.title || 'Tópico'} />
       <ScrollView contentContainerStyle={{ padding: 16 }}>
-        <View style={styles.headerRow}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={20} color={colors.text} />
-          </TouchableOpacity>
-          <Text style={[styles.title, { color: colors.text }]} numberOfLines={1}>
-            {topic?.titulo || topic?.title || 'Tópico'}
-          </Text>
-        </View>
 
         <View style={[styles.card, { backgroundColor: colors.card, borderColor: colors.border }]}>
           {!!topic?.conteudo && (
@@ -234,7 +223,7 @@ export default function TopicDetailsScreen() {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </SafeScreen>
   );
 }
 

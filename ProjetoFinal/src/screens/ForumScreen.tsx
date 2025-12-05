@@ -1,11 +1,15 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TextInput, TouchableOpacity, Dimensions, Modal, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Dimensions, Modal, ScrollView } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
 import { Ionicons } from "@expo/vector-icons";
 import { useNavigation, useFocusEffect } from "@react-navigation/native";
+import SafeScreen from "../components/SafeScreen";
+import ScreenHeaderWithAction from "../components/ScreenHeaderWithAction";
+import LoadingScreen from "../components/LoadingScreen";
+import EmptyState from "../components/EmptyState";
+import ErrorScreen from "../components/ErrorScreen";
 
 const { width } = Dimensions.get("window");
 
@@ -191,18 +195,15 @@ export default function ForumScreen() {
   };
 
   return (
-    <SafeAreaView style={commonStyles.container}>
-      <View style={[styles.header]}>
-        <Text style={[styles.title, { color: colors.text }]}>Fóruns Públicos</Text>
-        <TouchableOpacity
-          onPress={() => setShowCreateModal(true)}
-          style={[styles.newButton, { backgroundColor: colors.primary }]}
-        >
-          <Ionicons name="add" size={18} color="#fff" />
-          <Text style={styles.newButtonText}>Novo Publicação</Text>
-        </TouchableOpacity>
-      </View>
-
+    <SafeScreen edges={['top']}>
+      <ScreenHeaderWithAction
+        title="Fóruns Públicos"
+        actionLabel="Nova Publicação"
+        actionIcon="add"
+        onAction={() => setShowCreateModal(true)}
+        showBackButton={false}
+      />
+      
       <View style={[styles.searchRow]}>
         <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
           <Ionicons name="search" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
@@ -224,13 +225,9 @@ export default function ForumScreen() {
       </View>
 
       {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
+        <LoadingScreen message="Carregando fóruns..." fullScreen={false} />
       ) : listError ? (
-        <View style={styles.center}>
-          <Text style={{ color: colors.text }}>{String(listError)}</Text>
-        </View>
+        <ErrorScreen message={String(listError)} onRetry={() => {}} fullScreen={false} />
       ) : (
         <FlatList
           data={filteredForums}
@@ -238,6 +235,13 @@ export default function ForumScreen() {
           numColumns={numColumns}
           columnWrapperStyle={numColumns > 1 ? { gap: 16 } : undefined}
           contentContainerStyle={[styles.listContent]}
+          ListEmptyComponent={
+            <EmptyState
+              icon="chatbubbles-outline"
+              title="Nenhum fórum encontrado"
+              message="Não há fóruns disponíveis no momento."
+            />
+          }
           renderItem={({ item }) => (
             <TouchableOpacity
               activeOpacity={0.85}
@@ -276,11 +280,6 @@ export default function ForumScreen() {
                 )}
               </View>
             </TouchableOpacity>
-          )}
-          ListEmptyComponent={(
-            <View style={styles.center}>
-              <Text style={{ color: colors.textSecondary }}>Nenhum fórum encontrado</Text>
-            </View>
           )}
         />
       )}
@@ -478,20 +477,15 @@ export default function ForumScreen() {
         </TouchableOpacity>
       </Modal>
 
-    </SafeAreaView>
+    </SafeScreen>
   );
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  title: { fontSize: 24, fontWeight: '800' },
-  newButton: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderRadius: 10 },
-  newButtonText: { color: '#fff', fontWeight: '700' },
   searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 10, marginBottom: 8 },
   searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, height: 44 },
   searchInput: { flex: 1, fontSize: 14 },
   filterButton: { width: 44, height: 44, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   listContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 16 },
   card: { flex: 1, borderWidth: 1, borderRadius: 16, padding: 14, minHeight: 120, position: 'relative', marginBottom: 16 },
   inactiveOverlay: { position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },

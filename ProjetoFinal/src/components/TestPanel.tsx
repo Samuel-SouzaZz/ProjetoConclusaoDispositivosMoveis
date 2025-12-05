@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import IconImage from './IconImage';
 
 interface TestPanelProps {
   input: string;
@@ -48,13 +49,13 @@ export default function TestPanel({
       {/* Input Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="arrow-down-circle" size={18} color={borderColorInput} />
+          <IconImage type="input" size={18} />
           <Text
             style={[styles.sectionLabel, { color: textColor }]}
             accessible={true}
             accessibilityRole="header"
           >
-            📥 Input (stdin)
+            Input (stdin)
           </Text>
         </View>
         <TextInput
@@ -77,25 +78,28 @@ export default function TestPanel({
           autoCorrect={false}
           keyboardType="ascii-capable"
         />
-        <Text
-          style={[styles.hint, { color: placeholderColor }]}
-          accessible={true}
-          accessibilityRole="text"
-        >
-          💡 Uma entrada por linha. Para somar 5 e 3, digite: 5 (Enter) 3
-        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <IconImage type="bulb" size={14} />
+          <Text
+            style={[styles.hint, { color: placeholderColor }]}
+            accessible={true}
+            accessibilityRole="text"
+          >
+            Uma entrada por linha. Para somar 5 e 3, digite: 5 (Enter) 3
+          </Text>
+        </View>
       </View>
 
       {/* Output Section */}
       <View style={styles.section}>
         <View style={styles.sectionHeader}>
-          <Ionicons name="arrow-up-circle" size={18} color={borderColorOutput} />
+          <IconImage type="output" size={18} />
           <Text
             style={[styles.sectionLabel, { color: textColor }]}
             accessible={true}
             accessibilityRole="header"
           >
-            📤 Output (resultado)
+            Output (resultado)
           </Text>
         </View>
         <View

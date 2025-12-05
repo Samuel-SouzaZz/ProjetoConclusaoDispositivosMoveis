@@ -1,12 +1,16 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, Text, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, FlatList, Modal, TextInput, Alert } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, Modal, TextInput, Alert } from "react-native";
 import { RouteProp, useRoute, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
 import { RootStackParamList } from "../navigation/AppNavigator";
 import { useAuth } from "../contexts/AuthContext";
+import SafeScreen from "../components/SafeScreen";
+import ScreenHeader from "../components/ScreenHeader";
+import LoadingScreen from "../components/LoadingScreen";
+import ErrorScreen from "../components/ErrorScreen";
+import EmptyState from "../components/EmptyState";
 import DetailedChallengeCard from "../components/DetailedChallengeCard";
 import CreateChallengeModal from "../components/CreateChallengeModal";
 
@@ -495,28 +499,30 @@ export default function GroupDetailsScreen() {
   const isPublicGroup = visibility ? visibility === 'PUBLIC' : Boolean(group?.isPublic ?? true);
   const isPrivateGroup = !isPublicGroup;
 
-  return (
-    <SafeAreaView style={commonStyles.container}>
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity style={styles.back} onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={22} color={colors.text} />
-        </TouchableOpacity>
-        <Text style={[styles.title, { color: colors.text }]}>Voltar para Grupos</Text>
-      </View>
+  if (loading) {
+    return <LoadingScreen message="Carregando grupo..." />;
+  }
 
-      {loading ? (
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : error ? (
-        <View style={styles.center}>
-          <Text style={{ color: colors.text }}>{error}</Text>
-        </View>
-      ) : !group ? (
-        <View style={styles.center}>
-          <Text style={{ color: colors.textSecondary }}>Grupo não encontrado</Text>
-        </View>
-      ) : (
+  if (error) {
+    return <ErrorScreen message={error} onRetry={() => {}} />;
+  }
+
+  if (!group) {
+    return (
+      <SafeScreen>
+        <ScreenHeader title="Grupo" />
+        <EmptyState 
+          icon="people-outline"
+          title="Grupo não encontrado"
+          message="O grupo solicitado não existe ou foi removido."
+        />
+      </SafeScreen>
+    );
+  }
+
+  return (
+    <SafeScreen edges={['top']}>
+      <ScreenHeader title={group.name || group.title || "Grupo"} />
         <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}>
           <View style={[styles.card, { backgroundColor: colors.card }]}>
             <View style={styles.rowSpace}>
@@ -803,7 +809,7 @@ export default function GroupDetailsScreen() {
             )}
           </View>
 
-          {/* 🔥 MODAL DE CONFIRMAÇÃO PARA EXCLUIR DESAFIO - ADICIONADO AQUI 🔥 */}
+          {/* Modal de Confirmação para Excluir Desafio */}
           <Modal
             visible={!!challengeToDelete}
             transparent
@@ -909,8 +915,7 @@ export default function GroupDetailsScreen() {
             </View>
           </Modal>
         </ScrollView>
-      )}
-    </SafeAreaView>
+    </SafeScreen>
   );
 }
 

@@ -1,9 +1,12 @@
 import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, TouchableOpacity, ScrollView } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
 import { Ionicons } from "@expo/vector-icons";
+import SafeScreen from "../components/SafeScreen";
+import LoadingScreen from "../components/LoadingScreen";
+import EmptyState from "../components/EmptyState";
+import ErrorScreen from "../components/ErrorScreen";
 
 export default function RankingScreen() {
   const { commonStyles, colors } = useTheme();
@@ -49,25 +52,24 @@ export default function RankingScreen() {
     return <Ionicons name={name as any} size={18} color={color} />;
   };
 
+  if (loading) {
+    return <LoadingScreen message="Carregando ranking..." />;
+  }
+
+  if (error) {
+    return <ErrorScreen message={error} onRetry={() => {}} />;
+  }
+
   return (
-    <SafeAreaView style={commonStyles.container}>
+    <SafeScreen edges={['top']}>
       {/* Hero */}
       <View style={[styles.hero, { backgroundColor: (colors as any).heroOrange || "#F59E0B" }]}> 
         <Text style={styles.heroTitle}>Ranking dos Melhores</Text>
         <Text style={styles.heroSubtitle}>Veja os melhores dessa temporada</Text>
       </View>
 
-      {loading ? (
-        <View style={styles.center}> 
-          <ActivityIndicator size="large" color={colors.primary} />
-        </View>
-      ) : error ? (
-        <View style={styles.center}> 
-          <Text style={{ color: colors.text }}>{error}</Text>
-        </View>
-      ) : (
-        <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
-          <View style={[styles.cardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: 32 }}>
+        <View style={[styles.cardContainer, { backgroundColor: colors.card, borderColor: colors.border }]}> 
             {/* Título do card */}
             <View style={styles.cardHeader}> 
               <View style={styles.cardHeaderLeft}> 
@@ -86,12 +88,11 @@ export default function RankingScreen() {
 
             {/* Linhas */}
             {top10.length === 0 ? (
-              <View style={{ paddingVertical: 20, alignItems: 'center' }}>
-                <Ionicons name="information-circle-outline" size={22} color={colors.textSecondary} />
-                <Text style={{ marginTop: 8, color: colors.textSecondary }}>
-                  Nenhum ranking disponível no momento.
-                </Text>
-              </View>
+              <EmptyState
+                icon="trophy-outline"
+                title="Nenhum ranking disponível"
+                message="Ainda não há dados de ranking no momento."
+              />
             ) : top10.map((item, idx) => {
               const pos = idx + 1;
               const badge = getPositionBadge(pos);
@@ -117,12 +118,12 @@ export default function RankingScreen() {
                     </View>
                     <View style={{ flex: 1 }}> 
                       <Text style={[styles.nomeText, { color: colors.text }]} numberOfLines={1}>{String(name)}</Text>
-                </View>
-              </View>
-              {/* Pontos */}
-              <View style={[styles.pontosCell]}> 
-                <Text style={[styles.pontosText, { color: colors.text }]}>{Number(points)} pts</Text>
-              </View>
+                    </View>
+                  </View>
+                  {/* Pontos */}
+                  <View style={[styles.pontosCell]}> 
+                    <Text style={[styles.pontosText, { color: colors.text }]}>{Number(points)} pts</Text>
+                  </View>
                   {/* Pontuação */}
                   <View style={[styles.pontuacaoCell]}> 
                     {pos <= 3 ? (
@@ -142,9 +143,8 @@ export default function RankingScreen() {
               <View style={[styles.progressThumb, { backgroundColor: colors.primary }]} />
             </View>
           </View>
-        </ScrollView>
-      )}
-    </SafeAreaView>
+      </ScrollView>
+    </SafeScreen>
   );
 }
 
@@ -152,11 +152,6 @@ const styles = StyleSheet.create({
   hero: { height: 120, paddingHorizontal: 20, paddingTop: 18, justifyContent: 'center' },
   heroTitle: { fontSize: 24, fontWeight: '800', color: '#fff' },
   heroSubtitle: { fontSize: 13, fontWeight: '600', color: '#fff', opacity: 0.9, marginTop: 6 },
-  center: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-  },
   cardContainer: { borderWidth: 1, borderRadius: 16, padding: 12 },
   cardHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, paddingVertical: 8 },
   cardHeaderLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
