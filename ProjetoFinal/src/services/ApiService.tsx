@@ -635,7 +635,6 @@ class ApiService {
   async getGroup(groupId: string) {
     return this.safeRequest(() => this.api.get(`/groups/${groupId}`));
   }
-
   async removeGroupMember(groupId: string, userId: string) {
     return this.safeRequest(() => this.api.delete(`/groups/${groupId}/members/${userId}`));
   }
@@ -666,7 +665,7 @@ class ApiService {
       codeTemplate?: string;
       languageId?: string;
       baseXp?: number;
-      groupId: string;
+      groupId?: string;
     }
 
     const payload: CreateGroupChallengePayload = {
@@ -676,7 +675,7 @@ class ApiService {
       codeTemplate: data.codeTemplate,
       languageId: data.languageId,
       baseXp: data.xp,
-      groupId: groupId,
+      groupId,
     };
     return this.safeRequest(() => this.api.post('/exercises', payload));
   }
@@ -684,7 +683,6 @@ class ApiService {
   async joinGroup(groupId: string) {
     return this.safeRequest(() => this.api.post(`/groups/${groupId}/join`));
   }
-
   async leaveGroup(groupId: string) {
     return this.safeRequest(() => this.api.post(`/groups/${groupId}/leave`));
   }

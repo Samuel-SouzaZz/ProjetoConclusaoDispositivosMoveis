@@ -7,7 +7,8 @@ import {
   TouchableOpacity, 
   ActivityIndicator, 
   Alert,
-  Platform
+  Platform,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
@@ -49,6 +50,8 @@ export default function GroupChallengesScreen() {
   const [language, setLanguage] = useState<string>('all');
 
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [challengeToDelete, setChallengeToDelete] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -98,6 +101,26 @@ export default function GroupChallengesScreen() {
 
   const handleChallengeCreated = async () => {
     await loadChallenges();
+  };
+
+  const handleDeleteChallenge = (challengeId?: string) => {
+    if (!challengeId) return;
+    setChallengeToDelete(String(challengeId));
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!challengeToDelete) return;
+    try {
+      setDeleting(true);
+      await ApiService.deleteChallenge(String(challengeToDelete));
+      await loadChallenges();
+      setChallengeToDelete(null);
+      Alert.alert('Sucesso', 'Desafio excluído com sucesso.');
+    } catch (err: any) {
+      Alert.alert('Erro', ApiService.handleError(err));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const handleCopyCode = async (code?: string) => {
@@ -278,11 +301,27 @@ export default function GroupChallengesScreen() {
             };
             const diffLabel = diffLabels[diffNum] || 'Fácil';
             const xp = ch.xp ?? ch.baseXp ?? 0;
+            const rawId =
+              ch.id ||
+              ch._id ||
+              ch.exerciseId ||
+              ch.exercise?.id ||
+              ch.exercise?._id ||
+              ch.exerciseCode ||
+              ch.code;
+            const id = rawId ? String(rawId) : '';
+            console.log('GroupChallengesScreen - desafio do grupo:', {
+              rawId,
+              id,
+              title: ch.title,
+              exerciseId: ch.exerciseId,
+              exercise: ch.exercise,
+            });
             const code = ch.publicCode || ch.public_code || ch.code;
             
             return (
               <DetailedChallengeCard
-                key={String(ch.id || ch._id || idx)}
+                key={id || String(idx)}
                 title={ch.title || 'Desafio'}
                 description={ch.description}
                 difficulty={diffLabel}
@@ -292,6 +331,7 @@ export default function GroupChallengesScreen() {
                 code={code}
                 onPress={() => {}}
                 onCopyCode={code ? () => handleCopyCode(code) : undefined}
+                onDelete={id ? () => handleDeleteChallenge(id) : undefined}
               />
             );
           })}
@@ -314,6 +354,46 @@ export default function GroupChallengesScreen() {
           )}
         </View>
       </ScrollView>
+
+      {/* Modal de confirmação para excluir desafio */}
+      <Modal
+        visible={!!challengeToDelete}
+        transparent
+        animationType="fade"
+        onRequestClose={() => !deleting && setChallengeToDelete(null)}
+      >
+        <View style={styles.confirmOverlay}>
+          <View style={[styles.confirmCard, { backgroundColor: colors.card }]}> 
+            <View style={styles.confirmHeader}>
+              <Text style={[styles.confirmIcon, { color: '#FBBF24' }]}>⚠️</Text>
+              <Text style={[styles.confirmTitle, { color: colors.text }]}>Excluir Desafio</Text>
+            </View>
+            <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
+              Tem certeza que deseja excluir este desafio? Esta ação não pode ser desfeita.
+            </Text>
+            <View style={styles.confirmFooter}>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.confirmCancelButton, { borderColor: colors.border }]}
+                onPress={() => !deleting && setChallengeToDelete(null)}
+                disabled={deleting}
+              >
+                <Text style={[styles.confirmCancelText, { color: colors.text }]}>
+                  Cancelar
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmButton, styles.confirmDeleteButton]}
+                onPress={handleConfirmDelete}
+                disabled={deleting}
+              >
+                <Text style={styles.confirmDeleteText}>
+                  {deleting ? 'Excluindo...' : 'Excluir'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <CreateChallengeModal
         visible={showCreateModal}
@@ -432,6 +512,64 @@ const styles = StyleSheet.create({
   challengesList: {
     marginTop: 16,
     gap: 12,
+  },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  confirmCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 18,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+  },
+  confirmHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  confirmIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  confirmMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  confirmFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  confirmButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  confirmCancelButton: {
+    borderWidth: 1,
+  },
+  confirmDeleteButton: {
+    backgroundColor: '#F44336',
+  },
+  confirmCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  confirmDeleteText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
   },
   emptyBox: { 
     borderWidth: 2, 

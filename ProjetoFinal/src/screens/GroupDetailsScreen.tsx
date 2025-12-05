@@ -71,6 +71,64 @@ const styles = StyleSheet.create({
   challengeItem: { borderRadius: 12, padding: 12 },
   challengeTitle: { fontSize: 14, fontWeight: '700' },
   challengeMeta: { fontSize: 12 },
+  confirmOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 16,
+  },
+  confirmCard: {
+    width: '100%',
+    maxWidth: 420,
+    borderRadius: 18,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+  },
+  confirmHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  confirmIcon: {
+    fontSize: 20,
+    marginRight: 8,
+  },
+  confirmTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+  },
+  confirmMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+    marginBottom: 20,
+  },
+  confirmFooter: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 12,
+  },
+  confirmButton: {
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    borderRadius: 999,
+  },
+  confirmCancelButton: {
+    borderWidth: 1,
+  },
+  confirmDeleteButton: {
+    backgroundColor: '#F44336',
+  },
+  confirmCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  confirmDeleteText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+  },
   editModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 16 },
   editModalCard: { width: '100%', maxWidth: 560, borderRadius: 16, padding: 16 },
   roleBadge: {
@@ -212,6 +270,8 @@ export default function GroupDetailsScreen() {
 
   const [inviteLink, setInviteLink] = useState<string | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [challengeToDelete, setChallengeToDelete] = useState<string | null>(null);
+  const [deletingChallenge, setDeletingChallenge] = useState(false);
 
   function copyInviteLink(text: string) {
     if (!text) return;
@@ -236,12 +296,11 @@ export default function GroupDetailsScreen() {
     return () => { mounted = false; };
   }, [groupId]);
 
-  // Recarregar dados quando a tela receber foco (ex: quando voltar de outra tela)
+  // Recarregar dados quando a tela receber foco
   useFocusEffect(
     useCallback(() => {
       let mounted = true;
       (async () => {
-        // Pequeno delay para garantir que a navegação foi completada
         await new Promise(resolve => setTimeout(resolve, 100));
         if (mounted) {
           await loadData(mounted);
@@ -275,8 +334,7 @@ export default function GroupDetailsScreen() {
 
         console.log("DEBUG GroupDetailsScreen - members brutos:", JSON.stringify(mItems, null, 2));
 
-        // Buscar nomes dos membros usando o perfil público sempre que possível
-        // Fazer de forma sequencial para não sobrecarregar a API
+        // Buscar nomes dos membros usando o perfil público
         const membersWithNames: any[] = [];
         for (const member of mItems) {
           const memberId = getMemberId(member);
@@ -312,7 +370,7 @@ export default function GroupDetailsScreen() {
             }
           }
 
-          // Fallback: usar a lógica atual de nome (getMemberName)
+          // Fallback
           const fallbackName = getMemberName(member);
           membersWithNames.push({
             ...member,
@@ -367,6 +425,26 @@ export default function GroupDetailsScreen() {
   async function handleChallengeCreated() {
     setShowCreate(false);
     await loadData();
+  }
+
+  function handleDeleteChallenge(challengeId?: string) {
+    if (!challengeId) return;
+    setChallengeToDelete(String(challengeId));
+  }
+
+  async function handleConfirmDeleteChallenge() {
+    if (!challengeToDelete) return;
+    try {
+      setDeletingChallenge(true);
+      await ApiService.deleteChallenge(String(challengeToDelete));
+      await loadData();
+      setChallengeToDelete(null);
+      Alert.alert('Sucesso', 'Desafio excluído com sucesso.');
+    } catch (err: any) {
+      Alert.alert('Erro', ApiService.handleError(err));
+    } finally {
+      setDeletingChallenge(false);
+    }
   }
 
   async function handleUpdateGroup() {
@@ -689,9 +767,11 @@ export default function GroupDetailsScreen() {
                   const diffNum = Number(ch.difficulty ?? 1);
                   const diffLabel = diffNum <= 1 ? 'Fácil' : diffNum === 2 ? 'Médio' : 'Difícil';
                   const xp = ch.xp ?? ch.baseXp ?? 0;
+                  const rawId = ch.id || ch._id || ch.exerciseId || ch.exercise?.id || ch.exercise?._id || ch.exerciseCode || ch.code;
+                  const id = rawId ? String(rawId) : '';
                   return (
                     <DetailedChallengeCard
-                      key={String(ch.id || ch._id || idx)}
+                      key={id || String(idx)}
                       title={ch.title || 'Desafio'}
                       description={ch.description}
                       difficulty={diffLabel}
@@ -699,6 +779,7 @@ export default function GroupDetailsScreen() {
                       isPublic={Boolean(ch.isPublic ?? false)}
                       xp={xp}
                       onPress={() => {}}
+                      onDelete={owner && id ? () => handleDeleteChallenge(id) : undefined}
                     />
                   );
                 })}
@@ -721,6 +802,49 @@ export default function GroupDetailsScreen() {
               </TouchableOpacity>
             )}
           </View>
+
+          {/* 🔥 MODAL DE CONFIRMAÇÃO PARA EXCLUIR DESAFIO - ADICIONADO AQUI 🔥 */}
+          <Modal
+            visible={!!challengeToDelete}
+            transparent
+            animationType="fade"
+            onRequestClose={() => !deletingChallenge && setChallengeToDelete(null)}
+          >
+            <View style={styles.confirmOverlay}>
+              <View style={[styles.confirmCard, { backgroundColor: colors.card }]}>
+                <View style={styles.confirmHeader}>
+                  <Text style={[styles.confirmIcon, { color: '#FBBF24' }]}>⚠️</Text>
+                  <Text style={[styles.confirmTitle, { color: colors.text }]}>Excluir Desafio</Text>
+                </View>
+
+                <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>
+                  Tem certeza que deseja excluir este desafio? Esta ação não pode ser desfeita.
+                </Text>
+
+                <View style={styles.confirmFooter}>
+                  <TouchableOpacity
+                    style={[styles.confirmButton, styles.confirmCancelButton, { borderColor: colors.border }]}
+                    onPress={() => !deletingChallenge && setChallengeToDelete(null)}
+                    disabled={deletingChallenge}
+                  >
+                    <Text style={[styles.confirmCancelText, { color: colors.text }]}>
+                      Cancelar
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={[styles.confirmButton, styles.confirmDeleteButton]}
+                    onPress={handleConfirmDeleteChallenge}
+                    disabled={deletingChallenge}
+                  >
+                    <Text style={styles.confirmDeleteText}>
+                      {deletingChallenge ? 'Excluindo...' : 'Excluir'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
 
           {/* Modal Criar Desafio (reutilizando CreateChallengeModal) */}
           <CreateChallengeModal
