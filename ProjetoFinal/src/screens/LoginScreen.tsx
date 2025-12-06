@@ -11,11 +11,7 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
-import * as LocalAuthentication from "expo-local-authentication";
-import * as SecureStore from "expo-secure-store";
 import { useAuth } from "../contexts/AuthContext";
-import ApiService from "../services/ApiService";
-import { isBiometricEnabled } from "../utils/biometricPreferences";
 import {
   AuthContainer,
   AuthShapesContainer,
@@ -23,6 +19,7 @@ import {
   AuthBackButton,
   AuthTitle,
   AuthLink,
+  AuthRememberMe,
 } from "../components/Auth";
 import { Button } from "../components/common";
 import { styles as authStyles } from "../styles/authStyles";
@@ -35,71 +32,8 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [biometricAvailable, setBiometricAvailable] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const passwordRef = useRef<TextInput>(null);
-
-  useEffect(() => {
-    checkBiometricAvailability();
-  }, []);
-
-  async function checkBiometricAvailability() {
-    try {
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      setBiometricAvailable(hasHardware && enrolled);
-    } catch (error) {
-      setBiometricAvailable(false);
-    }
-  }
-
-  async function checkBiometricLogin() {
-    try {
-      const biometricEnabled = await isBiometricEnabled();
-      if (!biometricEnabled) {
-        return;
-      }
-
-      const savedToken = await SecureStore.getItemAsync("app_biometric_token");
-      if (!savedToken) {
-        return;
-      }
-
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-
-      if (!hasHardware || !enrolled) {
-        return;
-      }
-
-      const biometricTypes = await LocalAuthentication.supportedAuthenticationTypesAsync();
-      const isFaceID = biometricTypes.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION);
-      const promptMsg = isFaceID 
-        ? "Use o Face ID para entrar" 
-        : "Use sua biometria para entrar";
-      
-      setLoading(true);
-      
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: promptMsg,
-        cancelLabel: "Cancelar",
-        disableDeviceFallback: false,
-      });
-
-      setLoading(false);
-
-      if (result.success) {
-        try {
-          await ApiService.setToken(savedToken);
-          await login("", "");
-        } catch (error) {
-          await SecureStore.deleteItemAsync("app_biometric_token");
-          Alert.alert("Erro", "Não foi possível fazer login com biometria. Tente novamente.");
-        }
-      }
-    } catch (error) {
-      setLoading(false);
-    }
-  }
 
   async function handleLogin() {
     if (!email || !password) {
@@ -109,7 +43,7 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      await login(email, password);
+      await login(email, password, rememberMe);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Não foi possível realizar o login.";
       Alert.alert("Erro", errorMessage);
@@ -180,6 +114,8 @@ export default function LoginScreen() {
               </View>
             </View>
 
+            <AuthRememberMe value={rememberMe} onValueChange={setRememberMe} />
+
             <Button
               onPress={handleLogin}
               label="Entrar"
@@ -195,17 +131,6 @@ export default function LoginScreen() {
               linkText="CADASTRE-SE!"
               onPress={() => navigation.navigate("Signup")}
             />
-
-            {biometricAvailable && (
-              <TouchableOpacity
-                style={authStyles.biometricButton}
-                onPress={checkBiometricLogin}
-                activeOpacity={0.8}
-              >
-                <Ionicons name="finger-print" size={20} color="#3b82f6" />
-                <Text style={authStyles.biometricButtonText}>Entrar com Face ID</Text>
-              </TouchableOpacity>
-            )}
           </AuthCard>
         </AuthContainer>
       </ScrollView>

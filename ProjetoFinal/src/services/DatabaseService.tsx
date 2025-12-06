@@ -3,21 +3,13 @@ import { Platform } from "react-native";
 
 const db = Platform.OS !== "web" ? SQLite.openDatabaseSync("appdb.db") : null;
 
-/**
- * Serviço de Banco de Dados
- * Responsável por criar tabelas e fornecer acesso ao banco
- */
 class DatabaseService {
-  /**
-   * Inicializa o banco de dados e cria as tabelas
-   */
   static async initDatabase() {
     if (Platform.OS === "web") {
       return;
     }
 
     try {
-      // Cria tabela de usuários (SEM SENHA - usa backend para auth)
       await db!.execAsync(`
         CREATE TABLE IF NOT EXISTS users (
           id TEXT PRIMARY KEY,
@@ -49,6 +41,16 @@ class DatabaseService {
         );
       `);
 
+      await db!.execAsync(`
+        CREATE TABLE IF NOT EXISTS pending_challenges (
+          id TEXT PRIMARY KEY,
+          type TEXT NOT NULL,
+          data TEXT NOT NULL,
+          created_at INTEGER NOT NULL,
+          synced INTEGER DEFAULT 0
+        );
+      `);
+
       
     } catch (error) {
       
@@ -56,30 +58,22 @@ class DatabaseService {
     }
   }
 
-  /**
-   * Retorna a instância do banco de dados
-   */
   static getDatabase() {
     if (Platform.OS === "web") return null;
     return db;
   }
 
-  /**
-   * Limpa todas as tabelas (útil para desenvolvimento)
-   */
   static async clearDatabase() {
     if (Platform.OS === "web") return;
 
     try {
       await db!.execAsync("DROP TABLE IF EXISTS users;");
       await db!.execAsync("DROP TABLE IF EXISTS challenges;");
+      await db!.execAsync("DROP TABLE IF EXISTS pending_challenges;");
       await this.initDatabase();
     } catch (error) {}
   }
 
-  /**
-   * Lista todos os registros de uma tabela (debug)
-   */
   static async debugTable(tableName: string) {
     if (Platform.OS === "web") {
       return;

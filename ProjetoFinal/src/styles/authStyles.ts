@@ -15,21 +15,4 @@ export const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
   },
-  biometricButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.surface,
-    borderRadius: 8,
-    paddingVertical: 12,
-    marginTop: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  biometricButtonText: {
-    color: colors.blue400,
-    fontSize: 15,
-    fontWeight: "500",
-    marginLeft: 8,
-  },
 });

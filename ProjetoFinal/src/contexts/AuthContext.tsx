@@ -1,14 +1,11 @@
 import React, { createContext, useState, ReactNode, useContext, useEffect } from "react";
-import { Alert, Platform } from "react-native";
+import { Alert } from "react-native";
 import { useNavigation, NavigationProp } from "@react-navigation/native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import * as SecureStore from "expo-secure-store";
-import * as LocalAuthentication from "expo-local-authentication";
 import ApiService from "../services/ApiService";
 import UserService from "../services/UserService";
 import DatabaseService from "../services/DatabaseService";
 import { RootStackParamList } from "../navigation/AppNavigator";
-import { isBiometricEnabled, clearBiometricPreference } from "../utils/biometricPreferences";
 
 export interface User {
   id: string;
@@ -26,20 +23,15 @@ export interface User {
 interface AuthContextType {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
   signup: (email: string, password: string, name: string, handle: string, collegeId?: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
-  enableBiometricAuth: () => Promise<boolean>;
-  disableBiometricAuth: () => Promise<void>;
-  loginWithBiometrics: () => Promise<boolean>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
 
-// SecureStore exige chaves alfanuméricas (sem @, :, etc)
 const USER_ID_KEY = "app_user_id";
-const BIOMETRIC_TOKEN_KEY = "app_biometric_token";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
@@ -54,9 +46,40 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await DatabaseService.initDatabase();
 
-      const biometricEnabled = await isBiometricEnabled();
-      if (biometricEnabled) {
-        await loginWithBiometrics();
+      const tokens = await ApiService.getTokens();
+      if (tokens.accessToken) {
+        try {
+          const userData = await ApiService.getMe();
+          if (userData && userData.id) {
+            await AsyncStorage.setItem(USER_ID_KEY, userData.id);
+            try {
+              await UserService.syncUserFromBackend(userData);
+            } catch (syncError) {}
+            setUser(userData);
+          }
+        } catch (error: any) {
+          if (tokens.refreshToken) {
+            try {
+              const newTokens = await ApiService.refreshTokens(tokens.refreshToken);
+              await ApiService.saveTokens(newTokens.accessToken, newTokens.refreshToken);
+              
+              const userData = await ApiService.getMe();
+              if (userData && userData.id) {
+                await AsyncStorage.setItem(USER_ID_KEY, userData.id);
+                try {
+                  await UserService.syncUserFromBackend(userData);
+                } catch (syncError) {
+                  // Ignora erro
+                }
+                setUser(userData);
+              }
+            } catch (refreshError) {
+              await ApiService.clearTokens();
+            }
+          } else {
+            await ApiService.clearTokens();
+          }
+        }
       }
     } catch (error) {
       await ApiService.clearTokens();
@@ -65,44 +88,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  async function login(email: string, password: string) {
-    // Se email e password estão vazios, verificar se já está autenticado (login biométrico)
-    if (!email && !password) {
-      // Validar token antes de fazer login automático
-      const token = await ApiService.getToken();
-      if (!token) {
-        Alert.alert("Erro", "Sessão expirada. Faça login novamente.");
-        return;
-      }
-
-      // Validar se o token ainda é válido
-      try {
-        const userData = await ApiService.getMe();
-        if (userData && userData.id) {
-          await AsyncStorage.setItem(USER_ID_KEY, userData.id);
-          try {
-            await UserService.syncUserFromBackend(userData);
-          } catch (syncError) {
-            console.warn("Erro ao sincronizar com banco local:", syncError);
-          }
-          setUser(userData);
-          return;
-        }
-      } catch (error: any) {
-        // Token inválido ou expirado
-        await ApiService.clearTokens();
-        Alert.alert("Erro", "Sessão expirada. Faça login novamente.");
-        throw error;
-      }
-    }
-
+  async function login(email: string, password: string, rememberMe: boolean = true) {
     if (!email || !password) {
       Alert.alert("Erro", "Preencha todos os campos!");
       return;
     }
 
     try {
-      const { user: userData, tokens } = await ApiService.login(email, password);
+      const { user: userData, tokens } = await ApiService.login(email, password, rememberMe);
 
       let me;
       try {
@@ -122,7 +115,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         await UserService.syncUserFromBackend(me);
       } catch (syncError) {
-        // Erro no sync não deve impedir o login
+        // Ignora erro
       }
 
       setUser(me);
@@ -131,76 +124,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const message = ApiService.handleError(error);
       Alert.alert("Erro no Login", message);
       throw error;
-    }
-  }
-
-  async function enableBiometricAuth(): Promise<boolean> {
-    try {
-
-      const refreshToken = await ApiService.getRefreshToken?.();
-      const accessToken = await ApiService.getToken();
-      const tokenToSave = refreshToken || accessToken;
-
-      if (!tokenToSave) {
-        return false;
-      }
-
-      if (Platform.OS !== "web") {
-        await SecureStore.setItemAsync(BIOMETRIC_TOKEN_KEY, tokenToSave);
-      } else {
-        await AsyncStorage.setItem(BIOMETRIC_TOKEN_KEY, tokenToSave);
-      }
-
-      await AsyncStorage.setItem("app_biometric_enabled", "true");
-      return true;
-    } catch (error) {
-      console.warn("enableBiometricAuth error:", error);
-      return false;
-    }
-  }
-
-  async function disableBiometricAuth() {
-    await clearBiometricPreference();
-    await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
-  }
-
-  async function loginWithBiometrics(): Promise<boolean> {
-    try {
-      const enabled = await isBiometricEnabled();
-      if (!enabled) return false;
-
-      const hasHardware = await LocalAuthentication.hasHardwareAsync();
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      if (!hasHardware || !enrolled) return false;
-
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: "Autentique-se para entrar",
-        fallbackLabel: "Usar senha",
-      });
-
-      if (!result.success) return false;
-
-      // ler token salvo
-      const storedToken = Platform.OS !== "web"
-        ? await SecureStore.getItemAsync(BIOMETRIC_TOKEN_KEY)
-        : await AsyncStorage.getItem(BIOMETRIC_TOKEN_KEY);
-
-      if (!storedToken) return false;
-
-      // configura ApiService com o token (usa setToken existente)
-      await ApiService.setToken(storedToken);
-
-      // obtém dados do usuário e define no estado
-      const me = await ApiService.getMe();
-      if (me && me.id) {
-        setUser(me);
-        return true;
-      }
-
-      return false;
-    } catch (error) {
-      console.warn("loginWithBiometrics error:", error);
-      return false;
     }
   }
 
@@ -221,13 +144,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    // Se handle foi fornecido, valida tamanho mínimo
     if (handle && handle.trim().length > 0 && handle.trim().length < 3) {
       Alert.alert("Erro", "O nome de usuário deve ter no mínimo 3 caracteres!");
       return;
     }
 
-    // Gerar handle automaticamente se não fornecido (baseado no email)
     const finalHandle = handle && handle.trim() ? handle.trim() : email.split("@")[0];
 
     try {
@@ -251,7 +172,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         await UserService.syncUserFromBackend(me);
       } catch (syncError) {
-        // Erro no sync não deve impedir o cadastro
+        // Ignora erro
       }
 
       setUser(me);
@@ -265,30 +186,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   async function logout() {
     try {
-      await ApiService.clearTokens();
+      await ApiService.logout();
       await AsyncStorage.removeItem(USER_ID_KEY);
-
-      // SecureStore só funciona em plataformas móveis
-      if (Platform.OS !== 'web') {
-        try {
-          await SecureStore.deleteItemAsync(BIOMETRIC_TOKEN_KEY);
-        } catch (secureStoreError) {
-          // Ignora erros ao deletar token biométrico
-        }
-      }
-
-      // Limpar preferência de biometria também
-      try {
-        await clearBiometricPreference();
-      } catch (error) {
-        // Ignora erros
-      }
 
       if (user?.id) await UserService.clearUserCache(user.id);
 
       setUser(null);
     } catch (error) {
-
+      try {
+        await ApiService.clearTokens();
+        await AsyncStorage.removeItem(USER_ID_KEY);
+        setUser(null);
+      } catch (clearError) {}
     }
   }
 
@@ -303,7 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, signup, logout, refreshUser, enableBiometricAuth, disableBiometricAuth, loginWithBiometrics }}>
+    <AuthContext.Provider value={{ user, loading, login, signup, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

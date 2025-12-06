@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import ApiService from '../services/ApiService';
+import OfflineSyncService from '../services/OfflineSyncService';
 import IconImage from './IconImage';
 import Judge0Service, { LANGUAGE_JUDGE0_MAP, DEFAULT_LANGUAGE_ID } from '../services/Judge0Service';
 
@@ -326,27 +327,51 @@ export default function CreateChallengeModal({
         payload.groupId = groupId;
       }
 
+      const isOnline = await OfflineSyncService.isOnline();
+      const challengeData = {
+        title: payload.title,
+        description: payload.description,
+        difficulty: payload.difficulty,
+        codeTemplate: payload.codeTemplate,
+        isPublic: groupId ? false : payload.isPublic,
+        languageId: payload.languageId,
+        xp: getBaseXpByDifficulty(payload.difficulty),
+        tests: validTests,
+      };
+
       let created: any;
+
+      if (!isOnline) {
+        // Offline: salva localmente para sincronização posterior
+        const offlineId = await OfflineSyncService.savePendingChallenge({
+          type: groupId ? 'groupChallenge' : 'challenge',
+          data: {
+            ...challengeData,
+            groupId: groupId,
+          },
+        });
+
+        Alert.alert(
+          'Salvo Offline',
+          'Seu desafio foi salvo localmente e será enviado automaticamente quando a conexão for restaurada.',
+          [
+            {
+              text: 'OK',
+              onPress: () => {
+                onSuccess({ id: offlineId, ...challengeData, isOffline: true });
+                onClose();
+              },
+            },
+          ]
+        );
+        return;
+      }
+
+      // Online: cria normalmente
       if (groupId) {
-        created = await ApiService.createGroupChallenge(groupId, {
-          title: payload.title,
-          description: payload.description,
-          difficulty: payload.difficulty,
-          codeTemplate: payload.codeTemplate,
-          isPublic: false,
-          languageId: payload.languageId,
-          xp: getBaseXpByDifficulty(payload.difficulty),
-        });
+        created = await ApiService.createGroupChallenge(groupId, challengeData);
       } else {
-        created = await ApiService.createChallenge({
-          title: payload.title,
-          description: payload.description,
-          difficulty: payload.difficulty,
-          codeTemplate: payload.codeTemplate,
-          isPublic: payload.isPublic,
-          languageId: payload.languageId,
-          xp: getBaseXpByDifficulty(payload.difficulty),
-        });
+        created = await ApiService.createChallenge(challengeData);
       }
 
       const exercise = created?.exercise || created;
@@ -356,7 +381,46 @@ export default function CreateChallengeModal({
       setSuccessCode(code);
       setShowSuccessModal(true);
     } catch (error: any) {
-      Alert.alert('Erro', ApiService.handleError(error));
+      const errorMessage = ApiService.handleError(error);
+      
+      // Se falhar e estiver online, tenta salvar offline como fallback
+      const isOnline = await OfflineSyncService.isOnline();
+      if (!isOnline) {
+        try {
+          const offlineId = await OfflineSyncService.savePendingChallenge({
+            type: groupId ? 'groupChallenge' : 'challenge',
+            data: {
+              title: formData.title.trim(),
+              description: formData.description.trim(),
+              difficulty: formData.difficulty,
+              codeTemplate: formData.codeTemplate,
+              isPublic: groupId ? false : formData.isPublic,
+              languageId: formData.languageId,
+              xp: getBaseXpByDifficulty(formData.difficulty),
+              groupId: groupId,
+            },
+          });
+
+          Alert.alert(
+            'Salvo Offline',
+            'Seu desafio foi salvo localmente e será enviado automaticamente quando a conexão for restaurada.',
+            [
+              {
+                text: 'OK',
+                onPress: () => {
+                  onSuccess({ id: offlineId, isOffline: true });
+                  onClose();
+                },
+              },
+            ]
+          );
+          return;
+        } catch (offlineError) {
+          // Se falhar ao salvar offline também, mostra o erro original
+        }
+      }
+
+      Alert.alert('Erro', errorMessage);
     } finally {
       setIsSubmitting(false);
     }

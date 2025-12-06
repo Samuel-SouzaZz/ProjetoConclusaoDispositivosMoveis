@@ -9,6 +9,7 @@ import {
   RefreshControl,
   Image,
   Dimensions,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -19,6 +20,8 @@ import { useFocusEffect } from '@react-navigation/native';
 import { deriveLevelFromXp, getProgressToNextLevel } from "../utils/levels";
 import * as ImagePicker from "expo-image-picker";
 import IconImage from "../components/IconImage";
+import ImagePickerOptionsModal from "../components/ImagePickerOptionsModal";
+import CameraModal from "../components/CameraModal";
 
 const { width } = Dimensions.get("window");
 
@@ -66,35 +69,53 @@ export default function ProfileScreen() {
   const [activeTab, setActiveTab] = useState<TabType>('completed');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [showImageOptions, setShowImageOptions] = useState(false);
+  const [showCamera, setShowCamera] = useState(false);
 
-  // Editar Avatar do usuario
-  const pickImage = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-  if (status !== "granted") {
-    alert("Acesso necessário para suas imagens da galeria.");
-    return;
-  }
-
-  const result = await ImagePicker.launchImageLibraryAsync({
-    mediaTypes: "images",
-    base64: true,
-    allowsEditing: true,
-    aspect: [1, 1],
-    quality: 0.8,
-  });
-
-  if (!result.canceled && result.assets?.length > 0) {
-    const asset = result.assets[0];
-
-    const dataUrl = `data:image/jpeg;base64,${asset.base64}`;
-
+  const handleUploadAvatar = async (imageData: string) => {
     try {
+      const dataUrl = `data:image/jpeg;base64,${imageData}`;
       await ApiService.uploadMyAvatar(dataUrl);
       await loadProfile();
+      Alert.alert("Sucesso", "Foto de perfil atualizada!");
     } catch (err) {
-      // Fallback se enviar avatar falhar
+      Alert.alert("Erro", "Não foi possível atualizar a foto de perfil.");
     }
-  }
+  };
+
+  const pickImageFromGallery = async () => {
+    setShowImageOptions(false);
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      Alert.alert("Permissão", "Acesso necessário para suas imagens da galeria.");
+      return;
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: "images",
+      base64: true,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+
+    if (!result.canceled && result.assets?.length > 0) {
+      const asset = result.assets[0];
+      if (asset.base64) {
+        await handleUploadAvatar(asset.base64);
+      }
+    }
+  };
+
+  const takePhotoWithCamera = () => {
+    setShowImageOptions(false);
+    setShowCamera(true);
+  };
+
+  const handleCameraPhoto = async (uri: string, base64?: string) => {
+    if (base64) {
+      await handleUploadAvatar(base64);
+    }
   };
 
   const [profile, setProfile] = useState<User | null>(null);
@@ -382,7 +403,7 @@ export default function ProfileScreen() {
                 )}
               </View>
               <TouchableOpacity
-                onPress={pickImage}
+                onPress={() => setShowImageOptions(true)}
                 style={[styles.editButton, { backgroundColor: colors.secondary || '#4A90E2' }]}
                 accessibilityLabel="Editar foto de perfil"
                 accessibilityRole="button"
@@ -524,6 +545,19 @@ export default function ProfileScreen() {
           )}
         </View>
       </ScrollView>
+
+      <ImagePickerOptionsModal
+        visible={showImageOptions}
+        onClose={() => setShowImageOptions(false)}
+        onTakePhoto={takePhotoWithCamera}
+        onPickFromGallery={pickImageFromGallery}
+      />
+
+      <CameraModal
+        visible={showCamera}
+        onClose={() => setShowCamera(false)}
+        onPhotoTaken={handleCameraPhoto}
+      />
     </SafeAreaView>
   );
 }

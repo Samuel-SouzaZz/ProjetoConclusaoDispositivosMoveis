@@ -1,8 +1,7 @@
 /**
- * User Model
- * 
- * IMPORTANTE: NÃO contém senha!
- * Senha é gerenciada apenas pelo backend
+ * User Model - NÃO contém senha
+ * Backend gerencia senhas (armazena apenas hash)
+ * Frontend usa tokens (refresh token válido 7 dias)
  */
 export interface User {
   id?: string | number;

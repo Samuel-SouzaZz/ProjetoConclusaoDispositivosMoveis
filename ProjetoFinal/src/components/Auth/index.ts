@@ -11,4 +11,5 @@ export { default as AuthSocialButton } from "./AuthSocialButton";
 export { default as AuthSocialButtons } from "./AuthSocialButtons";
 export { default as AuthSelectInput } from "./AuthSelectInput";
 export { default as CollegeSelectModal } from "./CollegeSelectModal";
+export { default as AuthRememberMe } from "./AuthRememberMe";
 

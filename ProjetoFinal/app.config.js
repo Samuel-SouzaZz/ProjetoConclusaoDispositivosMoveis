@@ -21,7 +21,8 @@ export default {
     ios: {
       supportsTablet: true,
       infoPlist: {
-        NSFaceIDUsageDescription: "Usamos o Face ID para permitir que você faça login de forma rápida e segura no aplicativo."
+        NSCameraUsageDescription: "Este app precisa de acesso à câmera para tirar fotos de perfil.",
+        NSPhotoLibraryUsageDescription: "Este app precisa de acesso à galeria para escolher fotos de perfil."
       }
     },
     android: {
@@ -31,7 +32,8 @@ export default {
       },
       edgeToEdgeEnabled: true,
       predictiveBackGestureEnabled: false,
-      package: "com.anonymous.projetofinal"
+      package: "com.anonymous.projetofinal",
+      permissions: ["CAMERA", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
     },
     web: {
       favicon: "./assets/favicon.png"
@@ -39,9 +41,9 @@ export default {
     plugins: [
       "expo-font",
       [
-        "expo-local-authentication",
+        "expo-camera",
         {
-          faceIDPermission: "Permitir que $(PRODUCT_NAME) use Face ID para autenticação rápida e segura."
+          cameraPermission: "Este app precisa de acesso à câmera para tirar fotos."
         }
       ]
     ]

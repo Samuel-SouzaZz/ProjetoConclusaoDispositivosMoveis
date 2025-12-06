@@ -15,18 +15,15 @@ if (!extra?.apiUrl || !extra?.apiPath) {
 
 export const BASE_URL = `${apiUrl}${apiPath}`;
 
-// SecureStore exige chaves alfanuméricas (sem @, :, etc)
+// NUNCA salvar senhas, apenas tokens
 const TOKEN_KEY = 'app_access_token';
 const REFRESH_TOKEN_KEY = 'app_refresh_token';
 
-// Helper para armazenamento seguro
 class SecureStorage {
   static async setItem(key: string, value: string): Promise<void> {
     if (Platform.OS === 'web') {
-      // Web: usa AsyncStorage (menos seguro, mas necessário)
       await AsyncStorage.setItem(key, value);
     } else {
-      // Mobile: usa SecureStore (criptografado)
       await SecureStore.setItemAsync(key, value);
     }
   }
@@ -55,7 +52,7 @@ class SecureStorage {
 
 class ApiService {
   private api: AxiosInstance;
-  private refreshTokenPromise: Promise<any> | null = null; // Previne múltiplos refreshs simultâneos
+  private refreshTokenPromise: Promise<any> | null = null;
 
   private async safeRequest<T = any>(
     request: () => Promise<{ data: T } | AxiosResponse<T>>
@@ -101,17 +98,14 @@ class ApiService {
             url.includes('/auth/login') ||
             url.includes('/auth/signup');
 
-          // Não tenta refresh em requisições de autenticação
           if (isAuthRequest) {
             await this.clearTokens();
             return Promise.reject(error);
           }
 
-          // Marca que já tentou fazer refresh (evita loop infinito)
           (originalRequest as any)._retry = true;
 
           try {
-            // Usa promise única para múltiplas requisições simultâneas
             if (!this.refreshTokenPromise) {
               const refreshToken = await SecureStorage.getItem(REFRESH_TOKEN_KEY);
               
@@ -172,16 +166,45 @@ class ApiService {
     this.api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   }
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string, rememberMe: boolean = true) {
     const response: any = await this.safeRequest(() => this.api.post('/auth/login', { email, password }));
     const { user, tokens } = response;
-    await this.saveTokens(tokens.accessToken, tokens.refreshToken);
+    
+    if (rememberMe) {
+      await this.saveTokens(tokens.accessToken, tokens.refreshToken);
+    } else {
+      await SecureStorage.setItem(TOKEN_KEY, tokens.accessToken);
+      this.api.defaults.headers.common['Authorization'] = `Bearer ${tokens.accessToken}`;
+    }
+    
     return { user, tokens };
   }
 
   async refreshTokens(refreshToken: string) {
-    const response: any = await this.safeRequest(() => this.api.post('/auth/refresh', { refreshToken }));
-    return response.tokens;
+    try {
+      const response: any = await this.safeRequest(() => 
+        this.api.post('/auth/refresh', { refreshToken })
+      );
+      
+      if (response && response.tokens) {
+        return {
+          accessToken: response.tokens.accessToken,
+          refreshToken: response.tokens.refreshToken,
+        };
+      }
+      
+      if (response && response.accessToken && response.refreshToken) {
+        return {
+          accessToken: response.accessToken,
+          refreshToken: response.refreshToken,
+        };
+      }
+      
+      throw new Error('Formato de resposta de refresh inválido');
+    } catch (error: any) {
+      await this.clearTokens();
+      throw error;
+    }
   }
 
   async getRefreshToken(): Promise<string | null> {
@@ -342,14 +365,11 @@ class ApiService {
   }
 
   async getExerciseRanking(exerciseId: string) {
-    // Tenta múltiplos endpoints possíveis
     try {
-      // Tenta endpoint de ranking específico
       return await this.safeRequest(() => this.api.get(`/exercises/${exerciseId}/ranking`));
     } catch (error: any) {
       if (error?.message?.includes('404') || error?.response?.status === 404) {
         try {
-          // Fallback: tenta buscar todas as submissões aceitas do exercício
           return await this.safeRequest(() => 
             this.api.get('/submissions', { 
               params: { 
@@ -360,8 +380,6 @@ class ApiService {
             })
           );
         } catch (fallbackError) {
-          // Último fallback: retorna array vazio
-          console.warn('Nenhum endpoint de ranking disponível, retornando vazio');
           return [];
         }
       }
@@ -802,22 +820,51 @@ class ApiService {
     }
   }
 
-  private async saveTokens(accessToken: string, refreshToken: string) {
+  // NUNCA salva senhas - apenas tokens
+  async saveTokens(accessToken: string, refreshToken: string) {
     await SecureStorage.setItem(TOKEN_KEY, accessToken);
     await SecureStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+    this.api.defaults.headers.common['Authorization'] = `Bearer ${accessToken}`;
+  }
+
+  async logout(): Promise<void> {
+    try {
+      const refreshToken = await SecureStorage.getItem(REFRESH_TOKEN_KEY);
+      
+      if (refreshToken) {
+        try {
+          await this.api.post('/auth/logout', { refreshToken }, {
+            timeout: 5000,
+          });
+        } catch (error) {}
+      }
+    } catch (error) {}
+    finally {
+      await this.clearTokens();
+    }
+  }
+
+  async logoutAll(): Promise<void> {
+    try {
+      try {
+        await this.api.post('/auth/logout-all', {}, {
+            timeout: 5000,
+          });
+      } catch (error) {}
+    } catch (error) {}
+    finally {
+      await this.clearTokens();
+    }
   }
 
   async clearTokens() {
     try {
-      // Remove tokens com chaves novas (alfanuméricas)
       await SecureStorage.removeItem(TOKEN_KEY);
       await SecureStorage.removeItem(REFRESH_TOKEN_KEY);
-      
-      // Remove tokens com chaves antigas (para limpar cache antigo)
       await AsyncStorage.removeItem('@app:access_token');
       await AsyncStorage.removeItem('@app:refresh_token');
       await AsyncStorage.removeItem('@app:user_id');
-      
+      delete this.api.defaults.headers.common['Authorization'];
       this.refreshTokenPromise = null;
     } catch (error) {
       console.error('Erro ao limpar tokens:', error);
