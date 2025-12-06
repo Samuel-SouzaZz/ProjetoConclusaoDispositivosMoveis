@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState, useRef, useCallback } from "react";
 
-import { View, Text, StyleSheet, FlatList, TextInput, TouchableOpacity, Dimensions, Modal, ScrollView } from "react-native";
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Dimensions, Modal, ScrollView } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
 import { Ionicons } from "@expo/vector-icons";
@@ -10,6 +10,7 @@ import ScreenHeaderWithAction from "../components/ScreenHeaderWithAction";
 import LoadingScreen from "../components/LoadingScreen";
 import EmptyState from "../components/EmptyState";
 import ErrorScreen from "../components/ErrorScreen";
+import { Input } from "../components/common";
 
 const { width } = Dimensions.get("window");
 
@@ -205,15 +206,14 @@ export default function ForumScreen() {
       />
       
       <View style={[styles.searchRow]}>
-        <View style={[styles.searchBox, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <Ionicons name="search" size={18} color={colors.textSecondary} style={{ marginRight: 8 }} />
-          <TextInput
-            style={[styles.searchInput, { color: colors.text }]}
-            placeholder="Buscar por título, assunto ou descrição"
-            placeholderTextColor={colors.textSecondary}
+        <View style={{ flex: 1 }}>
+          <Input
             value={query}
             onChangeText={setQuery}
+            placeholder="Buscar por título, assunto ou descrição"
             returnKeyType="search"
+            leftIcon={<Ionicons name="search" size={18} color={colors.textSecondary} />}
+            containerStyle={{ marginBottom: 0 }}
           />
         </View>
         <TouchableOpacity
@@ -294,69 +294,52 @@ export default function ForumScreen() {
               </TouchableOpacity>
             </View>
             <ScrollView>
-              <View style={styles.formGroup}>
-
-                <Text style={[styles.label, { color: colors.text }]}>Código do Desafio *</Text>
-
-                <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                  placeholder="Digite o código do desafio (ex: #ASFS0001)"
-                  placeholderTextColor={colors.textSecondary}
-                  value={formData.exerciseCode}
-                  onChangeText={(v) => handleExerciseCodeChange(v)}
-                  onEndEditing={() => tryPrefillFromCode()}
-                  autoCapitalize="none"
-                />
-                {codeLookupLoading && (
-                  <Text style={{ marginTop: 6, color: colors.textSecondary }}>Buscando desafio pelo código...</Text>
-                )}
-                {!!codeLookupError && (
-                  <Text style={{ marginTop: 6, color: (colors as any).error || '#F44336' }}>{String(codeLookupError)}</Text>
-                )}
-              </View>
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Nome do Fórum *</Text>
-                <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                  placeholder="Digite o nome do fórum"
-                  placeholderTextColor={colors.textSecondary}
-                  value={formData.title}
-                  onChangeText={(v) => setFormData({ ...formData, title: v })}
-                />
-              </View>
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Assunto *</Text>
-                <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                  placeholder="Ex: Desenvolvimento Web, Backend, Frontend..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={formData.subject}
-                  onChangeText={(v) => setFormData({ ...formData, subject: v })}
-                />
-              </View>
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Descrição</Text>
-                <TextInput
-                  style={[styles.textarea, { borderColor: colors.border, color: colors.text }]}
-                  placeholder="Descreva o propósito e tema deste fórum..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={formData.description}
-                  onChangeText={(v) => setFormData({ ...formData, description: v })}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-              </View>
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Palavras-chave</Text>
-                <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                  placeholder="Ex: react, backend, javascript"
-                  placeholderTextColor={colors.textSecondary}
-                  value={formData.keywords}
-                  onChangeText={(v) => setFormData({ ...formData, keywords: v })}
-                />
-              </View>
+              <Input
+                label="Código do Desafio *"
+                value={formData.exerciseCode}
+                onChangeText={(v) => handleExerciseCodeChange(v)}
+                onEndEditing={() => tryPrefillFromCode()}
+                placeholder="Digite o código do desafio (ex: #ASFS0001)"
+                autoCapitalize="none"
+                error={codeLookupError || undefined}
+                containerStyle={styles.formGroup}
+              />
+              {codeLookupLoading && (
+                <Text style={{ marginTop: -12, marginBottom: 8, color: colors.textSecondary, fontSize: 12 }}>
+                  Buscando desafio pelo código...
+                </Text>
+              )}
+              <Input
+                label="Nome do Fórum *"
+                value={formData.title}
+                onChangeText={(v) => setFormData({ ...formData, title: v })}
+                placeholder="Digite o nome do fórum"
+                containerStyle={styles.formGroup}
+              />
+              <Input
+                label="Assunto *"
+                value={formData.subject}
+                onChangeText={(v) => setFormData({ ...formData, subject: v })}
+                placeholder="Ex: Desenvolvimento Web, Backend, Frontend..."
+                containerStyle={styles.formGroup}
+              />
+              <Input
+                label="Descrição"
+                value={formData.description}
+                onChangeText={(v) => setFormData({ ...formData, description: v })}
+                placeholder="Descreva o propósito e tema deste fórum..."
+                multiline
+                numberOfLines={4}
+                containerStyle={styles.formGroup}
+                inputStyle={{ minHeight: 100, textAlignVertical: "top" }}
+              />
+              <Input
+                label="Palavras-chave"
+                value={formData.keywords}
+                onChangeText={(v) => setFormData({ ...formData, keywords: v })}
+                placeholder="Ex: react, backend, javascript"
+                containerStyle={styles.formGroup}
+              />
               <View style={styles.formGroup}>
                 <Text style={[styles.label, { color: colors.text }]}>Privacidade</Text>
                 <TouchableOpacity
@@ -483,8 +466,6 @@ export default function ForumScreen() {
 
 const styles = StyleSheet.create({
   searchRow: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, gap: 10, marginBottom: 8 },
-  searchBox: { flex: 1, flexDirection: 'row', alignItems: 'center', borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, height: 44 },
-  searchInput: { flex: 1, fontSize: 14 },
   filterButton: { width: 44, height: 44, borderWidth: 1, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   listContent: { paddingHorizontal: 16, paddingBottom: 24, gap: 16 },
   card: { flex: 1, borderWidth: 1, borderRadius: 16, padding: 14, minHeight: 120, position: 'relative', marginBottom: 16 },
@@ -505,9 +486,6 @@ const styles = StyleSheet.create({
   modalHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
   modalTitle: { fontSize: 18, fontWeight: '800' },
   formGroup: { marginBottom: 12 },
-  label: { fontSize: 13, fontWeight: '700', marginBottom: 6 },
-  input: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, height: 44 },
-  textarea: { borderWidth: 1, borderRadius: 12, paddingHorizontal: 12, paddingVertical: 10, minHeight: 100 },
   checkboxRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 },
   checkbox: { width: 22, height: 22, borderWidth: 2, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   checkboxSelected: { backgroundColor: '#4A90E2' },

@@ -1,35 +1,51 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
   ScrollView,
+  StyleSheet,
   Modal,
   FlatList,
-  Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
-import { useAuth } from "../contexts/AuthContext";
 import { Ionicons } from "@expo/vector-icons";
-import { styles } from "../styles/authStyles";
-
-const { height } = Dimensions.get("window");
+import { useAuth } from "../contexts/AuthContext";
+import ApiService from "../services/ApiService";
+import {
+  AuthContainer,
+  AuthShapesContainer,
+  AuthCard,
+  AuthBackButton,
+  AuthTitle,
+  AuthLink,
+  AuthFormRow,
+  AuthFormGroup,
+  CollegeSelectModal,
+} from "../components/Auth";
+import { Button } from "../components/common";
 
 interface College {
   id: string;
   name: string;
+  acronym?: string;
+  city?: string;
+  state?: string;
 }
 
-const collegesList: College[] = [
-  { id: "1", name: "Faculdade de Minas (FAMINAS)" },
-  { id: "2", name: "Universidade de São Paulo (USP)" },
-  { id: "3", name: "Universidade Federal de Minas Gerais (UFMG)" },
-  { id: "4", name: "Pontifícia Universidade Católica (PUC-SP)" },
-];
+function displayCollege(c: College): string {
+  const acronym = (c.acronym || "").trim();
+  const hasAcronymInName = acronym
+    ? (c.name || "").toLowerCase().includes(`(${acronym.toLowerCase()})`)
+    : false;
+  return hasAcronymInName
+    ? c.name
+    : `${c.name}${acronym ? ` (${acronym})` : ""}`;
+}
 
 export default function SignupScreen() {
   const { signup } = useAuth();
@@ -41,15 +57,54 @@ export default function SignupScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [college, setCollege] = useState<College | null>(null);
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [college, setCollege] = useState<College | null>(null);
+  const [collegesList, setCollegesList] = useState<College[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingColleges, setLoadingColleges] = useState(false);
   const [collegeModalVisible, setCollegeModalVisible] = useState(false);
 
+  useEffect(() => {
+    loadColleges();
+  }, []);
+
+  async function loadColleges() {
+    setLoadingColleges(true);
+    try {
+      const response: any = await ApiService.getColleges();
+      const items = Array.isArray(response) ? response : response?.items || [];
+      
+      const mappedColleges: College[] = items.map((c: any) => ({
+        id: c.id || c._id,
+        name: c.name || "",
+        acronym: c.acronym || null,
+        city: c.city || null,
+        state: c.state || null,
+      }));
+      
+      setCollegesList(mappedColleges);
+    } catch (error) {
+      setCollegesList([
+        { id: "1", name: "Faculdade de Minas", acronym: "FAMINAS", city: "Muriaé", state: "MG" },
+        { id: "2", name: "Universidade de São Paulo", acronym: "USP", city: "São Paulo", state: "SP" },
+        { id: "3", name: "Universidade Federal de Minas Gerais", acronym: "UFMG", city: "Belo Horizonte", state: "MG" },
+        { id: "4", name: "Pontifícia Universidade Católica", acronym: "PUC-SP", city: "São Paulo", state: "SP" },
+      ]);
+    } finally {
+      setLoadingColleges(false);
+    }
+  }
+
   async function handleSignup() {
-    if (!firstName || !lastName || !handle || !email || !password || !confirmPassword || !college) {
-      Alert.alert("Erro", "Preencha todos os campos!");
+    if (!firstName || !lastName || !email || !password || !confirmPassword) {
+      Alert.alert("Erro", "Preencha todos os campos obrigatórios!");
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Erro", "Email inválido!");
       return;
     }
 
@@ -59,18 +114,26 @@ export default function SignupScreen() {
     }
 
     if (password.length < 6) {
-      Alert.alert("Erro", "A senha deve ter pelo menos 6 caracteres.");
+      Alert.alert("Erro", "A senha deve ter no mínimo 6 caracteres!");
+      return;
+    }
+
+    if (handle && handle.length > 0 && handle.length < 3) {
+      Alert.alert("Erro", "O nome de usuário deve ter no mínimo 3 caracteres!");
       return;
     }
 
     setLoading(true);
     try {
+      const finalHandle = handle.trim() || email.split("@")[0];
+      const fullName = `${firstName} ${lastName}`.trim();
+
       await signup(
         email,
         password,
-        firstName + " " + lastName,
-        handle,
-        college.id
+        fullName,
+        finalHandle,
+        college?.id
       );
     } catch (err: any) {
       Alert.alert("Erro", err.message || "Não foi possível cadastrar.");
@@ -80,234 +143,244 @@ export default function SignupScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.blueShape} />
-
-      <View style={styles.yellowShape} />
-
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#f9fafb" }}>
       <ScrollView
-        style={styles.scrollView}
-        contentContainerStyle={[styles.scrollContent, { minHeight: height }]}
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.navigate("Home")}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-          accessibilityHint="Voltar para a tela inicial"
-        >
-          <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
-        </TouchableOpacity>
+        <AuthShapesContainer shapes={["yellow-top", "orange-bottom"]} />
 
-        <View style={styles.container}>
-          <View style={styles.contentSignup}>
-            <Text style={styles.title}>Criar conta</Text>
-            <Text style={styles.subtitle}>
-              Junte-se a nós e comece sua jornada de aprendizado
-            </Text>
+        <AuthContainer style={{ paddingTop: 40 }}>
+          <AuthCard isSignup>
+            <AuthBackButton onPress={() => navigation.navigate("Home")} />
 
-            <Text style={styles.label}>Nome</Text>
-            <TextInput
-              style={styles.inputSignup}
-              placeholder="Seu primeiro nome"
-              placeholderTextColor="#999"
-              value={firstName}
-              onChangeText={setFirstName}
-              accessibilityLabel="Nome"
-              accessibilityHint="Digite seu primeiro nome"
-              textContentType="givenName"
-              autoComplete="name-given"
-            />
+            <AuthTitle title="Cadastro" />
 
-            <Text style={styles.label}>Sobrenome</Text>
-            <TextInput
-              style={styles.inputSignup}
-              placeholder="Seu sobrenome"
-              placeholderTextColor="#999"
-              value={lastName}
-              onChangeText={setLastName}
-              accessibilityLabel="Sobrenome"
-              accessibilityHint="Digite seu sobrenome"
-              textContentType="familyName"
-              autoComplete="name-family"
-            />
+            <View style={{ gap: 20 }}>
+              <AuthFormRow>
+                <AuthFormGroup>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Nome</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={firstName}
+                      onChangeText={setFirstName}
+                      placeholder="Primeiro nome"
+                      placeholderTextColor="#9ca3af"
+                      textContentType="givenName"
+                      autoComplete="name-given"
+                    />
+                  </View>
+                </AuthFormGroup>
+                <AuthFormGroup>
+                  <View style={styles.inputGroup}>
+                    <Text style={styles.label}>Sobrenome</Text>
+                    <TextInput
+                      style={styles.input}
+                      value={lastName}
+                      onChangeText={setLastName}
+                      placeholder="Sobrenome"
+                      placeholderTextColor="#9ca3af"
+                      textContentType="familyName"
+                      autoComplete="name-family"
+                    />
+                  </View>
+                </AuthFormGroup>
+              </AuthFormRow>
 
-            <Text style={styles.label}>Nome de usuário</Text>
-            <TextInput
-              style={styles.inputSignup}
-              placeholder="joaosilva (sem espaços)"
-              placeholderTextColor="#999"
-              value={handle}
-              onChangeText={(text) =>
-                setHandle(text.toLowerCase().replace(/\s/g, ""))
-              }
-              autoCapitalize="none"
-              accessibilityLabel="Nome de usuário"
-              accessibilityHint="Digite um nome de usuário sem espaços"
-              textContentType="username"
-              autoComplete="username"
-            />
-
-            <Text style={styles.label}>E-mail</Text>
-            <TextInput
-              style={styles.inputSignup}
-              placeholder="seu@mail.com"
-              placeholderTextColor="#999"
-              value={email}
-              onChangeText={setEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-              accessibilityLabel="E-mail"
-              accessibilityHint="Digite seu e-mail"
-              textContentType="emailAddress"
-              autoComplete="email"
-            />
-
-            <Text style={styles.label}>Senha</Text>
-            <View style={styles.passwordContainerSignup}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Mínimo 6 caracteres"
-                placeholderTextColor="#999"
-                secureTextEntry={!showPassword}
-                value={password}
-                onChangeText={setPassword}
-                autoCapitalize="none"
-                accessibilityLabel="Senha"
-                accessibilityHint="Digite sua senha com no mínimo 6 caracteres"
-                textContentType="newPassword"
-                autoComplete="password-new"
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowPassword(!showPassword)}
-                accessibilityRole="button"
-                accessibilityLabel={showPassword ? "Ocultar senha" : "Mostrar senha"}
-                accessibilityHint="Alterna a visibilidade da senha"
-              >
-                <Ionicons
-                  name={showPassword ? "eye-off-outline" : "eye-outline"}
-                  size={22}
-                  color="#999"
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Nome de usuário (opcional)</Text>
+                <TextInput
+                  style={styles.input}
+                  value={handle}
+                  onChangeText={(text) => setHandle(text.toLowerCase().replace(/\s/g, ""))}
+                  placeholder="joaosilva"
+                  placeholderTextColor="#9ca3af"
+                  autoCapitalize="none"
+                  textContentType="username"
+                  autoComplete="username"
                 />
-              </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Faculdade</Text>
+                <TouchableOpacity
+                  style={styles.selectInput}
+                  onPress={() => setCollegeModalVisible(true)}
+                  disabled={loadingColleges}
+                >
+                  <Text style={[styles.selectText, !college && styles.selectPlaceholder]}>
+                    {loadingColleges
+                      ? "Carregando..."
+                      : college
+                      ? displayCollege(college)
+                      : "Selecione sua faculdade"}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#6b7280" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>E-mail</Text>
+                <TextInput
+                  style={styles.input}
+                  value={email}
+                  onChangeText={setEmail}
+                  placeholder="seu@mail.com"
+                  placeholderTextColor="#9ca3af"
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  textContentType="emailAddress"
+                  autoComplete="email"
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Senha</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={password}
+                    onChangeText={setPassword}
+                    placeholder="Mínimo 6 caracteres"
+                    placeholderTextColor="#9ca3af"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                    textContentType="newPassword"
+                    autoComplete="password-new"
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowPassword(!showPassword)}
+                  >
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color="#6b7280"
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Confirmar Senha</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={styles.passwordInput}
+                    value={confirmPassword}
+                    onChangeText={setConfirmPassword}
+                    placeholder="Repita sua senha"
+                    placeholderTextColor="#9ca3af"
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
+                    textContentType="newPassword"
+                    autoComplete="password-new"
+                  />
+                  <TouchableOpacity
+                    style={styles.eyeButton}
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                  >
+                    <Ionicons
+                      name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color="#6b7280"
+                    />
+                  </TouchableOpacity>
+                </View>
+              </View>
             </View>
 
-            <Text style={styles.label}>Confirmar Senha</Text>
-            <View style={styles.passwordContainerSignup}>
-              <TextInput
-                style={styles.passwordInput}
-                placeholder="Repita sua senha"
-                placeholderTextColor="#999"
-                secureTextEntry={!showConfirmPassword}
-                value={confirmPassword}
-                onChangeText={setConfirmPassword}
-                autoCapitalize="none"
-                accessibilityLabel="Confirmar senha"
-                accessibilityHint="Digite a mesma senha para confirmar"
-                textContentType="newPassword"
-                autoComplete="password-new"
-              />
-              <TouchableOpacity
-                style={styles.eyeIcon}
-                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                <Ionicons
-                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
-                  size={22}
-                  color="#999"
-                />
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.label}>Faculdade</Text>
-            <TouchableOpacity
-              style={styles.selectInput}
-              onPress={() => setCollegeModalVisible(true)}
-              accessibilityRole="button"
-              accessibilityLabel="Selecionar faculdade"
-              accessibilityHint="Abre a lista de faculdades"
-            >
-              <Text
-                style={college ? styles.selectText : styles.selectPlaceholder}
-              >
-                {college ? college.name : "Selecione sua faculdade"}
-              </Text>
-              <Ionicons name="chevron-down" size={20} color="#999" />
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={[styles.buttonSignup, loading && styles.buttonDisabled]}
+            <Button
               onPress={handleSignup}
+              label="Cadastrar"
+              loading={loading}
               disabled={loading}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Cadastrar"
-              accessibilityHint="Criar conta no aplicativo"
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Cadastrar</Text>
-              )}
-            </TouchableOpacity>
-          </View>
+              useGradient
+              fullWidth
+              style={{ marginTop: 8 }}
+            />
 
-          <View style={styles.footer}>
-            <Text style={styles.footerText}>Já tem conta? </Text>
-            <TouchableOpacity
+            <AuthLink
+              text="Já tem conta? "
+              linkText="Fazer login"
               onPress={() => navigation.navigate("Login")}
-              accessibilityRole="button"
-              accessibilityLabel="Fazer login"
-              accessibilityHint="Voltar para tela de login"
-            >
-              <Text style={styles.footerLink}>Fazer login</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
+            />
+          </AuthCard>
+        </AuthContainer>
       </ScrollView>
 
-      <Modal
+      <CollegeSelectModal
         visible={collegeModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setCollegeModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Selecione sua faculdade</Text>
-              <TouchableOpacity
-                onPress={() => setCollegeModalVisible(false)}
-                style={styles.modalClose}
-              >
-                <Ionicons name="close" size={24} color="#1A1A1A" />
-              </TouchableOpacity>
-            </View>
-
-            <FlatList
-              data={collegesList}
-              keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={styles.collegeItem}
-                  onPress={() => {
-                    setCollege(item);
-                    setCollegeModalVisible(false);
-                  }}
-                >
-                  <Text style={styles.collegeItemText}>{item.name}</Text>
-                  {college?.id === item.id && (
-                    <Ionicons name="checkmark" size={20} color="#3B5BDB" />
-                  )}
-                </TouchableOpacity>
-              )}
-            />
-          </View>
-        </View>
-      </Modal>
+        onClose={() => setCollegeModalVisible(false)}
+        colleges={collegesList}
+        selectedCollegeId={college?.id}
+        onSelect={setCollege}
+        loading={loadingColleges}
+        displayCollege={displayCollege}
+      />
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  inputGroup: {
+    marginBottom: 0,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#111827",
+    minHeight: 44,
+  },
+  selectInput: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    minHeight: 44,
+  },
+  selectText: {
+    flex: 1,
+    fontSize: 15,
+    color: "#111827",
+  },
+  selectPlaceholder: {
+    color: "#9ca3af",
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    minHeight: 44,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#111827",
+  },
+  eyeButton: {
+    padding: 12,
+  },
+});

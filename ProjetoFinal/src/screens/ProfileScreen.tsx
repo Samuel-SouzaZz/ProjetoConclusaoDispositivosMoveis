@@ -18,6 +18,7 @@ import ApiService from "../services/ApiService";
 import { useFocusEffect } from '@react-navigation/native';
 import { deriveLevelFromXp, getProgressToNextLevel } from "../utils/levels";
 import * as ImagePicker from "expo-image-picker";
+import IconImage from "../components/IconImage";
 
 const { width } = Dimensions.get("window");
 
@@ -91,18 +92,15 @@ export default function ProfileScreen() {
       await ApiService.uploadMyAvatar(dataUrl);
       await loadProfile();
     } catch (err) {
-      console.log("Erro ao enviar avatar", err);
+      // Fallback se enviar avatar falhar
     }
   }
-};
+  };
 
-  // Dados do perfil
   const [profile, setProfile] = useState<User | null>(null);
   const [userRank, setUserRank] = useState<number | null>(null);
   const [loginStreak, setLoginStreak] = useState<number>(0);
   const [completedCount, setCompletedCount] = useState<number>(0);
-  
-  // Badges e Títulos
   const [allBadges, setAllBadges] = useState<Badge[]>([]);
   const [userBadges, setUserBadges] = useState<string[]>([]);
   const [loadingBadges, setLoadingBadges] = useState(true);
@@ -110,14 +108,11 @@ export default function ProfileScreen() {
   const [userTitles, setUserTitles] = useState<UserTitleItem[]>([]);
   const [loadingTitles, setLoadingTitles] = useState(true);
   const [titleFilter, setTitleFilter] = useState<'all' | 'earned' | 'locked'>('all');
-  
-  // Exercícios
   const [completedExercises, setCompletedExercises] = useState<Exercise[]>([]);
   const [loadingCompleted, setLoadingCompleted] = useState(false);
   const [createdExercises, setCreatedExercises] = useState<Exercise[]>([]);
   const [loadingCreated, setLoadingCreated] = useState(false);
 
-  // Funções auxiliares de carregamento (definidas antes de loadProfile para evitar erro de inicialização)
   const loadBadges = useCallback(async () => {
     if (!user?.id) return;
     
@@ -177,8 +172,6 @@ export default function ProfileScreen() {
     try {
       setLoadingCompleted(true);
       const completedIds = await ApiService.getMyCompletedExercises();
-      
-      // Buscar detalhes dos exercícios
       const exercisesPromises = completedIds.map((id: string) =>
         ApiService.getChallengeById(id).catch(() => null)
       );
@@ -372,10 +365,8 @@ export default function ProfileScreen() {
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header com Gradiente (estilo TryHackMe) */}
         <View style={[styles.header, { backgroundColor: colors.primary }]}>
           <View style={styles.headerContent}>
-            {/* Avatar */}
             <View style={styles.avatarContainer}>
               <View style={[styles.avatar, { backgroundColor: 'rgba(255, 255, 255, 0.2)' }]}>
                 {avatarUrl && typeof avatarUrl === 'string' && avatarUrl.length > 0 ? (
@@ -400,7 +391,6 @@ export default function ProfileScreen() {
               </TouchableOpacity>
             </View>
 
-            {/* Informações do Usuário */}
             <View style={styles.userInfo}>
               <View style={styles.usernameContainer}>
                 <Text style={styles.username}>{profile?.name || user?.name || "Usuário"}</Text>
@@ -408,7 +398,6 @@ export default function ProfileScreen() {
                   <Text style={styles.userTitle}>[{titleName.trim()}]</Text>
                 )}
               </View>
-              {/* Nível e Progresso */}
               <View style={styles.levelInfo}>
                 <View style={styles.levelItem}>
                   <Text style={styles.levelLabel}>Nível</Text>
@@ -424,7 +413,6 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Cards de Estatísticas */}
           <View style={styles.statsCards}>
             <StatCard
               icon="trophy"
@@ -457,7 +445,6 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        {/* Tabs */}
         <View style={[styles.tabsContainer, { backgroundColor: colors.card, borderBottomColor: colors.border }]}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.tabs}>
             <TabButton
@@ -495,7 +482,6 @@ export default function ProfileScreen() {
           </ScrollView>
         </View>
 
-        {/* Conteúdo das Tabs */}
         <View style={[styles.contentArea, { backgroundColor: colors.background }]}>
           {activeTab === 'completed' && (
             <CompletedTab
@@ -974,7 +960,6 @@ const TitlesTab = ({ allTitles, userTitles, filter, onFilterChange, loading, col
 
   return (
     <View>
-      {/* Filtro - sempre visível */}
       <View style={styles.filterContainer}>
         <TouchableOpacity
           style={[
@@ -1023,7 +1008,6 @@ const TitlesTab = ({ allTitles, userTitles, filter, onFilterChange, loading, col
         </TouchableOpacity>
       </View>
 
-      {/* Grid de Títulos ou Mensagem Vazia */}
       {filteredTitles.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Ionicons name="trophy-outline" size={64} color={colors.textSecondary} />
@@ -1237,13 +1221,13 @@ const TitleCard = ({ title, earned, percent, label, colors, isDarkMode }: {
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
           {earned ? (
-            <Text>✅ </Text>
+            <IconImage type="checkmark" size={16} style={{ marginRight: 0 }} />
           ) : (
             <Image
               source={{ uri: 'https://img.icons8.com/?size=100&id=SxREtE5iZLQg&format=png&color=000000' }}
               style={{ width: 16, height: 16 }}
               resizeMode="contain"
-              onError={() => console.log('Erro ao carregar ícone de cadeado')}
+              onError={() => {}}
             />
           )}
           <Text style={[styles.titleLabel, { color: earned ? '#4CAF50' : colors.textSecondary }]}>

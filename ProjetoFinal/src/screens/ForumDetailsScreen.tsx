@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, ScrollView, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ScrollView, Modal } from 'react-native';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,6 +10,7 @@ import SafeScreen from '../components/SafeScreen';
 import ScreenHeader from '../components/ScreenHeader';
 import LoadingScreen from '../components/LoadingScreen';
 import ErrorScreen from '../components/ErrorScreen';
+import { Input } from '../components/common';
 
 const styles = StyleSheet.create({
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
@@ -304,15 +305,14 @@ export default function ForumDetailsScreen() {
         <View style={[styles.section]}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Tópicos</Text>
-            <View style={[styles.searchBox, { borderColor: colors.border, backgroundColor: colors.card }]}>
-
-              <Ionicons name="search" size={16} color={colors.textSecondary} />
-              <TextInput
-                style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Buscar por título, conteúdo ou palavra..."
-                placeholderTextColor={colors.textSecondary}
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Input
                 value={query}
                 onChangeText={setQuery}
+                placeholder="Buscar por título, conteúdo ou palavra..."
+                leftIcon={<Ionicons name="search" size={16} color={colors.textSecondary} />}
+                containerStyle={{ marginBottom: 0 }}
+                inputStyle={{ fontSize: 13 }}
               />
             </View>
           </View>
@@ -398,36 +398,32 @@ export default function ForumDetailsScreen() {
         <View style={[styles.section]}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Criar novo tópico</Text>
 
-          <View style={[styles.inputGroup, { borderColor: colors.border, backgroundColor: colors.card }]}>
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Título do tópico"
-              placeholderTextColor={colors.textSecondary}
-              value={title}
-              onChangeText={setTitle}
-            />
-          </View>
+          <Input
+            label="Título do tópico"
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Título do tópico"
+            containerStyle={{ marginTop: 10 }}
+          />
 
-          <View style={[styles.inputGroup, { borderColor: colors.border, backgroundColor: colors.card, height: 140 }]}>
-            <TextInput
-              style={[styles.input, styles.multiline, { color: colors.text }]}
-              placeholder="Conteúdo do tópico"
-              placeholderTextColor={colors.textSecondary}
-              value={content}
-              onChangeText={setContent}
-              multiline
-            />
-          </View>
+          <Input
+            label="Conteúdo do tópico"
+            value={content}
+            onChangeText={setContent}
+            placeholder="Conteúdo do tópico"
+            multiline
+            numberOfLines={4}
+            containerStyle={{ marginTop: 10 }}
+            inputStyle={{ minHeight: 120, textAlignVertical: "top" }}
+          />
 
-          <View style={[styles.inputGroup, { borderColor: colors.border, backgroundColor: colors.card }]}>
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Palavra-chave (opcional, separado por vírgula)"
-              placeholderTextColor={colors.textSecondary}
-              value={keyword}
-              onChangeText={setKeyword}
-            />
-          </View>
+          <Input
+            label="Palavra-chave (opcional)"
+            value={keyword}
+            onChangeText={setKeyword}
+            placeholder="Palavra-chave (opcional, separado por vírgula)"
+            containerStyle={{ marginTop: 10 }}
+          />
 
           <TouchableOpacity
             style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: saving ? 0.8 : 1 }]}
@@ -477,52 +473,40 @@ export default function ForumDetailsScreen() {
             </View>
 
             <ScrollView>
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Nome do Fórum *</Text>
-                <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                  placeholder="Digite o nome do fórum"
-                  placeholderTextColor={colors.textSecondary}
-                  value={forumTitle}
-                  onChangeText={setForumTitle}
-                />
-              </View>
+              <Input
+                label="Nome do Fórum *"
+                value={forumTitle}
+                onChangeText={setForumTitle}
+                placeholder="Digite o nome do fórum"
+                containerStyle={styles.formGroup}
+              />
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Assunto *</Text>
-                <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                  placeholder="Ex: Desenvolvimento Web, Backend, Frontend..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={forumSubject}
-                  onChangeText={setForumSubject}
-                />
-              </View>
+              <Input
+                label="Assunto *"
+                value={forumSubject}
+                onChangeText={setForumSubject}
+                placeholder="Ex: Desenvolvimento Web, Backend, Frontend..."
+                containerStyle={styles.formGroup}
+              />
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Palavras-chave</Text>
-                <TextInput
-                  style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-                  placeholder="Ex: react, backend, javascript"
-                  placeholderTextColor={colors.textSecondary}
-                  value={forumKeywords}
-                  onChangeText={setForumKeywords}
-                />
-              </View>
+              <Input
+                label="Palavras-chave"
+                value={forumKeywords}
+                onChangeText={setForumKeywords}
+                placeholder="Ex: react, backend, javascript"
+                containerStyle={styles.formGroup}
+              />
 
-              <View style={styles.formGroup}>
-                <Text style={[styles.label, { color: colors.text }]}>Descrição</Text>
-                <TextInput
-                  style={[styles.textarea, { borderColor: colors.border, color: colors.text }]}
-                  placeholder="Descreva o propósito e tema deste fórum..."
-                  placeholderTextColor={colors.textSecondary}
-                  value={forumDescription}
-                  onChangeText={setForumDescription}
-                  multiline
-                  numberOfLines={4}
-                  textAlignVertical="top"
-                />
-              </View>
+              <Input
+                label="Descrição"
+                value={forumDescription}
+                onChangeText={setForumDescription}
+                placeholder="Descreva o propósito e tema deste fórum..."
+                multiline
+                numberOfLines={4}
+                containerStyle={styles.formGroup}
+                inputStyle={{ minHeight: 100, textAlignVertical: "top" }}
+              />
 
               <View style={styles.modalActions}>
                 <TouchableOpacity

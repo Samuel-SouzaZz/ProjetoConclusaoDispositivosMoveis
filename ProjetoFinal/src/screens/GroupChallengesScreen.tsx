@@ -17,6 +17,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import ApiService from '../services/ApiService';
 import DetailedChallengeCard from '../components/DetailedChallengeCard';
 import CreateChallengeModal from '../components/CreateChallengeModal';
+import IconImage from '../components/IconImage';
 
 export type GroupChallengesRoute = RouteProp<RootStackParamList, 'GroupChallenges'>;
 
@@ -310,13 +311,6 @@ export default function GroupChallengesScreen() {
               ch.exerciseCode ||
               ch.code;
             const id = rawId ? String(rawId) : '';
-            console.log('GroupChallengesScreen - desafio do grupo:', {
-              rawId,
-              id,
-              title: ch.title,
-              exerciseId: ch.exerciseId,
-              exercise: ch.exercise,
-            });
             const code = ch.publicCode || ch.public_code || ch.code;
             
             return (
@@ -355,7 +349,6 @@ export default function GroupChallengesScreen() {
         </View>
       </ScrollView>
 
-      {/* Modal de confirmação para excluir desafio */}
       <Modal
         visible={!!challengeToDelete}
         transparent
@@ -365,7 +358,7 @@ export default function GroupChallengesScreen() {
         <View style={styles.confirmOverlay}>
           <View style={[styles.confirmCard, { backgroundColor: colors.card }]}> 
             <View style={styles.confirmHeader}>
-              <Text style={[styles.confirmIcon, { color: '#FBBF24' }]}>⚠️</Text>
+              <IconImage type="warning" size={24} style={{ tintColor: '#FBBF24', marginRight: 0 }} />
               <Text style={[styles.confirmTitle, { color: colors.text }]}>Excluir Desafio</Text>
             </View>
             <Text style={[styles.confirmMessage, { color: colors.textSecondary }]}>

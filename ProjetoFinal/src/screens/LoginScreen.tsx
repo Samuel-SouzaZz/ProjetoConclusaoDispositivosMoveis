@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from "react";
-import { TextInput as RNTextInput } from "react-native";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
-  ActivityIndicator,
   Alert,
+  ScrollView,
+  StyleSheet,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useNavigation } from "@react-navigation/native";
@@ -15,34 +15,32 @@ import * as LocalAuthentication from "expo-local-authentication";
 import * as SecureStore from "expo-secure-store";
 import { useAuth } from "../contexts/AuthContext";
 import ApiService from "../services/ApiService";
-import { styles } from "../styles/authStyles";
 import { isBiometricEnabled } from "../utils/biometricPreferences";
+import {
+  AuthContainer,
+  AuthShapesContainer,
+  AuthCard,
+  AuthBackButton,
+  AuthTitle,
+  AuthLink,
+} from "../components/Auth";
+import { Button } from "../components/common";
+import { styles as authStyles } from "../styles/authStyles";
 
 export default function LoginScreen() {
-  const { login, loading: authLoading } = useAuth();
+  const { login } = useAuth();
   const navigation = useNavigation<any>();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [biometricAvailable, setBiometricAvailable] = useState(false);
-  const passwordRef = useRef<RNTextInput>(null);
-  const hasAttemptedBiometric = useRef(false);
+  const passwordRef = useRef<TextInput>(null);
 
   useEffect(() => {
     checkBiometricAvailability();
-    
-    if (!authLoading && !hasAttemptedBiometric.current) {
-      const timer = setTimeout(() => {
-        checkBiometricLogin();
-        hasAttemptedBiometric.current = true;
-      }, 500);
-      
-      return () => clearTimeout(timer);
-    }
-  }, [authLoading]);
+  }, []);
 
   async function checkBiometricAvailability() {
     try {
@@ -100,7 +98,6 @@ export default function LoginScreen() {
       }
     } catch (error) {
       setLoading(false);
-      // Ignora erros silenciosamente para não interromper o fluxo
     }
   }
 
@@ -113,7 +110,6 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       await login(email, password);
-      // Removido pop-up automático - usuário pode habilitar nas Configurações
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Não foi possível realizar o login.";
       Alert.alert("Erro", errorMessage);
@@ -123,137 +119,138 @@ export default function LoginScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.blueShape} />
-      <View style={styles.yellowShape} />
+    <SafeAreaView style={authStyles.safeArea}>
+      <ScrollView
+        contentContainerStyle={{ flexGrow: 1 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <AuthShapesContainer shapes={["blue-top", "yellow-bottom"]} />
 
-      <View style={styles.container}>
-        <TouchableOpacity
-          style={styles.backButton}
-          onPress={() => navigation.navigate("Home")}
-          activeOpacity={0.7}
-          accessibilityRole="button"
-          accessibilityLabel="Voltar"
-          accessibilityHint="Voltar para a tela inicial"
-        >
-          <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
-        </TouchableOpacity>
+        <AuthContainer style={{ paddingTop: 40 }}>
+          <AuthCard>
+            <AuthBackButton onPress={() => navigation.navigate("Home")} />
 
-        <View style={styles.content}>
-          <Text style={styles.title}>Entrar</Text>
-          <Text style={styles.subtitle}>
-            Aprenda estrutura de dados de forma cativante
-          </Text>
+            <AuthTitle title="Login" />
 
-          <Text style={styles.label}>E-mail</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="seu@mail.com"
-            placeholderTextColor="#999"
-            value={email}
-            onChangeText={setEmail}
-            keyboardType="email-address"
-            autoCapitalize="none"
-            autoCorrect={false}
-            autoComplete="email"
-            textContentType="emailAddress"
-            returnKeyType="next"
-            accessibilityLabel="E-mail"
-            accessibilityHint="Digite seu e-mail"
-            onSubmitEditing={() => passwordRef.current?.focus()}
-          />
-
-          <Text style={styles.label}>Senha</Text>
-          <View style={styles.passwordContainer}>
-            <TextInput
-              style={styles.passwordInput}
-              placeholder="Sua senha de acesso"
-              placeholderTextColor="#999"
-              secureTextEntry={!showPassword}
-              value={password}
-              onChangeText={setPassword}
-              autoCapitalize="none"
-              ref={passwordRef}
-              autoComplete="password"
-              textContentType="password"
-              returnKeyType="done"
-              accessibilityLabel="Senha"
-              accessibilityHint="Digite sua senha"
-            />
-            <TouchableOpacity
-              style={styles.eyeIcon}
-              onPress={() => setShowPassword(!showPassword)}
-              accessibilityRole="button"
-              accessibilityLabel={showPassword ? "Ocultar senha" : "Mostrar senha"}
-              accessibilityHint="Alterna a visibilidade da senha"
-            >
-              <Ionicons
-                name={showPassword ? "eye-off-outline" : "eye-outline"}
-                size={22}
-                color="#999"
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>E-mail</Text>
+              <TextInput
+                style={styles.input}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="Digite seu E-mail"
+                placeholderTextColor="#9ca3af"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                autoComplete="email"
+                textContentType="emailAddress"
+                returnKeyType="next"
+                onSubmitEditing={() => passwordRef.current?.focus()}
               />
-            </TouchableOpacity>
-          </View>
-
-          <TouchableOpacity
-            style={styles.checkboxContainer}
-            onPress={() => setRememberMe(!rememberMe)}
-            activeOpacity={0.7}
-            accessibilityRole="checkbox"
-            accessibilityState={{ checked: rememberMe }}
-            accessibilityLabel="Continuar conectado"
-          >
-            <View style={styles.checkbox}>
-              {rememberMe && (
-                <Ionicons name="checkmark" size={16} color="#3B5BDB" />
-              )}
             </View>
-            <Text style={styles.checkboxLabel}>Continuar conectado</Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={[styles.button, loading && styles.buttonDisabled]}
-            onPress={handleLogin}
-            disabled={loading}
-            activeOpacity={0.8}
-            accessibilityRole="button"
-            accessibilityLabel="Acessar"
-            accessibilityHint="Entrar no aplicativo"
-          >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.buttonText}>Acessar</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>Senha</Text>
+              <View style={styles.passwordContainer}>
+                <TextInput
+                  ref={passwordRef}
+                  style={styles.passwordInput}
+                  value={password}
+                  onChangeText={setPassword}
+                  placeholder="Digite sua Senha"
+                  placeholderTextColor="#9ca3af"
+                  secureTextEntry={!showPassword}
+                  autoCapitalize="none"
+                  autoComplete="password"
+                  textContentType="password"
+                  returnKeyType="done"
+                />
+                <TouchableOpacity
+                  style={styles.eyeButton}
+                  onPress={() => setShowPassword(!showPassword)}
+                >
+                  <Ionicons
+                    name={showPassword ? "eye-off-outline" : "eye-outline"}
+                    size={20}
+                    color="#6b7280"
+                  />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <Button
+              onPress={handleLogin}
+              label="Entrar"
+              loading={loading}
+              disabled={loading}
+              useGradient
+              fullWidth
+              style={{ marginTop: 8 }}
+            />
+
+            <AuthLink
+              text="Não tem uma conta?"
+              linkText="CADASTRE-SE!"
+              onPress={() => navigation.navigate("Signup")}
+            />
+
+            {biometricAvailable && (
+              <TouchableOpacity
+                style={authStyles.biometricButton}
+                onPress={checkBiometricLogin}
+                activeOpacity={0.8}
+              >
+                <Ionicons name="finger-print" size={20} color="#3b82f6" />
+                <Text style={authStyles.biometricButtonText}>Entrar com Face ID</Text>
+              </TouchableOpacity>
             )}
-          </TouchableOpacity>
-
-          {biometricAvailable && (
-            <TouchableOpacity
-              style={styles.biometricButton}
-              onPress={checkBiometricLogin}
-              activeOpacity={0.8}
-              accessibilityRole="button"
-              accessibilityLabel="Entrar com Face ID"
-              accessibilityHint="Use sua biometria para fazer login"
-            >
-              <Ionicons name="finger-print" size={24} color="#3B5BDB" />
-              <Text style={styles.biometricButtonText}>Entrar com Face ID</Text>
-            </TouchableOpacity>
-          )}
-        </View>
-
-        <View style={styles.footer}>
-          <Text style={styles.footerText}>Não tem uma conta? </Text>
-          <TouchableOpacity 
-            onPress={() => navigation.navigate("Signup")}
-            accessibilityRole="button"
-            accessibilityLabel="Criar conta"
-            accessibilityHint="Ir para tela de cadastro"
-          >
-            <Text style={styles.footerLink}>Criar conta</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+          </AuthCard>
+        </AuthContainer>
+      </ScrollView>
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  inputGroup: {
+    marginBottom: 20,
+  },
+  label: {
+    fontSize: 14,
+    fontWeight: "600",
+    color: "#374151",
+    marginBottom: 8,
+  },
+  input: {
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#111827",
+    minHeight: 44,
+  },
+  passwordContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#ffffff",
+    borderWidth: 1,
+    borderColor: "#d1d5db",
+    borderRadius: 8,
+    minHeight: 44,
+  },
+  passwordInput: {
+    flex: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 15,
+    color: "#111827",
+  },
+  eyeButton: {
+    padding: 12,
+  },
+});

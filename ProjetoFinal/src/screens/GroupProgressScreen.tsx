@@ -6,6 +6,7 @@ import { useTheme } from '../contexts/ThemeContext';
 import ApiService from '../services/ApiService';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useAuth } from '../contexts/AuthContext';
+import IconImage from '../components/IconImage';
 
 export type GroupProgressRoute = RouteProp<RootStackParamList, 'GroupProgress'>;
 
@@ -154,7 +155,10 @@ export default function GroupProgressScreen() {
         </View>
 
         <View style={[styles.card, { backgroundColor: colors.card, marginTop: layout.gutter }]}> 
-          <Text style={[styles.sectionTitle, { color: colors.text, fontSize: scale(20) }]}>📊 Resumo de Progresso</Text>
+          <View style={styles.titleRow}>
+            <IconImage type="stats" size={20} style={{ marginRight: 8 }} />
+            <Text style={[styles.sectionTitle, { color: colors.text, fontSize: scale(20) }]}>Resumo de Progresso</Text>
+          </View>
           <Text style={[styles.caption, { color: colors.textSecondary, fontSize: scale(12) }]}>Atividade no {groupName || ''}</Text>
           <View style={styles.summaryRow}> 
             <View style={styles.summaryItem}> 
@@ -199,6 +203,7 @@ const styles = StyleSheet.create({
   progressBar: { marginTop: 10, height: 8, borderRadius: 8, overflow: 'hidden' },
   progressFill: { height: '100%', borderRadius: 8 },
   progressCaption: { marginTop: 6, fontSize: 12 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   sectionTitle: { fontSize: 20, fontWeight: '800' },
   summaryRow: { flexDirection: 'row', gap: 20, marginTop: 12 },
   summaryItem: { alignItems: 'flex-start' },

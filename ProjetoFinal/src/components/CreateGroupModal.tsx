@@ -1,7 +1,8 @@
 import React, { useState } from "react";
-import { Modal, View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from "react-native";
+import { View, Text, StyleSheet, Alert, Switch } from "react-native";
 import { useTheme } from "../contexts/ThemeContext";
 import ApiService from "../services/ApiService";
+import { BaseModal, ModalHeader, Button, Input } from "./common";
 
 interface CreateGroupModalProps {
   visible: boolean;
@@ -9,7 +10,11 @@ interface CreateGroupModalProps {
   onCreated?: () => void | Promise<void>;
 }
 
-export default function CreateGroupModal({ visible, onClose, onCreated }: CreateGroupModalProps) {
+export default function CreateGroupModal({
+  visible,
+  onClose,
+  onCreated,
+}: CreateGroupModalProps) {
   const { colors } = useTheme();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -23,7 +28,11 @@ export default function CreateGroupModal({ visible, onClose, onCreated }: Create
     }
     try {
       setCreating(true);
-      await ApiService.createGroup({ name: name.trim(), description: description.trim() || undefined, isPublic });
+      await ApiService.createGroup({
+        name: name.trim(),
+        description: description.trim() || undefined,
+        isPublic,
+      });
       setName("");
       setDescription("");
       setIsPublic(true);
@@ -38,58 +47,90 @@ export default function CreateGroupModal({ visible, onClose, onCreated }: Create
   }
 
   return (
-    <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
-      <View style={styles.modalBackdrop}>
-        <View style={[styles.modalCard, { backgroundColor: colors.card }]}> 
-          <Text style={[styles.modalTitle, { color: colors.text }]}>Criar Grupo</Text>
-          <TextInput
-            style={[styles.input, { borderColor: colors.border, color: colors.text }]}
-            placeholder="Nome do grupo"
-            placeholderTextColor={colors.textSecondary}
-            value={name}
-            onChangeText={setName}
+    <BaseModal
+      visible={visible}
+      onClose={onClose}
+      maxWidth={560}
+      dismissible={!creating}
+    >
+      <ModalHeader title="Criar Grupo" onClose={onClose} />
+      <View style={styles.content}>
+        <Input
+          label="Nome do grupo"
+          value={name}
+          onChangeText={setName}
+          placeholder="Digite o nome do grupo"
+          autoCapitalize="words"
+          editable={!creating}
+        />
+        <Input
+          label="Descrição (opcional)"
+          value={description}
+          onChangeText={setDescription}
+          placeholder="Digite uma descrição"
+          multiline
+          numberOfLines={4}
+          style={{ minHeight: 90, textAlignVertical: "top" }}
+          editable={!creating}
+        />
+        <View style={styles.publicRow}>
+          <Text style={[styles.publicLabel, { color: colors.text }]}>
+            Grupo público
+          </Text>
+          <Switch
+            value={isPublic}
+            onValueChange={setIsPublic}
+            disabled={creating}
+            trackColor={{ false: "#767577", true: colors.primary }}
+            thumbColor={isPublic ? "#fff" : "#f4f3f4"}
           />
-          <TextInput
-            style={[styles.input, { borderColor: colors.border, color: colors.text, height: 90 }]}
-            placeholder="Descrição (opcional)"
-            placeholderTextColor={colors.textSecondary}
-            value={description}
-            onChangeText={setDescription}
-            multiline
+        </View>
+        <View style={styles.actions}>
+          <Button
+            label="Cancelar"
+            variant="secondary"
+            onPress={onClose}
+            disabled={creating}
+            style={styles.cancelButton}
           />
-          <View style={styles.modalRow}> 
-            <TouchableOpacity style={[styles.choiceBtn, isPublic && { borderColor: colors.primary }]} onPress={() => setIsPublic(true)}>
-              <Text style={[styles.choiceText, { color: isPublic ? colors.primary : colors.textSecondary }]}>Público</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.choiceBtn, !isPublic && { borderColor: colors.primary }]} onPress={() => setIsPublic(false)}>
-              <Text style={[styles.choiceText, { color: !isPublic ? colors.primary : colors.textSecondary }]}>Privado</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.modalActions}> 
-            <TouchableOpacity style={[styles.secondaryButton, { borderColor: colors.primary }]} onPress={onClose} disabled={creating}>
-              <Text style={[styles.secondaryButtonText, { color: colors.primary }]}>Cancelar</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: creating ? 0.7 : 1 }]} onPress={handleCreate} disabled={creating}>
-              <Text style={styles.primaryButtonText}>{creating ? 'Criando...' : 'Criar'}</Text>
-            </TouchableOpacity>
-          </View>
+          <Button
+            label={creating ? "Criando..." : "Criar"}
+            variant="primary"
+            onPress={handleCreate}
+            loading={creating}
+            disabled={creating}
+            style={styles.createButton}
+          />
         </View>
       </View>
-    </Modal>
+    </BaseModal>
   );
 }
 
 const styles = StyleSheet.create({
-  modalBackdrop: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', alignItems: 'center', justifyContent: 'center', padding: 16 },
-  modalCard: { width: '100%', maxWidth: 560, borderRadius: 16, padding: 16 },
-  modalTitle: { fontSize: 18, fontWeight: '700', marginBottom: 12 },
-  input: { borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 10, marginBottom: 10 },
-  modalRow: { flexDirection: 'row', gap: 10, marginBottom: 12 },
-  choiceBtn: { flex: 1, borderWidth: 1, borderRadius: 10, paddingVertical: 10, alignItems: 'center' },
-  choiceText: { fontWeight: '700' },
-  modalActions: { flexDirection: 'row', gap: 12, marginTop: 6 },
-  primaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 },
-  primaryButtonText: { color: '#fff', fontWeight: '700' },
-  secondaryButton: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10, borderWidth: 1 },
-  secondaryButtonText: { fontWeight: '700' },
+  content: {
+    padding: 20,
+    gap: 16,
+  },
+  publicRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  publicLabel: {
+    fontSize: 15,
+    fontWeight: "600",
+  },
+  actions: {
+    flexDirection: "row",
+    gap: 12,
+    marginTop: 8,
+  },
+  cancelButton: {
+    flex: 1,
+  },
+  createButton: {
+    flex: 1,
+  },
 });

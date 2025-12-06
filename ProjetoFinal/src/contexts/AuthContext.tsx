@@ -205,7 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   async function signup(email: string, password: string, name: string, handle: string, collegeId?: string) {
-    if (!email || !password || !name || !handle) {
+    if (!email || !password || !name) {
       Alert.alert("Erro", "Preencha todos os campos obrigatórios!");
       return;
     }
@@ -221,13 +221,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    if (handle.length < 3) {
+    // Se handle foi fornecido, valida tamanho mínimo
+    if (handle && handle.trim().length > 0 && handle.trim().length < 3) {
       Alert.alert("Erro", "O nome de usuário deve ter no mínimo 3 caracteres!");
       return;
     }
 
+    // Gerar handle automaticamente se não fornecido (baseado no email)
+    const finalHandle = handle && handle.trim() ? handle.trim() : email.split("@")[0];
+
     try {
-      const { user: userData } = await ApiService.signup({ name, email, password, handle, collegeId });
+      const { user: userData } = await ApiService.signup({ name, email, password, handle: finalHandle, collegeId });
 
       let me;
       try {

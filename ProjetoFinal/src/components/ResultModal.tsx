@@ -1,15 +1,13 @@
 import React from 'react';
 import {
-  Modal,
   View,
   Text,
-  TouchableOpacity,
   StyleSheet,
   ScrollView,
-  TouchableWithoutFeedback,
 } from 'react-native';
 import { useTheme } from '../contexts/ThemeContext';
 import IconImage from './IconImage';
+import { BaseModal, Button } from './common';
 
 interface ResultModalProps {
   visible: boolean;
@@ -37,27 +35,22 @@ export default function ResultModal({
   const { colors } = useTheme();
 
   return (
-    <Modal
+    <BaseModal
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      maxWidth={400}
       accessible={true}
-      accessibilityViewIsModal={true}
       accessibilityLabel={isSuccess ? "Resultado: Sucesso" : "Resultado: Falhou"}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <View
-              style={[styles.modalContainer, { backgroundColor: colors.card, borderColor: colors.border }]}
-              accessible={true}
-              accessibilityRole="alert"
-            >
-              <ScrollView
-                contentContainerStyle={styles.scrollContent}
-                showsVerticalScrollIndicator={false}
-              >
+      <View
+        style={styles.modalContainer}
+        accessible={true}
+        accessibilityRole="alert"
+      >
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
                 {isSuccess ? (
                   <>
                     <View style={[styles.iconContainer, { backgroundColor: `${colors.primary}15` }]}>
@@ -137,45 +130,24 @@ export default function ResultModal({
                     </View>
                   </>
                 )}
-              </ScrollView>
+        </ScrollView>
 
-              <TouchableOpacity
-                style={[styles.button, { backgroundColor: colors.primary }]}
-                onPress={onClose}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel="OK"
-              >
-                <Text style={styles.buttonText}>OK</Text>
-              </TouchableOpacity>
-            </View>
-          </TouchableWithoutFeedback>
-        </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+        <Button
+          label="OK"
+          variant="primary"
+          onPress={onClose}
+          fullWidth
+          style={styles.button}
+        />
+      </View>
+    </BaseModal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
   modalContainer: {
-    width: '100%',
-    maxWidth: 400,
     maxHeight: '80%',
-    borderRadius: 16,
     padding: 24,
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
   scrollContent: {
     alignItems: 'center',
@@ -212,18 +184,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   button: {
-    paddingVertical: 14,
-    paddingHorizontal: 32,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
     marginTop: 16,
-    minWidth: 120,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: 'bold',
   },
 });
 

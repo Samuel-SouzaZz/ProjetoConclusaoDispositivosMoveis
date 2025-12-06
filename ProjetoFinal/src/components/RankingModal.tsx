@@ -1,9 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Modal,
   View,
   Text,
-  TouchableOpacity,
   ScrollView,
   StyleSheet,
   ActivityIndicator,
@@ -13,6 +11,8 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import ApiService from '../services/ApiService';
+import { BaseModal, ModalHeader, Button } from './common';
+import IconImage from './IconImage';
 
 interface RankingEntry {
   _id: string;
@@ -58,35 +58,27 @@ export default function RankingModal({
     setError(null);
 
     try {
-      // Busca ranking público do exercício
       const response = await ApiService.getExerciseRanking(exerciseId);
-      
-      // Normaliza a resposta
       const submissions = Array.isArray(response) ? response : 
                          (response.items || response.data || response.submissions || []);
 
-      // Ordena por ranking (finalScore > complexityScore > timeSpentMs)
       const sorted = submissions.sort((a: any, b: any) => {
         const scoreA = a.finalScore ?? a.score ?? 0;
         const scoreB = b.finalScore ?? b.score ?? 0;
         
-        // 1. Compara score final (maior é melhor)
         if (scoreB !== scoreA) return scoreB - scoreA;
         
-        // 2. Empate: compara complexity score (maior é melhor)
         const complexityA = a.complexityScore ?? 0;
         const complexityB = b.complexityScore ?? 0;
         if (complexityB !== complexityA) return complexityB - complexityA;
         
-        // 3. Empate: compara tempo (menor é melhor)
         return (a.timeSpentMs ?? 0) - (b.timeSpentMs ?? 0);
       });
 
-      setRankings(sorted.slice(0, 10)); // Top 10
+      setRankings(sorted.slice(0, 10));
     } catch (err: any) {
       const errorMessage = err?.message || 'Não foi possível carregar o ranking';
       setError(errorMessage);
-      console.error('Erro ao carregar ranking:', err);
     } finally {
       setLoading(false);
     }
@@ -107,68 +99,36 @@ export default function RankingModal({
   };
 
   const getMedalIcon = (position: number) => {
-    if (position === 0) return { icon: 'trophy' as const, color: '#FFD700' }; // Ouro
-    if (position === 1) return { icon: 'medal' as const, color: '#C0C0C0' }; // Prata
-    if (position === 2) return { icon: 'medal' as const, color: '#CD7F32' }; // Bronze
+    if (position === 0) return { icon: 'trophy' as const, color: '#FFD700' };
+    if (position === 1) return { icon: 'medal' as const, color: '#C0C0C0' };
+    if (position === 2) return { icon: 'medal' as const, color: '#CD7F32' };
     return { icon: 'star-outline' as const, color: colors.textSecondary };
   };
 
   return (
-    <Modal
+    <BaseModal
       visible={visible}
+      onClose={onClose}
+      position="bottom"
       animationType="slide"
-      transparent={true}
-      onRequestClose={onClose}
       accessible={true}
-      accessibilityLabel="Modal de ranking do desafio"
-      accessibilityViewIsModal={true}
+      accessibilityLabel={`Ranking do desafio: ${exerciseTitle}`}
     >
-      <View style={styles.overlay}>
-        <View
-          style={[
-            styles.modalContainer, 
-            { 
-              backgroundColor: colors.card,
-              maxHeight: modalMaxHeight,
-            }
-          ]}
-          accessible={true}
-          accessibilityRole="dialog"
-          accessibilityLabel={`Ranking do desafio: ${exerciseTitle}`}
-        >
-          {/* Header */}
-          <View
-            style={[styles.header, { borderBottomColor: colors.border }]}
-            accessible={true}
-            accessibilityRole="header"
-          >
-            <View style={styles.headerContent}>
-              <Ionicons name="podium" size={24} color={colors.primary} />
-              <Text style={[styles.title, { color: colors.text }]}>Ranking</Text>
-            </View>
-            <TouchableOpacity
-              onPress={onClose}
-              style={styles.closeButton}
-              accessible={true}
-              accessibilityRole="button"
-              accessibilityLabel="Fechar ranking"
-              accessibilityHint="Toque duas vezes para fechar o modal de ranking"
-            >
-              <Ionicons name="close" size={24} color={colors.textSecondary} />
-            </TouchableOpacity>
-          </View>
+      <View
+        style={[
+          styles.modalContainer,
+          { maxHeight: modalMaxHeight },
+        ]}
+        accessible={false}
+      >
+        <ModalHeader
+          title="Ranking"
+          subtitle={exerciseTitle}
+          icon="podium"
+          iconColor={colors.primary}
+          onClose={onClose}
+        />
 
-          {/* Subtitle */}
-          <Text
-            style={[styles.subtitle, { color: colors.textSecondary }]}
-            numberOfLines={2}
-            accessible={true}
-            accessibilityRole="text"
-          >
-            {exerciseTitle}
-          </Text>
-
-          {/* Content */}
           {loading ? (
             <View
               style={styles.centerContent}
@@ -190,17 +150,12 @@ export default function RankingModal({
             >
               <Ionicons name="alert-circle" size={48} color="#F44336" />
               <Text style={[styles.errorText, { color: colors.text }]}>{error}</Text>
-              <TouchableOpacity
-                style={[styles.retryButton, { backgroundColor: colors.primary }]}
+              <Button
+                label="Tentar novamente"
+                variant="primary"
                 onPress={loadRankings}
-                accessible={true}
-                accessibilityRole="button"
-                accessibilityLabel="Tentar novamente"
-                accessibilityHint="Toque duas vezes para recarregar o ranking"
-              >
-                <Ionicons name="refresh" size={18} color="#fff" />
-                <Text style={styles.retryButtonText}>Tentar novamente</Text>
-              </TouchableOpacity>
+                icon={<Ionicons name="refresh" size={18} color="#fff" />}
+              />
             </View>
           ) : rankings.length === 0 ? (
             <View
@@ -221,8 +176,7 @@ export default function RankingModal({
             <ScrollView
               style={styles.scrollView}
               showsVerticalScrollIndicator={false}
-              accessible={true}
-              accessibilityRole="list"
+              accessible={false}
               accessibilityLabel={`Lista com ${rankings.length} melhores colocações`}
             >
               {rankings.map((entry, index) => {
@@ -243,7 +197,6 @@ export default function RankingModal({
                     accessibilityRole="summary"
                     accessibilityLabel={`${index + 1}º lugar: ${entry.user.name}, tempo: ${formatTime(entry.timeSpentMs)}`}
                   >
-                    {/* Posição e Medalha */}
                     <View style={[styles.positionContainer, isSmallScreen && styles.positionContainerSmall]}>
                       <Ionicons name={medal.icon} size={isSmallScreen ? 20 : 24} color={medal.color} />
                       <Text style={[styles.position, { color: colors.text }, isSmallScreen && styles.positionSmall]}>
@@ -251,7 +204,6 @@ export default function RankingModal({
                       </Text>
                     </View>
 
-                    {/* Info do Usuário */}
                     <View style={styles.userInfo}>
                       <View
                         style={[styles.avatar, { backgroundColor: colors.primary }, isSmallScreen && styles.avatarSmall]}
@@ -266,13 +218,15 @@ export default function RankingModal({
                         >
                           {entry.user.name}
                         </Text>
-                        <Text style={[styles.time, { color: colors.textSecondary }, isSmallScreen && styles.timeSmall]}>
-                          ⏱️ {formatTime(entry.timeSpentMs)}
-                        </Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                          <IconImage type="stopwatch" size={14} style={{ marginRight: 0 }} />
+                          <Text style={[styles.time, { color: colors.textSecondary }, isSmallScreen && styles.timeSmall]}>
+                            {formatTime(entry.timeSpentMs)}
+                          </Text>
+                        </View>
                       </View>
                     </View>
 
-                    {/* Score (se houver) */}
                     {entry.score !== undefined && (
                       <View style={styles.scoreContainer}>
                         <Ionicons name="star" size={isSmallScreen ? 14 : 16} color="#FFD700" />
@@ -286,48 +240,15 @@ export default function RankingModal({
               })}
             </ScrollView>
           )}
-        </View>
       </View>
-    </Modal>
+    </BaseModal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
   modalContainer: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
     minHeight: '40%',
     paddingBottom: Platform.OS === 'ios' ? 30 : 20,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 20,
-    borderBottomWidth: 1,
-  },
-  headerContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  title: {
-    fontSize: 22,
-    fontWeight: 'bold',
-  },
-  closeButton: {
-    padding: 4,
-  },
-  subtitle: {
-    fontSize: 14,
-    paddingHorizontal: 20,
-    paddingTop: 12,
-    paddingBottom: 16,
   },
   scrollView: {
     flex: 1,
@@ -346,19 +267,6 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: 16,
     textAlign: 'center',
-  },
-  retryButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 8,
-    gap: 8,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
   },
   emptyText: {
     fontSize: 16,
