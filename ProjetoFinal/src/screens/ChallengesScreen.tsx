@@ -139,9 +139,7 @@ export default function ChallengesScreen() {
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
-        accessible={true}
-        accessibilityRole="list"
-        accessibilityLabel={challenges.length > 0 ? `Lista com ${challenges.length} desafios criados` : 'Lista vazia de desafios'}
+        accessible={false}
       >
         {challenges.length === 0 ? (
           <EmptyState

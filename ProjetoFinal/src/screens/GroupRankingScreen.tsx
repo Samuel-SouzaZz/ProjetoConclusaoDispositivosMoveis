@@ -5,6 +5,7 @@ import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
 import { useTheme } from '../contexts/ThemeContext';
 import ApiService from '../services/ApiService';
+import IconImage from '../components/IconImage';
 
  type GroupRankingRoute = RouteProp<RootStackParamList, 'GroupRanking'>;
 
@@ -53,24 +54,21 @@ export default function GroupRankingScreen() {
   return (
     <SafeAreaView style={commonStyles.container}>
       <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}> 
-        {/* Header amarelo */}
         <View style={styles.headerBanner}> 
           <Text style={styles.headerTitle}>Ranking do Grupo</Text>
           {!!groupName && <Text style={styles.headerSubtitle}>{groupName}</Text>}
         </View>
 
-        {/* Card TOP 10 */}
         <View style={[styles.card, { backgroundColor: colors.card, minHeight: minCardHeight }]}> 
           <View style={styles.cardHeaderRow}> 
             <View style={styles.iconCircle}> 
-              <Text style={styles.iconEmoji}>🏆</Text>
+              <IconImage type="trophy" size={20} style={{ marginRight: 0 }} />
             </View>
             <Text style={[styles.cardTitle]}>TOP 10 do Grupo</Text>
           </View>
 
           <View style={styles.cardDivider} />
 
-          {/* Cabeçalho da "tabela" */}
           <View style={styles.tableHeaderRow}> 
             <Text style={[styles.tableHeaderText, { flex: 1 }]}>POSIÇÃO</Text>
             <Text style={[styles.tableHeaderText, { flex: 3 }]}>NOME</Text>
@@ -163,9 +161,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
-  },
-  iconEmoji: {
-    fontSize: 20,
   },
   cardTitle: {
     fontSize: 18,

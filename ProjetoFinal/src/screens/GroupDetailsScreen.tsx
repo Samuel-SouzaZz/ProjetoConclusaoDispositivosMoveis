@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, FlatList, Modal, TextInput, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Modal, TextInput, Alert } from "react-native";
 import { RouteProp, useRoute, useNavigation, useFocusEffect } from "@react-navigation/native";
 import { Ionicons } from "@expo/vector-icons";
 import { useTheme } from "../contexts/ThemeContext";
@@ -13,6 +13,7 @@ import ErrorScreen from "../components/ErrorScreen";
 import EmptyState from "../components/EmptyState";
 import DetailedChallengeCard from "../components/DetailedChallengeCard";
 import CreateChallengeModal from "../components/CreateChallengeModal";
+import IconImage from "../components/IconImage";
 
 const styles = StyleSheet.create({
   header: {
@@ -331,14 +332,9 @@ export default function GroupDetailsScreen() {
         setEditIsPublic(isPublic);
       } catch {}
       
-      // Carregar membros
       try {
         const mm = Array.isArray(data?.members) ? data.members : data?.items || [];
         const mItems = Array.isArray(mm) ? mm : [];
-
-        console.log("DEBUG GroupDetailsScreen - members brutos:", JSON.stringify(mItems, null, 2));
-
-        // Buscar nomes dos membros usando o perfil público
         const membersWithNames: any[] = [];
         for (const member of mItems) {
           const memberId = getMemberId(member);
@@ -370,11 +366,10 @@ export default function GroupDetailsScreen() {
                 continue;
               }
             } catch (err: any) {
-              console.warn(`Não foi possível buscar perfil do membro ${memberId}:`, err?.message || err);
+              // Fallback se buscar perfil falhar
             }
           }
 
-          // Fallback
           const fallbackName = getMemberName(member);
           membersWithNames.push({
             ...member,
@@ -382,13 +377,8 @@ export default function GroupDetailsScreen() {
           });
         }
 
-        console.log("Membros carregados com nomes:", membersWithNames.map((m: any) => ({
-          id: getMemberId(m),
-          name: getMemberName(m)
-        })));
         setMembers(membersWithNames);
         
-        // Encontrar role do usuário atual
         const currentMember = mItems.find((m: any) => {
           const memberId = getMemberId(m);
           return memberId && user?.id && String(memberId) === String(user.id);
@@ -677,7 +667,6 @@ export default function GroupDetailsScreen() {
             </View>
           )}
 
-          {/* Membros do Grupo */}
           <View style={[styles.section, { backgroundColor: colors.background }]}>
             <View style={styles.rowSpace}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Membros do Grupo</Text>
@@ -692,23 +681,19 @@ export default function GroupDetailsScreen() {
                 <Text style={{ color: colors.textSecondary }}>Nenhum membro encontrado</Text>
               </View>
             ) : (
-              <FlatList
-                data={members.slice(0, 10)} // Mostra apenas os primeiros 10
-                keyExtractor={(item: any, index: number) => String(getMemberId(item) ?? index)}
-                renderItem={({ item }: { item: any }) => {
+              <View>
+                {members.slice(0, 10).map((item: any, index: number) => {
                   const memberId = getMemberId(item);
                   const isMe = memberId && user?.id && String(memberId) === String(user.id);
                   const memberRole = getMemberRole(item);
                   const memberName = getMemberName(item);
                   const roleLabel = getRoleLabel(memberRole);
                   const roleColor = getRoleColor(memberRole, colors);
-
-                  // Garantir que o nome não esteja vazio
                   const displayName = memberName && memberName !== "Membro" ? memberName : 
                     (memberId ? `Membro ${String(memberId).substring(0, 6)}` : "Membro");
                   
                   return (
-                    <View style={[styles.memberItem, { borderBottomColor: colors.border }]}>
+                    <View key={String(getMemberId(item) ?? index)} style={[styles.memberItem, { borderBottomColor: colors.border }]}>
                       <View style={[styles.avatar, { backgroundColor: isDarkMode ? '#2D3748' : '#EDF2F7' }]}>
                         <Text style={[styles.avatarText, { color: colors.text }]}>
                           {String(displayName).charAt(0).toUpperCase()}
@@ -732,8 +717,8 @@ export default function GroupDetailsScreen() {
                       </View>
                     </View>
                   );
-                }}
-              />
+                })}
+              </View>
             )}
             {members.length > 10 && (
               <TouchableOpacity
@@ -752,7 +737,6 @@ export default function GroupDetailsScreen() {
             )}
           </View>
 
-          {/* Desafios do Grupo */}
           <View style={[styles.section, { backgroundColor: colors.background }]}>
             <View style={styles.rowSpace}>
               <Text style={[styles.sectionTitle, { color: colors.text }]}>Desafios do Grupo ({challenges.length || 0})</Text>
@@ -809,7 +793,6 @@ export default function GroupDetailsScreen() {
             )}
           </View>
 
-          {/* Modal de Confirmação para Excluir Desafio */}
           <Modal
             visible={!!challengeToDelete}
             transparent
@@ -819,7 +802,7 @@ export default function GroupDetailsScreen() {
             <View style={styles.confirmOverlay}>
               <View style={[styles.confirmCard, { backgroundColor: colors.card }]}>
                 <View style={styles.confirmHeader}>
-                  <Text style={[styles.confirmIcon, { color: '#FBBF24' }]}>⚠️</Text>
+                  <IconImage type="warning" size={24} style={{ tintColor: '#FBBF24', marginRight: 0 }} />
                   <Text style={[styles.confirmTitle, { color: colors.text }]}>Excluir Desafio</Text>
                 </View>
 
@@ -852,7 +835,6 @@ export default function GroupDetailsScreen() {
             </View>
           </Modal>
 
-          {/* Modal Criar Desafio (reutilizando CreateChallengeModal) */}
           <CreateChallengeModal
             visible={showCreate}
             onClose={() => setShowCreate(false)}
@@ -860,7 +842,6 @@ export default function GroupDetailsScreen() {
             groupId={String(groupId)}
           />
 
-          {/* Modal Editar Grupo */}
           <Modal visible={showEdit} transparent animationType="slide" onRequestClose={() => setShowEdit(false)}>
             <View style={styles.editModalOverlay}>
               <View style={[styles.editModalCard, { backgroundColor: colors.card }]}>

@@ -4,7 +4,6 @@ import {
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -16,6 +15,7 @@ import SafeScreen from '../components/SafeScreen';
 import ScreenHeader from '../components/ScreenHeader';
 import LoadingScreen from '../components/LoadingScreen';
 import EmptyState from '../components/EmptyState';
+import { Input } from '../components/common';
 
 
 type ForumTopicsRoute = RouteProp<{ ForumTopics: { forumId: string } }, 'ForumTopics'>;
@@ -123,14 +123,14 @@ export default function ForumTopicsScreen() {
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
             <Text style={[styles.sectionTitle, { color: colors.text }]}>Tópicos</Text>
-            <View style={[styles.searchBox, { borderColor: colors.border, backgroundColor: colors.card }]}>
-              <Ionicons name="search" size={16} color={colors.textSecondary} />
-              <TextInput
-                style={[styles.searchInput, { color: colors.text }]}
-                placeholder="Buscar por título, conteúdo ou palavra..."
-                placeholderTextColor={colors.textSecondary}
+            <View style={{ flex: 1, marginLeft: 12 }}>
+              <Input
                 value={query}
                 onChangeText={setQuery}
+                placeholder="Buscar por título, conteúdo ou palavra..."
+                leftIcon={<Ionicons name="search" size={16} color={colors.textSecondary} />}
+                containerStyle={{ marginBottom: 0 }}
+                inputStyle={{ fontSize: 13 }}
               />
             </View>
           </View>
@@ -163,36 +163,32 @@ export default function ForumTopicsScreen() {
         <View style={styles.section}>
           <Text style={[styles.sectionTitle, { color: colors.text }]}>Criar novo tópico</Text>
 
-          <View style={[styles.inputGroup, { borderColor: colors.border, backgroundColor: colors.card }]}>
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Título do tópico"
-              placeholderTextColor={colors.textSecondary}
-              value={title}
-              onChangeText={setTitle}
-            />
-          </View>
+          <Input
+            label="Título do tópico"
+            value={title}
+            onChangeText={setTitle}
+            placeholder="Título do tópico"
+            containerStyle={{ marginTop: 10 }}
+          />
 
-          <View style={[styles.inputGroup, { borderColor: colors.border, backgroundColor: colors.card, height: 140 }] }>
-            <TextInput
-              style={[styles.input, styles.multiline, { color: colors.text }]}
-              placeholder="Conteúdo do tópico"
-              placeholderTextColor={colors.textSecondary}
-              value={content}
-              onChangeText={setContent}
-              multiline
-            />
-          </View>
+          <Input
+            label="Conteúdo do tópico"
+            value={content}
+            onChangeText={setContent}
+            placeholder="Conteúdo do tópico"
+            multiline
+            numberOfLines={4}
+            containerStyle={{ marginTop: 10 }}
+            inputStyle={{ minHeight: 120, textAlignVertical: "top" }}
+          />
 
-          <View style={[styles.inputGroup, { borderColor: colors.border, backgroundColor: colors.card }] }>
-            <TextInput
-              style={[styles.input, { color: colors.text }]}
-              placeholder="Palavra-chave (opcional, separado por vírgula)"
-              placeholderTextColor={colors.textSecondary}
-              value={keyword}
-              onChangeText={setKeyword}
-            />
-          </View>
+          <Input
+            label="Palavra-chave (opcional)"
+            value={keyword}
+            onChangeText={setKeyword}
+            placeholder="Palavra-chave (opcional, separado por vírgula)"
+            containerStyle={{ marginTop: 10 }}
+          />
 
           <TouchableOpacity
             style={[styles.primaryButton, { backgroundColor: colors.primary, opacity: saving ? 0.8 : 1 }]}

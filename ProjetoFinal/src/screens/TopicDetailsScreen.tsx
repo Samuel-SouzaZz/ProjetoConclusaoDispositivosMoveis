@@ -50,9 +50,6 @@ export default function TopicDetailsScreen() {
         setTopic(t);
         const list = Array.isArray(cs?.items) ? cs.items : Array.isArray(cs) ? cs : [];
         setComments(list);
-        if (list.length > 0) {
-          console.log('COMMENTS_SAMPLE', list[0]);
-        }
         setError(null);
       } catch (err: any) {
         if (!mounted) return;

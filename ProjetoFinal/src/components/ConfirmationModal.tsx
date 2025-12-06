@@ -1,14 +1,8 @@
 import React from 'react';
-import {
-  Modal,
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  TouchableWithoutFeedback,
-} from 'react-native';
+import { View, Text, StyleSheet } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useTheme } from '../contexts/ThemeContext';
+import { BaseModal, Button } from './common';
 
 interface ConfirmationModalProps {
   visible: boolean;
@@ -23,9 +17,9 @@ interface ConfirmationModalProps {
   loading?: boolean;
   icon?: keyof typeof Ionicons.glyphMap;
   iconColor?: string;
-  backgroundColor: string;
-  textColor: string;
-  borderColor: string;
+  backgroundColor?: string;
+  textColor?: string;
+  borderColor?: string;
 }
 
 export default function ConfirmationModal({
@@ -36,140 +30,93 @@ export default function ConfirmationModal({
   message,
   confirmText = 'Confirmar',
   cancelText = 'Cancelar',
-  confirmButtonColor = '#4A90E2',
-  cancelButtonColor = '#666666',
+  confirmButtonColor,
+  cancelButtonColor,
   loading = false,
   icon = 'checkmark-circle-outline',
-  iconColor = '#4A90E2',
+  iconColor,
   backgroundColor,
   textColor,
   borderColor,
 }: ConfirmationModalProps) {
+  const { colors } = useTheme();
+  const finalIconColor = iconColor || colors.primary;
+  const finalConfirmColor = confirmButtonColor || colors.primary;
+  const finalCancelColor = cancelButtonColor || colors.textSecondary;
+
   return (
-    <Modal
+    <BaseModal
       visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onClose}
+      onClose={onClose}
+      maxWidth={400}
+      dismissible={!loading}
       accessible={true}
-      accessibilityViewIsModal={true}
-      accessibilityLabel="Modal de confirmação"
+      accessibilityLabel={`${title}. ${message}`}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
-        <View style={styles.overlay}>
-          <TouchableWithoutFeedback>
-            <View
-              style={[styles.modalContainer, { backgroundColor, borderColor }]}
-              accessible={true}
-              accessibilityRole="alert"
-              accessibilityLabel={`${title}. ${message}`}
-            >
-              {/* Ícone */}
-              <View
-                style={[styles.iconContainer, { backgroundColor: `${iconColor}15` }]}
-                accessible={true}
-                accessibilityElementsHidden={true}
-                importantForAccessibility="no"
-              >
-                <Ionicons name={icon} size={48} color={iconColor} />
-              </View>
-
-              {/* Título */}
-              <Text
-                style={[styles.title, { color: textColor }]}
-                accessible={true}
-                accessibilityRole="header"
-              >
-                {title}
-              </Text>
-
-              {/* Mensagem */}
-              <Text
-                style={[styles.message, { color: textColor }]}
-                accessible={true}
-                accessibilityRole="text"
-              >
-                {message}
-              </Text>
-
-              {/* Botões */}
-              <View
-                style={styles.buttonsContainer}
-                accessible={true}
-                accessibilityRole="group"
-                accessibilityLabel="Ações disponíveis"
-              >
-                <TouchableOpacity
-                  style={[
-                    styles.button,
-                    styles.cancelButton,
-                    { backgroundColor: 'transparent', borderColor: cancelButtonColor, borderWidth: 2 }
-                  ]}
-                  onPress={onClose}
-                  disabled={loading}
-                  accessible={true}
-                  accessibilityRole="button"
-                  accessibilityLabel={cancelText}
-                  accessibilityHint="Fecha o modal sem submeter a solução"
-                  accessibilityState={{ disabled: loading }}
-                >
-                  <Text style={[styles.cancelButtonText, { color: cancelButtonColor }]}>
-                    {cancelText}
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={[
-                    styles.button,
-                    styles.confirmButton,
-                    { backgroundColor: confirmButtonColor, opacity: loading ? 0.7 : 1 }
-                  ]}
-                  onPress={onConfirm}
-                  disabled={loading}
-                  accessible={true}
-                  accessibilityRole="button"
-                  accessibilityLabel={confirmText}
-                  accessibilityHint="Confirma e submete sua solução para avaliação"
-                  accessibilityState={{ disabled: loading, busy: loading }}
-                >
-                  {loading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <>
-                      <Ionicons name="send" size={18} color="#fff" />
-                      <Text style={styles.confirmButtonText}>{confirmText}</Text>
-                    </>
-                  )}
-                </TouchableOpacity>
-              </View>
-            </View>
-          </TouchableWithoutFeedback>
+      <View style={styles.content} accessible={true} accessibilityRole="alert">
+        <View
+          style={[styles.iconContainer, { backgroundColor: `${finalIconColor}15` }]}
+          accessible={true}
+          accessibilityElementsHidden={true}
+          importantForAccessibility="no"
+        >
+          <Ionicons name={icon} size={48} color={finalIconColor} />
         </View>
-      </TouchableWithoutFeedback>
-    </Modal>
+
+        <Text
+          style={[styles.title, { color: colors.text }]}
+          accessible={true}
+          accessibilityRole="header"
+        >
+          {title}
+        </Text>
+
+        <Text
+          style={[styles.message, { color: colors.textSecondary }]}
+          accessible={true}
+          accessibilityRole="text"
+        >
+          {message}
+        </Text>
+
+        <View
+          style={styles.buttonsContainer}
+          accessible={false}
+        >
+          <Button
+            label={cancelText}
+            variant="secondary"
+            onPress={onClose}
+            disabled={loading}
+            style={[
+              styles.cancelButton,
+              { borderColor: finalCancelColor },
+            ]}
+            textStyle={{ color: finalCancelColor }}
+          />
+          <Button
+            label={confirmText}
+            variant={finalConfirmColor === '#F44336' || finalConfirmColor === '#ef4444' ? 'danger' : 'primary'}
+            onPress={onConfirm}
+            loading={loading}
+            disabled={loading}
+            icon={
+              !loading ? (
+                <Ionicons name="send" size={18} color="#fff" />
+              ) : undefined
+            }
+            style={styles.confirmButton}
+          />
+        </View>
+      </View>
+    </BaseModal>
   );
 }
 
 const styles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContainer: {
-    width: '100%',
-    maxWidth: 400,
-    borderRadius: 16,
+  content: {
     padding: 24,
     alignItems: 'center',
-    borderWidth: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
   },
   iconContainer: {
     width: 80,
@@ -196,30 +143,11 @@ const styles = StyleSheet.create({
     gap: 12,
     width: '100%',
   },
-  button: {
-    flex: 1,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
   cancelButton: {
-    flexDirection: 'row',
-    gap: 6,
+    flex: 1,
   },
   confirmButton: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  cancelButtonText: {
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  confirmButtonText: {
-    color: '#fff',
-    fontSize: 15,
-    fontWeight: 'bold',
+    flex: 1,
   },
 });
 

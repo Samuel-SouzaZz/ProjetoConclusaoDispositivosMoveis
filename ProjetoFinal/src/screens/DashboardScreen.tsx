@@ -213,7 +213,6 @@ export default function DashboardScreen() {
 
   return (
     <SafeScreen edges={['top']}>
-      {/* Header com Perfil */}
       <View
         style={[styles.topHeader, { backgroundColor: colors.card, borderBottomColor: colors.border }]}
         accessible={true}
@@ -233,7 +232,6 @@ export default function DashboardScreen() {
         />
       </View>
 
-      {/* Barra de Pesquisa */}
       <SearchBar
         value={searchQuery}
         onChangeText={setSearchQuery}
@@ -249,7 +247,6 @@ export default function DashboardScreen() {
         style={[styles.scrollView, { backgroundColor: colors.background }]}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero Section */}
         <HeroSection
           userName={user?.name || 'Usuário'}
           userLevel={currentLevel}
@@ -286,9 +283,7 @@ export default function DashboardScreen() {
         {/* Seção Em Andamento */}
         <View
           style={styles.section}
-          accessible={true}
-          accessibilityRole="group"
-          accessibilityLabel="Seção Em Andamento"
+          accessible={false}
         >
           <View style={styles.sectionHeader}>
             <Ionicons name="flame" size={20} color={colors.primary} />
@@ -325,12 +320,9 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Seção Comunidade */}
         <View
           style={styles.section}
-          accessible={true}
-          accessibilityRole="group"
-          accessibilityLabel="Seção Comunidade"
+          accessible={false}
         >
           <View style={styles.sectionHeader}>
             <Ionicons name="people" size={20} color={colors.primary} />
@@ -374,12 +366,9 @@ export default function DashboardScreen() {
           </View>
         </View>
 
-        {/* Seção Desafios Publicados */}
         <View
           style={[styles.section, { marginBottom: 100 }]}
-          accessible={true}
-          accessibilityRole="group"
-          accessibilityLabel="Seção Desafios Publicados"
+          accessible={false}
         >
           <View style={styles.sectionHeader}>
             <Ionicons name="code-slash" size={24} color={colors.primary} />
@@ -398,9 +387,7 @@ export default function DashboardScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.carouselContainer}
               style={styles.carouselScrollView}
-              accessible={true}
-              accessibilityRole="list"
-              accessibilityLabel="Carregando desafios"
+              accessible={false}
             >
               {[1, 2, 3, 4].map((i) => (
                 <View
@@ -419,9 +406,7 @@ export default function DashboardScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.carouselContainer}
               style={styles.carouselScrollView}
-              accessible={true}
-              accessibilityRole="list"
-              accessibilityLabel={`Lista de ${exercises.length} desafios disponíveis`}
+              accessible={false}
             >
               {exercises.map((exercise) => {
                 const exerciseId = exercise.id || exercise._id || exercise.publicCode;
@@ -486,7 +471,6 @@ export default function DashboardScreen() {
         </View>
       </ScrollView>
 
-      {/* Modal de Ranking */}
       {selectedExercise && (
         <RankingModal
           visible={rankingModalVisible}

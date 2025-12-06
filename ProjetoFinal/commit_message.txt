@@ -1,0 +1,30 @@
+Componentização e limpeza geral do código
+
+Componentização:
+
+- Cria componentes reutilizáveis em Auth/ e common/
+
+- Refatora LoginScreen, SignupScreen e modais para usar novos componentes
+
+Melhorias de UX:
+
+- Corrige problemas de acessibilidade (roles inválidos)
+
+- Melhora comportamento do teclado nas telas de autenticação
+
+- Adiciona scroll horizontal no menu de GroupsScreen
+
+Limpeza:
+
+- Remove comentários desnecessários
+
+- Remove logs de debug com dados sensíveis
+
+- Substitui emojis por ícones via IconImage
+
+- Remove código duplicado
+
+Dependências:
+
+- Substitui react-native-linear-gradient por expo-linear-gradient
+

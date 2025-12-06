@@ -11,7 +11,10 @@ export type IconImageType =
   | 'error' 
   | 'bulb'
   | 'input'
-  | 'output';
+  | 'output'
+  | 'stopwatch'
+  | 'warning'
+  | 'checkmark';
 
 interface IconImageProps {
   type: IconImageType;
@@ -31,6 +34,9 @@ const iconUrls: Record<IconImageType, string> = {
   bulb: 'https://img.icons8.com/?size=100&id=mlgyCrKCW0fI&format=png&color=000000',
   input: 'https://img.icons8.com/?size=100&id=zexuQUcm590L&format=png&color=000000',
   output: 'https://img.icons8.com/?size=100&id=FWJYa8vdduXB&format=png&color=000000',
+  stopwatch: 'https://img.icons8.com/?size=100&id=1stJC4YbxEBQ&format=png&color=000000',
+  warning: 'https://img.icons8.com/?size=100&id=5tH5sHqq0t2q&format=png&color=000000',
+  checkmark: 'https://img.icons8.com/?size=100&id=6a9xM7tUM568&format=png&color=000000',
 };
 
 export default function IconImage({ 

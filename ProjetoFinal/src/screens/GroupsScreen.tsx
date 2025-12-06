@@ -9,6 +9,7 @@ import {
   RefreshControl,
   useWindowDimensions,
   Alert,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
@@ -281,7 +282,18 @@ export default function GroupsScreen() {
       <View style={{ paddingHorizontal: 16, paddingTop: 8 }}>
         <Text style={{ color: colors.text, fontSize: 22, fontWeight: '700' }}>{'{'} Grupos de Estudo {'}'}</Text>
 
-        <View style={{ flexDirection: 'row', gap: 12, marginTop: 16 }}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={{
+            flexDirection: 'row',
+            gap: 12,
+            marginTop: 16,
+            paddingRight: 16,
+          }}
+          style={{ marginLeft: -16 }}
+        >
+          <View style={{ width: 16 }} />
           <TouchableOpacity
             onPress={() => setTab('public')}
             style={{
@@ -304,9 +316,6 @@ export default function GroupsScreen() {
           >
             <Text style={{ color: tab === 'mine' ? (isDarkMode ? '#1A1A1A' : '#fff') : colors.text }}>Meus Grupos</Text>
           </TouchableOpacity>
-
-          <View style={{ flex: 1 }} />
-
           <TouchableOpacity
             onPress={() => setCreateOpen(true)}
             style={{
@@ -320,9 +329,9 @@ export default function GroupsScreen() {
             }}
           >
             <Ionicons name="add" size={20} color={isDarkMode ? '#1A1A1A' : '#fff'} />
-            <Text style={{ color: isDarkMode ? '#1A1A1A' : '#fff', fontWeight: '600' }}>Criar Novo Grupo</Text>
+            <Text style={{ color: isDarkMode ? '#1A1A1A' : '#fff', fontWeight: '600' }}>Criar</Text>
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </View>
 
       <FlatList

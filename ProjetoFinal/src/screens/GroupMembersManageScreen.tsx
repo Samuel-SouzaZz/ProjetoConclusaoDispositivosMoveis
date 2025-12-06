@@ -131,9 +131,6 @@ export default function GroupMembersManageScreen() {
       setLoading(true);
       const data = await ApiService.getGroup(String(groupId));
       const rawMembers = Array.isArray(data?.members) ? data.members : data?.items || [];
-      console.log("DEBUG GroupMembersManageScreen - members brutos:", JSON.stringify(rawMembers, null, 2));
-
-      // Enriquecer membros com nomes vindos do perfil público, semelhante à versão web
       const enrichedMembers: any[] = [];
       for (const member of rawMembers) {
         const memberId = getMemberId(member);
@@ -164,11 +161,10 @@ export default function GroupMembersManageScreen() {
               continue;
             }
           } catch (err: any) {
-            console.warn(`Não foi possível buscar perfil do membro ${memberId}:`, err?.message || err);
+            // Fallback se buscar perfil falhar
           }
         }
 
-        // Fallback: usar getMemberName para tentar montar um nome legível
         const fallbackName = getMemberName(member);
         enrichedMembers.push({
           ...member,
@@ -176,21 +172,14 @@ export default function GroupMembersManageScreen() {
         });
       }
 
-      console.log(
-        "GroupMembersManageScreen - membros enriquecidos:",
-        enrichedMembers.map((m: any) => ({ id: getMemberId(m), name: getMemberName(m), role: getMemberRole(m) }))
-      );
-
       setMembers(enrichedMembers);
 
-      // Encontrar role do usuário atual
       const currentMember = rawMembers.find((m: any) => {
         const memberId = getMemberId(m);
         return memberId && user?.id && String(memberId) === String(user.id);
       });
 
       if (currentMember) {
-        // Tentar diferentes campos onde o role pode estar
         const role = String(
           currentMember.role ||
           currentMember.roleName ||
@@ -198,11 +187,8 @@ export default function GroupMembersManageScreen() {
           currentMember.memberRole ||
           'MEMBER'
         ).trim().toUpperCase();
-        console.log("Role do usuário atual detectado:", role, "Membro completo:", currentMember);
         setCurrentUserRole(role);
       } else {
-        const membersInfo = rawMembers.map((member: any) => ({ id: getMemberId(member), role: getMemberRole(member), name: getMemberName(member) }));
-        console.warn("Usuário atual não encontrado na lista de membros. User ID:", user?.id, "Membros:", membersInfo);
         setCurrentUserRole(null);
       }
     } catch (err: any) {
@@ -228,8 +214,6 @@ export default function GroupMembersManageScreen() {
 
   function getMemberName(member: any): string {
     const rawId = getMemberId(member);
-
-    // tentar campos mais comuns de nome
     let name =
       member?.name ||
       member?.user?.name ||
@@ -241,7 +225,6 @@ export default function GroupMembersManageScreen() {
       member?.user?.fullName ||
       "";
 
-    // se ainda não encontrou, tentar usar prefixo do e-mail
     if (!name) {
       const email = member?.email || member?.user?.email;
       if (typeof email === "string" && email.includes("@")) {
@@ -249,12 +232,10 @@ export default function GroupMembersManageScreen() {
       }
     }
 
-    // se o "nome" for exatamente igual ao ID, provavelmente é só o ID
     if (name && rawId && String(name) === String(rawId)) {
       name = "";
     }
 
-    // evitar mostrar algo que claramente parece um ID/UUID muito longo
     if (name && typeof name === "string" && name.length > 24) {
       const looksLikeId = /^[a-f0-9\-]+$/i.test(name);
       if (looksLikeId) {
@@ -273,9 +254,7 @@ export default function GroupMembersManageScreen() {
 
   const isOwner = useMemo(() => {
     const role = currentUserRole ? String(currentUserRole).trim().toUpperCase() : '';
-    const result = role === 'OWNER';
-    console.log("isOwner calculado:", { currentUserRole, role, result });
-    return result;
+    return role === 'OWNER';
   }, [currentUserRole]);
 
   const isModerator = useMemo(() => {
@@ -311,16 +290,13 @@ export default function GroupMembersManageScreen() {
   }
 
   async function handleDemote(member: any) {
-    console.log("handleDemote chamado com:", member);
     const memberId = getMemberId(member);
     if (!memberId) {
-      console.error("Erro: não foi possível identificar o membro");
       Alert.alert("Erro", "Não foi possível identificar o membro.");
       return;
     }
     
     const memberRole = getMemberRole(member);
-    console.log("Role do membro a ser rebaixado:", memberRole);
     
     if (memberRole === 'OWNER') {
       Alert.alert("Erro", "Não é possível rebaixar o dono do grupo.");
@@ -333,24 +309,17 @@ export default function GroupMembersManageScreen() {
     }
 
     if (memberRole !== 'MODERATOR') {
-      console.warn("Role inesperado para rebaixamento:", memberRole);
       Alert.alert("Erro", `Não é possível rebaixar um membro com papel: ${memberRole}`);
       return;
     }
-
-    console.log("Mostrando alerta de confirmação para rebaixar");
     
     // Função para executar o rebaixamento
     const executeDemote = async () => {
-      console.log("Confirmado rebaixamento de:", memberId);
       try {
-        console.log("Chamando API para rebaixar membro:", { groupId, memberId, role: 'MEMBER' });
         await ApiService.setGroupMemberRole(String(groupId), memberId, 'MEMBER');
-        console.log("API chamada com sucesso, recarregando membros");
         await loadMembers();
         Alert.alert('Sucesso', 'Moderador rebaixado a membro.');
       } catch (err: any) {
-        console.error("Erro ao rebaixar membro:", err);
         Alert.alert('Erro', ApiService.handleError(err));
       }
     };
@@ -359,13 +328,9 @@ export default function GroupMembersManageScreen() {
     if (Platform.OS === 'web' && typeof window !== 'undefined' && window.confirm) {
       const confirmed = window.confirm(`Tem certeza que deseja remover o cargo de moderador de ${getMemberName(member)}?`);
       if (confirmed) {
-        console.log("Confirmado via window.confirm");
-        executeDemote().catch((err) => {
-          console.error("Erro não tratado em executeDemote:", err);
+        executeDemote().catch(() => {
           Alert.alert('Erro', 'Ocorreu um erro ao rebaixar o membro.');
         });
-      } else {
-        console.log("Rebaixamento cancelado via window.confirm");
       }
       return;
     }
@@ -376,19 +341,13 @@ export default function GroupMembersManageScreen() {
       [
         { 
           text: 'Cancelar', 
-          style: 'cancel', 
-          onPress: () => {
-            console.log("Rebaixamento cancelado");
-          }
+          style: 'cancel'
         },
         {
           text: 'Rebaixar',
           style: 'default',
           onPress: () => {
-            console.log("Botão Rebaixar do alerta pressionado");
-            // Executar de forma assíncrona mas não bloquear
-            executeDemote().catch((err) => {
-              console.error("Erro não tratado em executeDemote:", err);
+            executeDemote().catch(() => {
               Alert.alert('Erro', 'Ocorreu um erro ao rebaixar o membro.');
             });
           },
@@ -515,20 +474,6 @@ export default function GroupMembersManageScreen() {
             // Dono E Moderador podem promover membros normais para moderador
                 const canPromote = (isOwner || isModerator) && isMemberNormal && !isYou;
                 
-                // Debug: log para verificar por que o botão não aparece
-                if (isMemberNormal && !isYou) {
-                  console.log("DEBUG - Verificando botão Promover:", {
-                    isOwner,
-                    isMemberNormal,
-                    isYou,
-                    memberRole,
-                    currentUserRole,
-                    canPromote,
-                    isOwnerValue: isOwner,
-                    memberName: memberName
-                  });
-                }
-
             // Dono E Moderador podem rebaixar moderadores para membro
                const canDemote = (isOwner || isModerator) && isMemberModerator && !isYou;
 
@@ -597,7 +542,6 @@ export default function GroupMembersManageScreen() {
                               {getRoleLabel(memberRole)}
                             </Text>
                             <View style={styles.actionsRow}>
-                              {/* Botão PROMOVER (dono para membros normais) */}
                               {canPromote && (
                                 <TouchableOpacity
                                   style={[styles.outlineButton, { borderColor: colors.primary }]}
@@ -610,15 +554,10 @@ export default function GroupMembersManageScreen() {
                                   </Text>
                                 </TouchableOpacity>
                               )}
-                              
-                              {/* Botão REBAIXAR (dono para moderadores) */}
                               {canDemote && (
                                 <TouchableOpacity
                                   style={[styles.outlineButton, { borderColor: "#F59E0B" }]}
-                                  onPress={() => {
-                                    console.log("Botão Rebaixar pressionado para:", getMemberName(item), getMemberRole(item));
-                                    handleDemote(item);
-                                  }}
+                                  onPress={() => handleDemote(item)}
                                   activeOpacity={0.7}
                                 >
                                   <Text
@@ -628,8 +567,6 @@ export default function GroupMembersManageScreen() {
                                   </Text>
                                 </TouchableOpacity>
                               )}
-                              
-                              {/* Botão REMOVER */}
                               {canRemoveThisMember && (
                                 <TouchableOpacity
                                   style={[styles.outlineButton, { borderColor: "#E53E3E" }]}
