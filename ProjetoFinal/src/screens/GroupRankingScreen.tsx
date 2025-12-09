@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ActivityIndicator, ScrollView, FlatList, useWindowDimensions } from 'react-native';
+import { View, Text, StyleSheet, ActivityIndicator, ScrollView, FlatList, useWindowDimensions, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { RouteProp, useNavigation, useRoute } from '@react-navigation/native';
 import { RootStackParamList } from '../navigation/AppNavigator';
@@ -55,6 +55,15 @@ export default function GroupRankingScreen() {
     <SafeAreaView style={commonStyles.container}>
       <ScrollView contentContainerStyle={[styles.content, { backgroundColor: colors.background }]}> 
         <View style={styles.headerBanner}> 
+          <View style={styles.headerTopRow}>
+            <TouchableOpacity
+              activeOpacity={0.7}
+              style={styles.backButton}
+              onPress={() => navigation.navigate('GroupDetails', { groupId: String(groupId) })}
+            >
+              <Text style={styles.backButtonText}>{'<'} Voltar</Text>
+            </TouchableOpacity>
+          </View>
           <Text style={styles.headerTitle}>Ranking do Grupo</Text>
           {!!groupName && <Text style={styles.headerSubtitle}>{groupName}</Text>}
         </View>
@@ -125,6 +134,23 @@ const styles = StyleSheet.create({
     backgroundColor: '#fbbf24',
     borderBottomLeftRadius: 16,
     borderBottomRightRadius: 16,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-start',
+    marginBottom: 12,
+  },
+  backButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 999,
+    backgroundColor: 'rgba(15,23,42,0.1)',
+  },
+  backButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#111827',
   },
   headerTitle: {
     fontSize: 24,
